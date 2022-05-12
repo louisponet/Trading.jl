@@ -1,28 +1,28 @@
-struct TransformRule{FT, TT, F<:Function}
+struct TransformRule{FT <: Tuple, TT <: Tuple, F<:Function}
     valfunc::F
-    from_type::Type{FT}
-    to_type::Type{TT}
+    from_types::FT
+    to_types::TT
 end
 
-from_type(::Type{TransformRule{FT}}) where {FT} = FT
-to_type(::Type{TransformRule{FT, TT}}) where {FT, TT} = TT
+from_types(r::TransformRule) = r.from_types
+to_types(r::TransformRule) = r.to_types
 
-abstract type AbstractIndicator{R<:TransformRule} <: System end
+abstract type AbstractCalculator{R<:TransformRule} <: System end
 
-Overseer.requested_components(::AbstractIndicator{R}) where {R} = (R.parameters[1], R.parameters[2])
+Overseer.requested_components(i::AbstractCalculator) = (from_types(i)..., to_types(i)...)
 
-from_type(::AbstractIndicator{R}) where {R} = from_type(R)
-to_type(::AbstractIndicator{R}) where {R} = to_type(R)
+from_types(i::AbstractCalculator) = from_types(i.rule)
+to_types(i::AbstractCalculator) = to_types(i.rule)
 
-struct SMAIndicator{R} <: AbstractIndicator{R}
+struct SMACalculator{R} <: AbstractCalculator{R}
     rule::R 
     horizon::Int
 end
 
-function Overseer.update(s::SMAIndicator, l::AbstractLedger)
-    Overseer.ensure_component!(l, to_type(s))
-    sma_comp = l[to_type(s)]
-    from_comp = l[from_type(s)]
+function Overseer.update(s::SMACalculator, l::AbstractLedger)
+    Overseer.ensure_component!(l, to_types(s)[1])
+    sma_comp = l[to_types(s)[1]]
+    from_comp = l[from_types(s)[1]]
     for d in l[Dataset]
         if d.first_e == Entity(0)
             continue
@@ -31,31 +31,39 @@ function Overseer.update(s::SMAIndicator, l::AbstractLedger)
     end
 end
 function sma(valfunc, l, sma_comp::Overseer.AbstractComponent{T}, firstid, lastid, horizon) where {T}
-    m = 0.0
+    m = zeros(T.parameters[1])
     for (i, ie) in enumerate(firstid:lastid)
         e = Entity(ie)
         @inbounds val = valfunc(l[e])
         if !(e in sma_comp) 
-            m += val
+            m .+= val
             if i >= horizon
-                sma_comp[e] = T(m/horizon)
+                sma_comp[e] = T(m ./ horizon)
                 first_bar = l[i - horizon + 1]
-                m -= valfunc(first_bar)
+                m .-= valfunc(first_bar)
             end
         end
     end
 end
 
-Base.@kwdef struct EMAIndicator{R} <: AbstractIndicator{R}
+function sma_stage(valfunc::Function = x -> x.close;
+                   name::Symbol = :sma,
+                   in::DataType = Bar,
+                   out::DataType = SMA{1},
+                   horizon::Int = 2)
+    return Stage(name, [SMACalculator(TransformRule(valfunc, (in,), (out, )), horizon)])
+end
+
+Base.@kwdef struct EMACalculator{R} <: AbstractCalculator{R}
     rule::R
     horizon::Int
     smoothing::Int = 2
 end
 
-function Overseer.update(s::EMAIndicator, l::AbstractLedger)
-    Overseer.ensure_component!(l, to_type(s))
-    ema_comp = l[to_type(s)]
-    from_comp = l[from_type(s)]
+function Overseer.update(s::EMACalculator, l::AbstractLedger)
+    Overseer.ensure_component!(l, to_types(s)[1])
+    ema_comp = l[to_types(s)[1]]
+    from_comp = l[from_types(s)[1]]
     for d in l[Dataset]
         if d.first_e == Entity(0)
             continue
@@ -65,56 +73,143 @@ function Overseer.update(s::EMAIndicator, l::AbstractLedger)
 end
 
 function ema(valfunc, l, ema_comp::Overseer.AbstractComponent{T}, firstid, lastid, horizon, smoothing) where {T}
-    em = 0.0
+    em = zeros(T.parameters[1])
     fac = smoothing/(1 + horizon)
     for (i, ie) in enumerate(firstid:lastid)
         e = Entity(ie)
         @inbounds val = valfunc(l[e])
         if !(e in ema_comp)
             if i < horizon
-                em += val
+                em .+= val
             elseif i == horizon
-                em += val
-                em /= horizon
+                em .+= val
+                em ./= horizon
             else
-                em = val * fac + em * (1 - fac) 
+                em .= val .* fac .+ em .* (1 - fac) 
                 ema_comp[e] = T(em)
             end
         end
     end
 end
 
-Base.@kwdef struct BollingerIndicator{R} <: AbstractIndicator{R}
+function ema_stage(valfunc::Function = x -> x.close;
+                    name::Symbol  = :ema,
+                    horizon::Int  = 20,
+                    smoothing::Int = 2,
+                    in::DataType  = Bar,
+                    out::DataType = EMA{1})
+    return Stage(name, [EMACalculator(TransformRule(valfunc, (in,), (out,)), horizon, smoothing)])
+end
+
+Base.@kwdef struct BollingerCalculator{R} <: AbstractCalculator{R}
     rule::R
     horizon::Int
     width::Float64 = 2.0
 end
 
-function Overseer.update(s::BollingerIndicator, l::AbstractLedger)
-
+function Overseer.update(s::BollingerCalculator, l::AbstractLedger)
     # We need the sma for bollinger bands so we first ensure it is
     # created.
-    smasys = SMAIndicator(s.rule, s.horizon)
-    update(smasys, l)
+    bar_comp = l[from_types(s)[1]]
+    sma_comp = l[from_types(s)[2]]
+    bol_comp = l[to_types(s)[1]]
 
-    Overseer.ensure_component!(l, to_type(s))
+    bollinger(s.rule.valfunc, bar_comp, sma_comp, bol_comp, s.horizon, s.width)
+end
+
+function bollinger(valfunc, bar_comp, sma_comp::Overseer.AbstractComponent{T}, bol_comp, horizon, width) where {T}
+    fac = width * sqrt((horizon - 1)/horizon)
+    N = T.parameters[1]
     
-    b_comp   = l[Bollinger{horizon}]
-    sma_comp = l[SMA{horizon}]
-    bar_comp = l[Bar]
-
-    fac = sqrt((horizon - 1)/horizon)
-
+    # caches
+    
+    stdev = zeros(N)
     for e in @entities_in(sma_comp)
-        stdev = 0.0
+        fill!(stdev, 0)
         for i = e.e.id - horizon + 1:e.e.id
-            stdev += (bar_comp[Entity(i)].close - e.sma)^2
+            stdev .+= (@inbounds valfunc(bar_comp[Entity(i)]) .- e.sma).^2
         end
-        stdev = sqrt(stdev/(horizon - 1))
+        stdev .= sqrt.(stdev./(horizon - 1))
+        up   = e.sma .+ stdev .* fac
+        down = e.sma .- stdev .* fac
 
-        up = e.sma + stdev * s.width * fac
-        down = e.sma - stdev * s.width * fac
-        l[e] = Bollinger{horizon}(up, down)
+        bol_comp[e] = eltype(bol_comp)(up, down)
     end
 end
 
+function bollinger_stage(valfunc::Function = x -> x.close;
+                         name::Symbol = :bollinger,
+                         in::DataType   = Bar,
+                         out::DataType  = Bollinger{1},
+                         sma::DataType  = SMA{1},
+                         horizon::Int   = 20,
+                         width::Float64 = 2.0)
+    sma_calc = SMACalculator(TransformRule(valfunc, (in,), (sma, )), horizon)
+    bol_calc = BollingerCalculator(TransformRule(valfunc, (in, sma), (out,)), width)
+    return Stage(name, [sma_calc, bol_calc])
+end
+
+struct UpDownCalculator{R} <: AbstractCalculator{R}
+    rule::R
+end
+    
+function Overseer.update(s::UpDownCalculator, l::AbstractLedger)
+    tocomp = l[to_types(s)[1]]
+    fromcomp = l[from_types(s)[1]]
+    
+    for d in l[Dataset]
+        if d.first_e == Entity(0)
+            continue
+        end
+        updown(s.rule.valfunc, fromcomp, tocomp, d.first_e.id, d.last_e.id,)
+    end
+end
+    
+function updown(valfunc, fromcomp, tocomp, firstid, lastid)
+    for ie in firstid + 1:lastid
+        e = Entity(ie)
+        if !(e in tocomp)
+            prev_e = Entity(ie - 1)
+            @inbounds val = valfunc(fromcomp[e]) - valfunc(fromcomp[prev_e])
+            if val < 0
+                tocomp[e] = eltype(tocomp)(0, val)
+            else
+                tocomp[e] = eltype(tocomp)(val, 0)
+            end
+        end
+    end
+end
+
+Base.@kwdef struct RSICalculator{R} <: AbstractCalculator{R}
+    rule::R
+end
+
+function Overseer.update(s::RSICalculator, l::AbstractLedger)
+    # We need the sma for bollinger bands so we first ensure it is
+    # created.
+    updown_ema = l[from_types(s)[1]]
+    rsicomp    =  l[to_types(s)[1]]
+
+    rsi(updown_ema, rsicomp)
+end
+
+function rsi(updown_ema, rsicomp)
+    for e in @entities_in(updown_ema)
+        rsicomp[e] = eltype(rsicomp)(100 * ( 1 - 1 / ( 1 + e.ema[1] / abs(e.ema[2]))))
+    end
+end
+
+function rsi_stage(valfunc::Function = x -> x.close;
+                   name::Symbol         = :rsi,
+                   in::DataType         = Bar,
+                   updown::DataType     = UpDown,
+                   updown_ema::DataType = EMA{2},
+                   out::DataType        = RSI,
+                   horizon::Int         = 14,
+                   smoothing::Int       = 2)
+    ud     = UpDownCalculator(TransformRule(valfunc, (in,), (updown,)))
+    ud_ema = EMACalculator(TransformRule(x -> (x.up, x.down), (updown,), (updown_ema, )), horizon, smoothing)
+    rsi    = RSICalculator(TransformRule(x -> nothing, (updown_ema, ), (out,))) 
+    return Stage(name, [ud, ud_ema, rsi])
+end
+                   

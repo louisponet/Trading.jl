@@ -1,48 +1,55 @@
-struct TransformRule{FT <: Tuple, TT <: Tuple, F<:Function}
+struct Transform{T, F<:Function, FT<:Function}
     valfunc::F
-    from_types::FT
-    to_types::TT
+    storefunc::FT
 end
+Transform{T}(vf, sf) where {T} = Transform{T, typeof(vf), typeof(sf)}(vf, sf)
+from(::Transform{T}) where {T} = T
+from(::Type{<:Transform{T}}) where {T} = T
 
-from_types(r::TransformRule) = r.from_types
-to_types(r::TransformRule) = r.to_types
+valfunc(t::Transform) = t.valfunc
+storefunc(t::Transform) = t.storefunc
 
-abstract type AbstractCalculator{R<:TransformRule} <: System end
+abstract type AbstractCalculator{T<:Transform} <: System end
 
-Overseer.requested_components(i::AbstractCalculator) = (from_types(i)..., to_types(i)...)
+valfunc(c::AbstractCalculator) = c.transform.valfunc
+storefunc(c::AbstractCalculator) = c.transform.storefunc
 
-from_types(i::AbstractCalculator) = from_types(i.rule)
-to_types(i::AbstractCalculator) = to_types(i.rule)
+from(::AbstractCalculator{T}) where {T} = from(T)
 
-struct SMACalculator{R} <: AbstractCalculator{R}
-    rule::R 
+Overseer.requested_components(c::AbstractCalculator) = (from(c),)
+
+struct SMACalculator{T} <: AbstractCalculator{T}
+    transform::T 
     horizon::Int
 end
 
 function Overseer.update(s::SMACalculator, l::AbstractLedger)
-    Overseer.ensure_component!(l, to_types(s)[1])
-    sma_comp = l[to_types(s)[1]]
-    from_comp = l[from_types(s)[1]]
     for d in l[Dataset]
         if d.first_e == Entity(0)
             continue
         end
-        sma(s.rule.valfunc, from_comp, sma_comp, d.first_e.id, d.last_e.id, s.horizon)
+        sma(s.transform, l, d.first_e.id, d.last_e.id, s.horizon)
     end
 end
-function sma(valfunc, l, sma_comp::Overseer.AbstractComponent{T}, firstid, lastid, horizon) where {T}
-    m = zeros(T.parameters[1])
+function sma(t, l, firstid, lastid, horizon)
+    sf = storefunc(t)
+    vf = valfunc(t)
+    from_comp = l[from(t)]
+    ttype = typeof(sf([0.0]))
+    Overseer.ensure_component!(l, ttype)
+    to_comp = l[ttype]
+    m = zeros(length(fieldnames(ttype)))
     for (i, ie) in enumerate(firstid:lastid)
         e = Entity(ie)
-        @inbounds val = valfunc(l[e])
-        if !(e in sma_comp) 
+        @inbounds val = vf(from_comp[e])
+        # if !(e in to_comp) 
             m .+= val
             if i >= horizon
-                sma_comp[e] = T(m ./ horizon)
-                first_bar = l[i - horizon + 1]
-                m .-= valfunc(first_bar)
+                to_comp[e] = sf(m ./ horizon)
+                first_bar = from_comp[i - horizon + 1]
+                m .-= vf(first_bar)
             end
-        end
+        # end
     end
 end
 
@@ -168,7 +175,7 @@ end
 function updown(valfunc, fromcomp, tocomp, firstid, lastid)
     for ie in firstid + 1:lastid
         e = Entity(ie)
-        if !(e in tocomp)
+        # if !(e in tocomp)
             prev_e = Entity(ie - 1)
             @inbounds val = valfunc(fromcomp[e]) - valfunc(fromcomp[prev_e])
             if val < 0
@@ -176,7 +183,36 @@ function updown(valfunc, fromcomp, tocomp, firstid, lastid)
             else
                 tocomp[e] = eltype(tocomp)(val, 0)
             end
+        # end
+    end
+end
+
+function Overseer.update(s::UpDownCalculator, l::AbstractLedger, storefunc)
+    tocomp = l[to_types(s)[1]]
+    fromcomp = l[from_types(s)[1]]
+    
+    for d in l[Dataset]
+        if d.first_e == Entity(0)
+            continue
         end
+        updown(s.rule.valfunc, fromcomp, tocomp, d.first_e.id, d.last_e.id,storefunc, l)
+    end
+end
+    
+function updown(valfunc, fromcomp, tocomp, firstid, lastid, storefunc, l)
+    ct = typeof(storefunc(0, 2))
+    comp = l[ct]
+    for ie in firstid + 1:lastid
+        e = Entity(ie)
+        # if !(e in tocomp)
+            prev_e = Entity(ie - 1)
+            @inbounds val = valfunc(fromcomp[e]) - valfunc(fromcomp[prev_e])
+            if val < 0
+                comp[e] = storefunc(0, val)
+            else
+                comp[e] = storefunc(val, 0)
+            end
+        # end
     end
 end
 
@@ -207,6 +243,8 @@ function rsi_stage(valfunc::Function = x -> x.close;
                    out::DataType        = RSI,
                    horizon::Int         = 14,
                    smoothing::Int       = 2)
+
+
     ud     = UpDownCalculator(TransformRule(valfunc, (in,), (updown,)))
     ud_ema = EMACalculator(TransformRule(x -> (x.up, x.down), (updown,), (updown_ema, )), horizon, smoothing)
     rsi    = RSICalculator(TransformRule(x -> nothing, (updown_ema, ), (out,))) 

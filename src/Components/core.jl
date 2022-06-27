@@ -62,6 +62,18 @@ end
     volume::Int
 end
 
+Base.zero(::Bar) = Bar(0.0, 0.0, 0.0, 0.0, 0)
+for op in (:+, :-)
+    @eval Base.$op(b1::Bar, b2::Bar) = Bar($op(b1.open,   b2.open),
+                                             $op(b1.high,   b2.high),
+                                             $op(b1.low,    b2.low),
+                                             $op(b1.close,  b2.close),
+                                             $op(b1.volume, b2.volume))
+end
+Base.:(/)(b::Bar, i::Int) = Bar(b.open/i, b.high/i, b.low/i, b.close/i, div(b.volume,i))
+
+@assign Bar with Is{Indicator}
+
 function Base.show(io::IO, t::Bar)
     println(io,"""
     open:   $(t.open)

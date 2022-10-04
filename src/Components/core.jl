@@ -54,41 +54,42 @@ function Base.show(io::IO, t::Quote)
     """)
 end
 
-@component struct Bar
-    open::Float64
-    high::Float64
-    low::Float64
-    close::Float64
-    volume::Int
+@component struct Open
+    v::Float64
+end
+@component struct Close
+    v::Float64
+end
+@component struct High
+    v::Float64
+end
+@component struct Low
+    v::Float64
+end
+@component struct Volume
+    v::Float64
 end
 
-Base.zero(::Bar) = Bar(0.0, 0.0, 0.0, 0.0, 0)
-for op in (:+, :-)
-    @eval Base.$op(b1::Bar, b2::Bar) = Bar($op(b1.open,   b2.open),
-                                             $op(b1.high,   b2.high),
-                                             $op(b1.low,    b2.low),
-                                             $op(b1.close,  b2.close),
-                                             $op(b1.volume, b2.volume))
-end
-Base.:(/)(b::Bar, i::Int) = Bar(b.open/i, b.high/i, b.low/i, b.close/i, div(b.volume,i))
+for T in (:Open, :Close, :High, :Low, :Volume)
+    for op in (:+, :-, :*)
+        @eval @inline Base.$op(b1::$T, b2::$T) = $T($op(b1.v,   b2.v))
+    end
+    @eval begin
+        Base.zero(::$T) = $T(0.0)
+        @inline Base.:(/)(b::$T, i::Int) = $T(b.v/i)
+        @inline Base.:(^)(b::$T, i::Int) = $T(b.v^i)
 
-@assign Bar with Is{Indicator}
+        @inline Base.:(*)(b::$T, i::AbstractFloat) = $T(b.v * i)
+        @inline Base.:(*)(i::AbstractFloat, b::$T) = b.v * i
+        @inline Base.sqrt(b::$T) = $T(sqrt(b.v))
+        @inline Base.isless(b::$T, i) = b.v < i
+        @inline value(b::$T) = b.v
 
-function Base.show(io::IO, t::Bar)
-    println(io,"""
-    open:   $(t.open)
-    high:   $(t.high)
-    low:    $(t.low)
-    close:  $(t.close)
-    volume: $(t.volume)
-    """)
+        @assign $T with Is{Indicator}
+    end
 end
 
-MarketTechnicals.TimeSeries.TimeArray(times, bars::Vector{Bar}, colnames = [:Open, :High, :Low, :Close, :Volume]) =
-    TimeArray(map(x -> DateTime(x.time), times), [map(x-> x.open, bars) map(x -> x.high, bars) map(x -> x.low, bars) map(x -> x.close, bars) map(x -> x.volume, bars)], colnames)
-
-
-@component mutable struct Dataset
+@pooled_component mutable struct Dataset
     ticker::String
     timeframe::String
     start::DateTime

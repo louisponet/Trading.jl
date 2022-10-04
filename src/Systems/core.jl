@@ -16,17 +16,22 @@ Overseer.requested_components(::DatasetAdder) = (TimingData, Dataset, AccountInf
 
 function Overseer.update(::DatasetAdder, l::AbstractLedger)
     account = singleton(l, AccountInfo)
-    for d in l[Dataset]
-        if d.first_e == Entity(0)
+    for (d, es) in pools(l[Dataset])
+        if length(es) > 1
+            continue
+        end
+        parent = es[1]
             
-            times, bars = query_bars(account, d.ticker, d.start, stop=d.stop, timeframe=d.timeframe)
+        times, bars = query_bars(account, d.ticker, d.start, stop=d.stop, timeframe=d.timeframe)
             
-            if !isempty(bars)
-                d.first_e = Entity(l, bars[1], times[1]) 
-                for (b, t) in zip(view(bars, 2:length(bars)-1), view(times, 2:length(times)-1))
-                    Entity(l, b, t)
-                end
-                d.last_e = Entity(l, bars[end], times[end])
+        if !isempty(bars)
+            for c in bars[1]
+                l[parent] = c
+            end
+            l[parent] = times[1]
+            for i in 2:length(bars)
+                e = Entity(l, bars[i]..., times[i])
+                l[Dataset][e] = parent
             end
         end
     end

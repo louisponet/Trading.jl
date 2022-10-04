@@ -74,12 +74,12 @@ function query_bars(account::AccountInfo, symbol, start::DateTime; stop::Union{D
     query["limit"] = limit
     query["timeframe"] = timeframe
 
-    bars = Bar[]
+    bars = []
     times = TimingData[]
     stock_query(account, symbol, "bars", query) do t
         if t[:bars] !== nothing
             for tr in t[:bars]
-                push!(bars, Bar(tr[:o], tr[:h], tr[:l], tr[:c], tr[:v]))
+                push!(bars, (Open(tr[:o]), High(tr[:h]), Low(tr[:l]), Close(tr[:c]), Volume(tr[:v])))
                 push!(times, TimingData(time=DateTime(tr[:t][1:end-1])))
             end
         end

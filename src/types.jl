@@ -1,1 +1,1 @@
-
+value(x::Number) = x

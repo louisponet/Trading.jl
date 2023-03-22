@@ -1,3 +1,20 @@
+@component struct MovingStdDev{horizon, T}
+    σ::T
+end
+value(m::MovingStdDev) = value(m.σ)
+
+# for op in (:+, :-, :*)
+#     @eval @inline Base.$op(b1::MovingStdDev, b2::MovingStdDev) = MovingStdDev($op(b1.σ, b2.σ))
+# end
+# @inline Base.:(/)(b::MovingStdDev, i::Int) = MovingStdDev(b.σ/i)
+# @inline Base.:(^)(b::MovingStdDev, i::Int) = MovingStdDev(b.σ^i)
+
+# @inline Base.:(*)(b::MovingStdDev, i::AbstractFloat) = MovingStdDev(b.σ*i)
+# @inline Base.:(*)(i::AbstractFloat, b::MovingStdDev) = b * i
+# @inline Base.sqrt(b::MovingStdDev) = MovingStdDev(sqrt(b.σ))
+
+# @assign MovingStdDev with Is{Indicator}
+
 @component struct SMA{horizon, T}
     sma::T
 end
@@ -20,7 +37,8 @@ end
 value(d::Difference) = value(d.d)
 
 Base.zero(d::Difference) = Difference(zero(d.d))
-for op in (:+, :-, :*)
+
+for op in (:+, :-, :*, :/)
     @eval @inline Base.$op(b1::Difference, b2::Difference) = Difference($op(b1.d, b2.d))
 end
 @inline Base.:(/)(b::Difference, i::Int) = Difference(b.d/i)
@@ -28,7 +46,16 @@ end
 
 @inline Base.:(*)(b::Difference, i::AbstractFloat) = Difference(b.d*i)
 @inline Base.:(*)(i::AbstractFloat, b::Difference) = b * i
+@inline Base.:(*)(i::Integer, b::Difference) = b * i
 @inline Base.sqrt(b::Difference) = Difference(sqrt(b.d))
+@inline Base.:(<)(i::Number, b::Difference) = i < b.d
+@inline Base.:(<)(b::Difference, i::Number) = b.d < i
+@inline Base.:(>)(i::Number, b::Difference) = i > b.d
+@inline Base.:(>)(b::Difference, i::Number) = b.d > i
+@inline Base.:(>=)(i::Number, b::Difference) = i >= b.d
+@inline Base.:(>=)(b::Difference, i::Number) = b.d >= i
+@inline Base.:(<=)(i::Number, b::Difference) = i <= b.d
+@inline Base.:(<=)(b::Difference, i::Number) = b.d <= i
 
 @assign Difference with Is{Indicator}
 
@@ -37,6 +64,7 @@ end
     down::T
 end
 Base.zero(d::UpDown) = UpDown(zero(d.up), zero(d.down))
+
 for op in (:+, :-, :*)
     @eval @inline Base.$op(b1::UpDown, b2::UpDown) = UpDown($op(b1.up, b2.up), $op(b1.down, b2.down))
 end
@@ -44,8 +72,16 @@ end
 @inline Base.:(^)(b::UpDown, i::Int) = UpDown(b.up^i, b.down^i)
 
 @inline Base.:(*)(b::UpDown, i::AbstractFloat) = UpDown(b.up*i, b.down*i)
-@inline Base.:(*)(i::AbstractFloat, b::UpDown) = b * i
+@inline Base.:(*)(i::Integer, b::UpDown) = b * i
 @inline Base.sqrt(b::UpDown) = UpDown(sqrt(b.up), sqrt(b.down))
+@inline Base.:(<)(i::Number, b::UpDown) = i < b.up &&  i < b.down
+@inline Base.:(<)(b::UpDown, i::Number) = b.up < i &&  b.down < i
+@inline Base.:(>)(i::Number, b::UpDown) = i > b.up &&  i > b.down
+@inline Base.:(>)(b::UpDown, i::Number) = b.up > i &&  b.down > i
+@inline Base.:(>=)(i::Number, b::UpDown) = i >= b.up && i >= b.down
+@inline Base.:(>=)(b::UpDown, i::Number) = b.up >= i && b.down >= i
+@inline Base.:(<=)(i::Number, b::UpDown) = i <= b.up && i <= b.down
+@inline Base.:(<=)(b::UpDown, i::Number) = b.up <= i && b.down <= i
 
 @assign UpDown with Is{Indicator}
 value(ud::UpDown) = (value(ud.up), value(ud.down))
@@ -54,3 +90,9 @@ value(ud::UpDown) = (value(ud.up), value(ud.down))
     rsi::T
 end
 value(rsi::RSI) = value(rsi.rsi)
+
+
+@component struct Sharpe{horizon, T}
+    sharpe::T
+end
+

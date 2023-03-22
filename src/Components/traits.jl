@@ -8,6 +8,7 @@ import Base: zero, +, -, /, *, sqrt, ^
 @implement Is{Indicator} by (/)(_, ::Int) 
 @implement Is{Indicator} by (*)(_, ::AbstractFloat) 
 @implement Is{Indicator} by (*)(::AbstractFloat, _) 
+@implement Is{Indicator} by (*)(::Integer, _) 
 @implement Is{Indicator} by (sqrt)(_) 
 @implement Is{Indicator} by (^)(_, ::Int) 
 

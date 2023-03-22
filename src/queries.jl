@@ -1,5 +1,5 @@
-function stock_query(f::Function, account::AccountInfo, symbol, section, query)
-    make_uri = () -> HTTP.URI(scheme="https", host="data.alpaca.markets", path = "/v2/stocks/$symbol/$section", query=query)
+function stock_query(f::Function, account, symbol, section, query)
+    make_uri = () -> URI(DATA_URL, path = "/v2/stocks/$symbol/$section", query=query)
     done = false
     while !done
         if account.nrequests == account.rate
@@ -34,7 +34,7 @@ function stock_query(f::Function, account::AccountInfo, symbol, section, query)
     delete!(query, "page_token")
 end
 
-function query_trades(account::AccountInfo, symbol, start::TimeDate; stop::Union{TimeDate, Nothing}=nothing, limit=10000) 
+function query_trades(account, symbol, start::TimeDate; stop::Union{TimeDate, Nothing}=nothing, limit=10000) 
     query = Dict{String, Any}("start" => string(start)*"Z")
     if stop !== nothing
         query["end"] = string(stop) * "Z"
@@ -50,7 +50,7 @@ function query_trades(account::AccountInfo, symbol, start::TimeDate; stop::Union
     return trades
 end
 
-function query_quotes(account::AccountInfo, symbol, start::TimeDate; stop::Union{TimeDate, Nothing}=nothing, limit=10000) 
+function query_quotes(account, symbol, start::TimeDate; stop::Union{TimeDate, Nothing}=nothing, limit=10000) 
     query = Dict{String, Any}("start" => string(start)*"Z")
     if stop !== nothing
         query["end"] = string(stop) * "Z"
@@ -66,7 +66,7 @@ function query_quotes(account::AccountInfo, symbol, start::TimeDate; stop::Union
     return quotes
 end
 
-function query_bars(account::AccountInfo, symbol, start::DateTime; stop::Union{DateTime, Nothing}=nothing, timeframe::String="1Min", limit=10000)
+function query_bars(account, symbol, start::TimeDate; stop::Union{TimeDate, Nothing}=nothing, timeframe::String="1Min", limit=10000)
     query = Dict{String, Any}("start" => string(start)*"Z")
     if stop !== nothing
         query["end"] = string(stop) * "Z"
@@ -75,16 +75,20 @@ function query_bars(account::AccountInfo, symbol, start::DateTime; stop::Union{D
     query["timeframe"] = timeframe
 
     bars = []
-    times = TimingData[]
+    times = TimeStamp[]
     stock_query(account, symbol, "bars", query) do t
         if t[:bars] !== nothing
             for tr in t[:bars]
-                push!(bars, (Open(tr[:o]), High(tr[:h]), Low(tr[:l]), Close(tr[:c]), Volume(tr[:v])))
-                push!(times, TimingData(time=DateTime(tr[:t][1:end-1])))
+                parsed = parse_bar(tr)
+                push!(bars, (parsed[1:end-1]...,))
+                push!(times, parsed[end])
             end
         end
     end
     return times, bars
 end
 
+function parse_bar(tr)
+    return (Open(tr[:o]), High(tr[:h]), Low(tr[:l]), Close(tr[:c]), Volume(tr[:v]), TimeStamp(TimeDate(tr[:t][1:end-1])))
+end
 

@@ -1,6 +1,6 @@
-@pooled_component Base.@kwdef mutable struct TimingData
-    time::DateTime     = now()
-    dtime::Millisecond = Millisecond(0)
+@component Base.@kwdef mutable struct TimingData
+    time::TimeDate = TimeDate(now())
+    dtime::Period  = Minute(1)
 end
 
 @component Base.@kwdef mutable struct AccountInfo
@@ -13,7 +13,7 @@ end
 AccountInfo(x::String, y::String; kwargs...) =
     AccountInfo(key_id=x, secret_key = y; kwargs...)
     
-header(a::AccountInfo) = ["APCA-API-KEY-ID" => a.key_id, "APCA-API-SECRET-KEY" => a.secret_key]
+header(a) = ["APCA-API-KEY-ID" => a.key_id, "APCA-API-SECRET-KEY" => a.secret_key]
 
 @component struct Trade
     exchange::String
@@ -71,7 +71,7 @@ end
 end
 
 for T in (:Open, :Close, :High, :Low, :Volume)
-    for op in (:+, :-, :*)
+    for op in (:+, :-, :*, :/)
         @eval @inline Base.$op(b1::$T, b2::$T) = $T($op(b1.v,   b2.v))
     end
     @eval begin
@@ -81,24 +81,44 @@ for T in (:Open, :Close, :High, :Low, :Volume)
 
         @inline Base.:(*)(b::$T, i::AbstractFloat) = $T(b.v * i)
         @inline Base.:(*)(i::AbstractFloat, b::$T) = b.v * i
+        @inline Base.:(*)(i::Int, b::$T) = b.v * i
         @inline Base.sqrt(b::$T) = $T(sqrt(b.v))
         @inline Base.isless(b::$T, i) = b.v < i
         @inline value(b::$T) = b.v
+        @inline Base.:(<)(i::Number, b::$T) = i < b.v
+        @inline Base.:(<)(b::$T, i::Number) = b.v < i
+        @inline Base.:(>)(i::Number, b::$T) = i > b.v
+        @inline Base.:(>)(b::$T, i::Number) = b.v > i
+        @inline Base.:(>=)(i::Number, b::$T) = i >= b.v
+        @inline Base.:(>=)(b::$T, i::Number) = b.v >= i
+        @inline Base.:(<=)(i::Number, b::$T) = i <= b.v
+        @inline Base.:(<=)(b::$T, i::Number) = b.v <= i
 
         @assign $T with Is{Indicator}
     end
 end
 
+@component struct TimeStamp
+    t::TimeDate
+end
+
+TimeStamp() = TimeStamp(TimeDate(now()))
+
 @pooled_component mutable struct Dataset
     ticker::String
     timeframe::String
-    start::DateTime
-    stop::Union{DateTime, Nothing}
+    start::TimeDate
+    stop::Union{TimeDate, Nothing}
     first_e::Entity
     last_e::Entity
 end
 
 Dataset(ticker, timeframe, start, stop=nothing) = Dataset(ticker, timeframe, start, stop, Entity(0), Entity(0))
 
+@component struct TickerQueue
+    q::SPMCQueue
+end
 
-    
+@component struct TradeConnection
+    websocket::HTTP.WebSockets.WebSocket
+end

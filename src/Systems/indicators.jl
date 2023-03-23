@@ -85,17 +85,12 @@ end
 EMACalculator(horizon::Int; kwargs...) = EMACalculator(horizon=horizon;kwargs...)
 
 function Overseer.update(s::EMACalculator, l::AbstractLedger)
-    for (d, es) in pools(l[Dataset])
-        if length(es) == 1
-            continue
-        end
-        for c in components(l)
-            if trait(Indicator, first(c)) isa Positive
-                ema_T = EMA{s.horizon, first(c)}
-                Overseer.ensure_component!(l, ema_T)
-                ema_comp = l[ema_T]
-                ema(last(c), ema_comp, s.smoothing)
-            end
+    for c in components(l)
+        if trait(Indicator, first(c)) isa Positive
+            ema_T = EMA{s.horizon, first(c)}
+            Overseer.ensure_component!(l, ema_T)
+            ema_comp = l[ema_T]
+            ema(last(c), ema_comp, s.smoothing)
         end
     end
 end
@@ -195,22 +190,17 @@ end
 struct DifferenceCalculator <: System end
     
 function Overseer.update(::DifferenceCalculator, l::AbstractLedger)
-    for (d,es) in pools(l[Dataset])
-        if length(es) == 1
-            continue
-        end
-        for c in components(l)
-            if !(first(c) <: Difference || first(c) <: UpDown) && trait(Indicator, first(c)) isa Positive
-                diff_T = Difference{first(c)}
-                Overseer.ensure_component!(l, diff_T)
-                diff_comp = l[diff_T]
-                difference(last(c), diff_comp, es)
-            end
+    for c in components(l)
+        if !(first(c) <: Difference || first(c) <: UpDown) && trait(Indicator, first(c)) isa Positive
+            diff_T = Difference{first(c)}
+            Overseer.ensure_component!(l, diff_T)
+            diff_comp = l[diff_T]
+            difference(last(c), diff_comp)
         end
     end
 end
     
-function difference(comp, diff_comp, es)
+function difference(comp, diff_comp)
     for ie in length(diff_comp)+2:length(comp)
         val = comp[ie] - comp[ie-1]
         diff_comp[entity(comp, ie)] = eltype(diff_comp)(val)
@@ -291,4 +281,48 @@ function sharpe(sharpe_comp, mean_comp, stddev_comp)
         sharpe_comp[e] = sharpe_T(e.sma / e.σ)
     end
 end
-                
+
+function sharpe_stage(width)
+    return Stage(:sharpe, [DifferenceCalculator(), SMACalculator(width), MovingStdDevCalculator(width), SharpeCalculator()])
+end
+
+struct LogValCalculator <: System end
+
+function Overseer.update(::LogValCalculator, l::AbstractLedger)
+    for (T, c) in components(l)
+        if !(T <: LogVal) && !(T <: Difference) && !(T <: RelativeDifference) && trait(Indicator, T) isa Positive
+            log_T = LogVal{T}
+            Overseer.ensure_component!(l, log_T)
+            log_comp = l[log_T]
+            # Threads.@spawn begin
+                log(c, log_comp)
+            # end
+        end
+    end
+end
+
+function Base.log(comp::Overseer.AbstractComponent{T}, log_comp::Overseer.AbstractComponent{LT}) where {T, LT}
+    for e in @entities_in(comp)
+        log_comp[e] = LT(T(log(value(e[T]))))
+    end
+end
+
+struct RelativeDifferenceCalculator <: System end
+    
+function Overseer.update(::RelativeDifferenceCalculator, l::AbstractLedger)
+    for c in components(l)
+        if !(first(c) <: RelativeDifference || first(c) <: UpDown) && trait(Indicator, first(c)) isa Positive
+            diff_T = RelativeDifference{first(c)}
+            Overseer.ensure_component!(l, diff_T)
+            diff_comp = l[diff_T]
+            relative_difference(last(c), diff_comp)
+        end
+    end
+end
+    
+function relative_difference(comp, diff_comp)
+    for ie in length(diff_comp)+2:length(comp)
+        val = (comp[ie] - comp[ie-1])/comp[ie-1]
+        diff_comp[entity(comp, ie)] = eltype(diff_comp)(val)
+    end
+end

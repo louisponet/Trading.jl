@@ -42,6 +42,7 @@ end
 end
 
 @component Base.@kwdef mutable struct Order
+    ticker          ::String
     id              ::UUID
     client_order_id ::UUID
     created_at      ::Union{TimeDate, Nothing}
@@ -51,9 +52,11 @@ end
     expired_at      ::Union{TimeDate, Nothing}
     canceled_at     ::Union{TimeDate, Nothing}
     failed_at       ::Union{TimeDate, Nothing}
-    filled_qty      ::Int
+    filled_qty      ::Float64
     filled_avg_price::Float64
     status          ::String
+
+    requested_quantity::Float64
 end
 
 @component Base.@kwdef struct Sale
@@ -68,11 +71,15 @@ end
 
 @component struct Filled
     avg_price::Float64
-    quantity::Int64
+    quantity::Float64
 end
 
 # Dollars
 @component mutable struct Cash
+    cash::Float64
+end
+
+@component mutable struct PurchasePower
     cash::Float64
 end
 
@@ -83,11 +90,11 @@ end
 
 @component struct PortfolioSnapshot
     positions::Vector{Position}
-    cash::Cash
+    cash::Float64
     value::Float64
 end
-Base.zero(d::PortfolioSnapshot) = PortfolioSnapshot(Position[], Cash(0.0), 0.0)
-PortfolioSnapshot(v::Float64) = PortfolioSnapshot(Position[], Cash(0.0), v)
+Base.zero(d::PortfolioSnapshot) = PortfolioSnapshot(Position[], 0.0, 0.0)
+PortfolioSnapshot(v::Float64) = PortfolioSnapshot(Position[], 0.0, v)
 for op in (:+, :-, :*, :/)
     @eval @inline Base.$op(b1::PortfolioSnapshot, b2::PortfolioSnapshot) = PortfolioSnapshot($op(b1.value, b2.value))
 end

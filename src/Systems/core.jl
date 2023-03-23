@@ -34,7 +34,7 @@ function Overseer.update(::SnapShotter, l::AbstractLedger)
     if length(l[PortfolioSnapshot]) > 0
         last_snapshot_e = entity(l[PortfolioSnapshot], length(l[PortfolioSnapshot]))
         
-        TimeDate(now()) - l[TimeStamp][last_snapshot_e].t < Minute(1) && return
+        current_time(l) - l[TimeStamp][last_snapshot_e].t < Minute(1) && return
     end
         
     cash  = singleton(l, Cash)[Cash]
@@ -42,12 +42,15 @@ function Overseer.update(::SnapShotter, l::AbstractLedger)
     positions = Position[]
     
     for e in @entities_in(l, Position)
-        push!(positions, e[Position])
-        totval += current_price(l, e.ticker) * e.quantity
+        push!(positions, deepcopy(e[Position]))
+        price = current_price(l, e.ticker)
+        if price === nothing
+            return
+        end
+        totval += price * e.quantity
     end
     
-    new_e = Entity(l, TimeStamp(), PortfolioSnapshot(positions, cash, totval))
-    l[Dataset][new_e] = entity(l[Dataset],1)
+    new_e = Entity(l, TimeStamp(current_time(l)), PortfolioSnapshot(positions, cash.cash, totval))
 end
 
 struct Timer <: System end

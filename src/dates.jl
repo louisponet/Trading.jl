@@ -10,3 +10,7 @@ function market_open_close(date)
     end
     return open, open + Hour(6) + Minute(30)
 end
+
+function yesterday()
+    return round(now() - Day(1), Dates.Day)
+end

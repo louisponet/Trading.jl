@@ -70,7 +70,11 @@ end
     v::Float64
 end
 
-for T in (:Open, :Close, :High, :Low, :Volume)
+@component struct LogVal{T}
+    v::T
+end
+
+for T in (:Open, :Close, :High, :Low, :Volume, :LogVal)
     for op in (:+, :-, :*, :/)
         @eval @inline Base.$op(b1::$T, b2::$T) = $T($op(b1.v,   b2.v))
     end
@@ -122,3 +126,5 @@ end
 @component struct TradeConnection
     websocket::HTTP.WebSockets.WebSocket
 end
+
+@component struct New end

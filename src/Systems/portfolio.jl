@@ -1,23 +1,31 @@
 struct Purchaser <: System end
 
-Overseer.requested_components(::Purchaser) = (Purchase, Order, Cash)
+Overseer.requested_components(::Purchaser) = (Purchase, Order, PurchasePower)
 
 function Overseer.update(::Purchaser, l::AbstractLedger)
-    cash = singleton(l, Cash).cash
+    cash = singleton(l, PurchasePower)
     for e in @entities_in(l, Purchase && !Order)
 
         if e.type == OrderType.Market
             cur_price = current_price(l, e.ticker)
+            cur_price == nothing && continue
         elseif e.type == OrderType.Limit
             cur_price = e.limit_price
         end
-        
-        tot_cost = cur_price * e.quantity
-        if cash - tot_cost < 0
-            continue
+
+        if e.quantity === Inf
+            tot_cost = cash.cash
+            quantity = round(cash.cash/cur_price)
+        else
+            tot_cost = cur_price * e.quantity
+            if cash.cash - tot_cost < 0
+                continue
+            end
+            quantity = e.quantity
         end
-        
-        l[e] = submit_order(l, e)
+
+        cash.cash -= tot_cost
+        l[e] = submit_order(l, e; quantity=quantity)
     end
 end
 
@@ -55,8 +63,6 @@ struct Seller <: System end
 Overseer.requested_components(::Seller) = (Sale,)
 
 function Overseer.update(::Seller, l::AbstractLedger)
-    cash = singleton(l, Cash)
-    
     for e in @safe_entities_in(l, Sale && !Order)
         posid = findfirst(x -> x.ticker == e.ticker, l[Position])
         if posid === nothing

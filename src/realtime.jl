@@ -210,7 +210,8 @@ function submit_order(trader::RealtimeTrader, e; quantity = e.quantity)
 
     parse_body = JSON3.read(resp.body)
 
-    return Order(UUID(parse_body[:id]),
+    return Order(e.ticker,
+                 UUID(parse_body[:id]),
                  UUID(parse_body[:client_order_id]),
                  parse_body[:created_at] !== nothing ? TimeDate(parse_body[:created_at][1:end-1])     : nothing,
                  parse_body[:updated_at] !== nothing ? TimeDate(parse_body[:updated_at][1:end-1])     : nothing,
@@ -219,9 +220,10 @@ function submit_order(trader::RealtimeTrader, e; quantity = e.quantity)
                  parse_body[:expired_at] !== nothing ? TimeDate(parse_body[:expired_at][1:end-1])     : nothing,
                  parse_body[:canceled_at] !== nothing ? TimeDate(parse_body[:canceled_at][1:end-1])   : nothing,
                  parse_body[:failed_at] !== nothing ? TimeDate(parse_body[:failed_at][1:end-1])       : nothing,
-                 parse(Int, parse_body[:filled_qty]),
+                 parse(Float64, parse_body[:filled_qty]),
                  parse_body[:filled_avg_price] !== nothing ? parse(Float64, parse_body[:filled_avg_price]) : 0.0,
-                 parse_body[:status])
+                 parse_body[:status],
+                 quantity)
 end
 
 timestamp(trader::RealtimeTrader) = TimeStamp()

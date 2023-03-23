@@ -26,8 +26,6 @@ const TRADING_STREAM_PAPER = URI("wss://paper-api.alpaca.markets/stream")
 const MARKET_DATA_STREAM = URI("wss://stream.data.alpaca.markets/v2/iex")
 
 
-abstract type AbstractTrader <: AbstractLedger end
-
 include("types.jl")
 include("spmc_queue.jl")
 include("Components/traits.jl")
@@ -37,6 +35,7 @@ include("dates.jl")
 include("constants.jl")
 include("queries.jl")
 include("data.jl")
+include("trader.jl")
 include("realtime.jl")
 include("simulation.jl")
 include("Systems/core.jl")

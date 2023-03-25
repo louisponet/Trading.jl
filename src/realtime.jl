@@ -175,17 +175,6 @@ function authenticate_trading(ws, t::RealtimeTrader)
         return false
     end
 end
-function authenticate_data(ws, t::RealtimeTrader)
-    send(ws, JSON3.write(Dict("action" => "auth",
-                              "key"    => t.account.key_id,
-                              "secret" => t.account.secret_key)))
-    reply = receive(ws)
-    try
-        return JSON3.read(reply)[1][:T] == "success"
-    catch
-        return false
-    end
-end
 
 function subscribe_tickers(ws, tickers)
     send(ws, JSON3.write(Dict("action" => "subscribe",

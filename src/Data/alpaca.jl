@@ -1,5 +1,6 @@
 const ALPACA_HISTORICAL_DATA_URL = URI("https://data.alpaca.markets")
 
+
 Base.@kwdef mutable struct AlpacaBroker <: AbstractBroker
     key_id::String
     secret_key::String
@@ -23,6 +24,32 @@ AlpacaBroker(key_id, secret_key; kwargs...) = AlpacaBroker(; key_id=key_id, secr
 Base.string(::AlpacaBroker, start::TimeDate) = string(start) * "Z"
 header(b::AlpacaBroker) = ["APCA-API-KEY-ID" => b.key_id, "APCA-API-SECRET-KEY" => b.secret_key]
 
+data_stream_url(::AlpacaBroker) = URI("wss://stream.data.alpaca.markets/v2/iex")
+
+function bars(::AlpacaBroker, msg::Vector)
+    return map(filter(x->x[:T] == "b", msg)) do bar
+        ticker = bar[:S]
+        ticker, (TimeDate(bar[:t][1:end-1]), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
+    end
+end        
+        
+function authenticate_data(b::AlpacaBroker, ws::WebSocket)
+    send(ws, JSON3.write(Dict("action" => "auth",
+                              "key"    => b.key_id,
+                              "secret" => b.secret_key)))
+    reply = receive(ws)
+    try
+        return JSON3.read(reply)[1][:T] == "success"
+    catch
+        return false
+    end
+end
+
+function subscribe(::AlpacaBroker, ws::WebSocket, ticker::String)
+    send(ws, send(ws, JSON3.write(Dict("action" => "subscribe",
+                              "bars"  => [ticker]))))
+end
+                              
 function Base.string(::AlpacaBroker, timeframe::Period)
     if timeframe isa Minute
         period_string = "Min"
@@ -86,7 +113,7 @@ function stock_query(broker::AlpacaBroker, symbol, start, stop=clock(), ::Type{T
             data = t[section_symbol]
 
             n_dat = length(data)
-            dat_keys = filter(!isequal(:t), keys(data[1]))
+            dat_keys = sort(collect(filter(!isequal(:t), keys(data[1]))))
             t_dat = Dict([k => Vector{T}(undef, n_dat) for k in dat_keys])
             t_timestamps = Vector{TimeDate}(undef, n_dat)
 
@@ -127,107 +154,3 @@ function stock_query(broker::AlpacaBroker, symbol, start, stop=clock(), ::Type{T
     
     return TimeArray(timestamps, hcat([out[k] for k in dat_keys]...), collect(dat_keys))
 end
-
-const HistoricalTradeDataDict = Dict{String, TimeArray{Any, 2, TimeDate, Matrix{Any}}}
-const HistoricalQuoteDataDict = Dict{String, TimeArray{Any, 2, TimeDate, Matrix{Any}}}
-const HistoricalBarDataDict = Dict{Tuple{String, Period}, TimeArray{Float64, 2, TimeDate, Matrix{Float64}}}
-"""
-   HistoricalDataProvider
-
-"""
-Base.@kwdef mutable struct HistoricalDataProvider{B <: AbstractBroker} <: AbstractDataProvider
-    broker::B
-    
-    bar_data::HistoricalBarDataDict = HistoricalBarDataDict()
-    trade_data::HistoricalTradeDataDict = HistoricalTradeDataDict()
-    quote_data::HistoricalQuoteDataDict = HistoricalQuoteDataDict()
-end
-
-HistoricalDataProvider(b::AbstractBroker; kwargs...)  = HistoricalDataProvider(; broker=b, kwargs...)
-
-# function retrieve_data(provider::HistoricalDataProvider, dataset, key, start, stop; kwargs...)
-
-function retrieve_data(provider::HistoricalDataProvider, set, key, start, stop, args...; kwargs...)
-    ticker = key isa Tuple ? first(key) : key
-
-    dt = key isa Tuple ? last(key) : Millisecond(1)
-    @assert start <= stop ArgumentError("start should be <= stop")
-    
-    if haskey(set, key)
-
-        data = set[key]
-        timestamps = timestamp(data)
-
-        if start <= stop < timestamps[1]
-            new_data = stock_query(provider.broker, ticker, start, stop, args...; kwargs...)
-            
-            if new_data !== nothing
-                set[key] = vcat(new_data, data)
-            end
-            
-            return new_data
-            
-        elseif timestamps[end] < start <= stop
-            new_data = stock_query(provider.broker, ticker, start, stop, args...; kwargs...)
-
-            if new_data !== nothing
-                set[key] = vcat(data, new_data)
-            end
-            
-            return new_data
-            
-        end
-            
-
-        if timestamps[1] <= start 
-            out_data = from(data, start)
-        else
-            next_stop = timestamps[1] - dt
-            new_data = stock_query(provider.broker, ticker, start, next_stop, args...; kwargs...)
-            
-            if new_data !== nothing
-                out_data = vcat(new_data, data)
-                set[key] = out_data
-            else
-                out_data = data
-            end
-
-        end
-
-        if timestamps[end] >= stop
-            return to(out_data, stop)
-        else
-            next_start = timestamps[end] + dt
-            
-            new_data = stock_query(provider.broker, ticker, next_start, stop, args...; kwargs...)
-            if new_data !== nothing
-                out_data = vcat(out_data, new_data)
-                set[key] = vcat(data, new_data)
-            end
-
-            return out_data
-        end
-    end
-
-    data = stock_query(provider.broker, ticker, start, stop, args...; kwargs...)
-    if data !== nothing
-        set[key] = data
-    end
-    
-    return data
-end
-    
-
-function bars(provider::HistoricalDataProvider, ticker, start, stop=clock(); timeframe::Period, kwargs...)
-    
-    start = round(start, typeof(timeframe), RoundDown)
-    stop  = round(stop, typeof(timeframe), RoundUp)
-
-    retrieve_data(provider, provider.bar_data, (ticker, timeframe), start, stop, Float64; section="bars", timeframe=timeframe, kwargs...)
-end
-
-quotes(provider::HistoricalDataProvider, ticker, args...; kwargs...) =
-    retrieve_data(provider, provider.quote_data, ticker, args...; section="quotes", kwargs...)
-    
-trades(provider::HistoricalDataProvider, ticker, args...; kwargs...) = 
-    retrieve_data(provider, provider.trade_data, ticker, args...; section="trades", kwargs...)

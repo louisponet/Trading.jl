@@ -3,56 +3,6 @@
     dtime::Period  = Minute(1)
 end
 
-@component Base.@kwdef mutable struct AccountInfo
-    key_id::String
-    secret_key::String
-    rate::Int=200
-    last::DateTime = now()
-    nrequests::Int=0
-end
-AccountInfo(x::String, y::String; kwargs...) =
-    AccountInfo(key_id=x, secret_key = y; kwargs...)
-    
-header(a) = ["APCA-API-KEY-ID" => a.key_id, "APCA-API-SECRET-KEY" => a.secret_key]
-
-@component struct Trade
-    exchange::String
-    price::Float64
-    size::Int
-    conditions::Vector{String}
-end
-
-function Base.show(io::IO, t::Trade)
-    println(io,"""
-    exchange:   $(EXCHS[t.exchange])
-    price:      $(t.price)
-    size:       $(t.size)
-    conditions: $(t.conditions)
-    """)
-end
-
-@component struct Quote
-    ask_exchange::String
-    ask_price::Float64
-    ask_size::Int
-    bid_exchange::String
-    bid_price::Float64
-    bid_size::Int
-    conditions::Vector{String}
-end
-
-function Base.show(io::IO, t::Quote)
-    println(io,"""
-    ask exchange:   $(EXCHS[t.ask_exchange])
-    ask price:      $(t.ask_price)
-    ask size:       $(t.ask_size)
-    bid exchange:   $(EXCHS[t.ask_exchange])
-    bid price:      $(t.ask_price)
-    bid size:       $(t.ask_size)
-    conditions:     $(t.conditions)
-    """)
-end
-
 # All need to have a single field v
 abstract type SingleValIndicator end
 

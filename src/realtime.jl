@@ -1,6 +1,5 @@
 mutable struct RealtimeTrader <: AbstractTrader
     l::Ledger
-    account::AccountInfo
     ticker_ledgers::Dict{String, Ledger}
     data_task::Union{Task, Nothing}
     trading_task::Union{Task, Nothing}
@@ -16,7 +15,7 @@ in_session_stage(::Type{RealtimeTrader}) = Stage(:main, [Purchaser(), Seller(), 
 end_of_day_stage(::Type{RealtimeTrader})  = Stage(:main, [Seller(), Filler(), SnapShotter(), Timer(), DayOpener()])
 current_time(trader::RealtimeTrader) = TimeDate(now())
 
-function RealtimeTrader(account::AccountInfo, tickers::Vector{String}, strategies::Vector{Strategy} = Strategy[])
+function RealtimeTrader(account, tickers::Vector{String}, strategies::Vector{Strategy} = Strategy[])
     stages = Stage[]
     inday = in_day(now())
     

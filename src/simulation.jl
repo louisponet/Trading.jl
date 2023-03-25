@@ -14,7 +14,7 @@ Overseer.ledger(trader::SimulatedTrader) = trader.l
 in_session_stage(::Type{SimulatedTrader}) = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), BarUpdater(), OrderUpdater(), DayCloser()])
 end_of_day_stage(::Type{SimulatedTrader}) = Stage(:main, [Seller(), Filler(), SnapShotter(), Timer(), BarUpdater(), OrderUpdater(), DayOpener()])
 
-function SimulatedTrader(account::AccountInfo, tickers::Vector{String}, strategies; dt=Minute(1), start=now() - dt*1000, stop = now(), cash = 1_000_000)
+function SimulatedTrader(account, tickers::Vector{String}, strategies; dt=Minute(1), start=now() - dt*1000, stop = now(), cash = 1_000_000)
 
     stages = Stage[]
     inday = in_day(start)

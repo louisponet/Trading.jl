@@ -1,37 +1,13 @@
 struct DatasetAdder <: System end
 
-Overseer.requested_components(::DatasetAdder) = (Dataset, AccountInfo)
-
-function Overseer.update(::DatasetAdder, l::AbstractLedger)
-    account = singleton(l, AccountInfo)
-    for (d, es) in pools(l[Dataset])
-        if length(es) > 1
-            continue
-        end
-        parent = es[1]
-            
-        times, bars = query_bars(account, d.ticker, d.start, stop=d.stop, timeframe=d.timeframe)
-            
-        if !isempty(bars)
-            for c in bars[1]
-                l[parent] = c
-            end
-            l[parent] = times[1]
-            for i in 2:length(bars)
-                e = Entity(l, bars[i]..., times[i])
-                l[Dataset][e] = parent
-            end
-        end
-    end
-end
+Overseer.requested_components(::DatasetAdder) = (Dataset, )
 
 struct SnapShotter <: System end
 
 Overseer.requested_components(::SnapShotter) = (PortfolioSnapshot, TimeStamp)
 
 function Overseer.update(::SnapShotter, l::AbstractLedger)
-
-    
+   
     curt = current_time(l)
     if !in_day(curt)
         return

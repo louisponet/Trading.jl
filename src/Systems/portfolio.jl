@@ -60,7 +60,7 @@ end
 
 struct Seller <: System end
 
-Overseer.requested_components(::Seller) = (Sale,)
+Overseer.requested_components(::Seller) = (Sale, Position, Order)
 
 function Overseer.update(::Seller, l::AbstractLedger)
     for e in @safe_entities_in(l, Sale && !Order)
@@ -86,4 +86,59 @@ function Overseer.update(::Seller, l::AbstractLedger)
         l[e] = submit_order(l, e; quantity=quantity)
     end
 end
-        
+
+struct DayCloser <: System end
+
+Overseer.requested_components(::DayCloser) = (Sale, Position,)
+
+function Overseer.update(::DayCloser, l::T) where {T<:AbstractTrader}
+    cur_t   = current_time(l)
+    close_t = market_open_close(cur_t)[2]
+
+    if close_t - cur_t > Minute(1)
+        return
+    end
+
+    for e in @entities_in(l, Position)
+        if e.quantity > 0
+            l[e] = Sale(e.ticker, Inf, OrderType.Market, TimeInForce.GTC, 0.0, 0.0)
+        end
+    end
+    
+    for e in @safe_entities_in(l, Purchase && !Filled && !Order)
+        pop!(l[Purchase], e)
+    end
+
+    empty!(stages(l))
+    push!(l, end_of_day_stage(T))
+
+    for e in @entities_in(l, Strategy)
+        if !e.only_day
+            push!(l, e.stage)
+        end
+    end
+    
+    ensure_systems!(l)
+end
+
+struct DayOpener <: System end
+
+Overseer.requested_components(::DayOpener) = (Strategy,)
+
+function Overseer.update(::DayOpener, l::T) where {T <: AbstractTrader}
+    cur_t   = current_time(l)
+    open_t = market_open_close(cur_t)[1]
+
+    if open_t > cur_t 
+        return
+    end
+
+    empty!(stages(l))
+    push!(l, in_session_stage(T))
+    
+    for e in @entities_in(l, Strategy)
+        push!(l, e.stage)
+    end
+
+    ensure_systems!(l)
+end

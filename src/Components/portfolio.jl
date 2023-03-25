@@ -116,3 +116,7 @@ end
 
 @assign PortfolioSnapshot with Is{Indicator}
 
+@component struct Strategy
+    stage::Stage
+    only_day::Bool
+end

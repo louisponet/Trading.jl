@@ -3,6 +3,8 @@ using Reexport
 @reexport using TimesDates
 @reexport using MarketTechnicals
 @reexport using Overseer
+using Overseer: AbstractComponent
+
 using Overseer: update
 using Dates
 using Statistics
@@ -19,18 +21,24 @@ using HTTP: URI
 using EnumX
 using UUIDs
 
+using ProgressMeter
+using PrettyTables
+
 const PAPER_TRADING_URL = URI("https://paper-api.alpaca.markets")
 const DATA_URL          = URI("https://data.alpaca.markets")
 
 const TRADING_STREAM_PAPER = URI("wss://paper-api.alpaca.markets/stream")
 const MARKET_DATA_STREAM = URI("wss://stream.data.alpaca.markets/v2/iex")
 
-
+include("utils.jl")
 include("types.jl")
 include("spmc_queue.jl")
+include("Data/Data.jl")
 include("Components/traits.jl")
 include("Components/core.jl")
 include("Components/indicators.jl")
+include("Components/portfolio.jl")
+include("logging.jl")
 include("dates.jl")
 include("constants.jl")
 include("queries.jl")
@@ -40,7 +48,6 @@ include("realtime.jl")
 include("simulation.jl")
 include("Systems/core.jl")
 include("Systems/indicators.jl")
-include("Components/portfolio.jl")
 include("Systems/portfolio.jl")
 
 export Trade, Quote, AccountInfo

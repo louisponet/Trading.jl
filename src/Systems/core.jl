@@ -31,10 +31,16 @@ Overseer.requested_components(::SnapShotter) = (PortfolioSnapshot, TimeStamp)
 
 function Overseer.update(::SnapShotter, l::AbstractLedger)
 
+    
+    curt = current_time(l)
+    if !in_day(curt)
+        return
+    end
+    
     if length(l[PortfolioSnapshot]) > 0
         last_snapshot_e = entity(l[PortfolioSnapshot], length(l[PortfolioSnapshot]))
         
-        current_time(l) - l[TimeStamp][last_snapshot_e].t < Minute(1) && return
+        curt - l[TimeStamp][last_snapshot_e].t < Minute(1) && return
     end
         
     cash  = singleton(l, Cash)[Cash]
@@ -55,11 +61,10 @@ end
 
 struct Timer <: System end
 
-Overseer.requested_components(::Timer) = (TimingData,)
+Overseer.requested_components(::Timer) = (Clock,)
 
 function Overseer.update(::Timer, l::AbstractLedger)
-    for t in l[TimingData]
+    for t in l[Clock]
         t.time += t.dtime
     end
 end
-

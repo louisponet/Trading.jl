@@ -11,9 +11,31 @@ end
 
 Overseer.ledger(trader::SimulatedTrader) = trader.l
 
-function SimulatedTrader(account::AccountInfo, ticker_ledgers::Dict{String, Ledger}, strategy_stage; dt=Minute(1), start=now() - dt*1000, stop = now(), cash = 1_000_000)
-    core_stage = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), BarUpdater(), OrderUpdater()])
-    l = Ledger(core_stage, strategy_stage)
+in_session_stage(::Type{SimulatedTrader}) = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), BarUpdater(), OrderUpdater(), DayCloser()])
+end_of_day_stage(::Type{SimulatedTrader}) = Stage(:main, [Seller(), Filler(), SnapShotter(), Timer(), BarUpdater(), OrderUpdater(), DayOpener()])
+
+function SimulatedTrader(account::AccountInfo, tickers::Vector{String}, strategies; dt=Minute(1), start=now() - dt*1000, stop = now(), cash = 1_000_000)
+
+    stages = Stage[]
+    inday = in_day(start)
+    
+    if inday 
+        push!(stages, in_session_stage(SimulatedTrader))
+    else
+        push!(stages, end_of_day_stage(SimulatedTrader))
+    end
+
+    for s in strategies
+        if !s.only_day
+            push!(stages, s.stage)
+        elseif inday
+            push!(stages, s.stage)
+        end
+    end
+        
+    l = Ledger(stages...)
+    
+    ensure_systems!(l)
 
     if dt == Minute(1)
         timeframe = "1Min"
@@ -34,49 +56,65 @@ function SimulatedTrader(account::AccountInfo, ticker_ledgers::Dict{String, Ledg
     end
 
     historical_ledgers = Dict{String, Ledger}()
-    last_order_ids     = Dict{String, Int}()
+    ticker_ledgers     = Dict{String, Ledger}()
+    
+    last_order_ids  = Dict{String, Int}()
     cur_bar_ids     = Dict{String, Int}()
-    for (ticker, ledger) in ticker_ledgers
-        
-        tl = Ledger(Stage(:main, [DatasetAdder()]))
-        Entity(tl, Dataset(ticker, timeframe, TimeDate(start), TimeDate(stop)), account)
-        update(tl)
 
-        for c in Overseer.requested_components(strategy_stage)
-            Overseer.ensure_component!(ledger, c)
+    @info "Fetching historical data"
+    Threads.@threads for ticker in tickers
+        
+        historical = Ledger(Stage(:main, [DatasetAdder()]))
+        
+        Entity(historical, Dataset(ticker, timeframe, TimeDate(start), TimeDate(stop)), account)
+        update(historical)
+        
+        historical_ledgers[ticker] = historical
+
+        ticker_ledger = Ledger()
+        for s in strategies
+            for c in Overseer.requested_components(s.stage)
+                Overseer.ensure_component!(ticker_ledger, c)
+            end
         end
-        
-        start = min(tl[Dataset][1].start, start)
-        historical_ledgers[ticker] = tl
 
+        ensure_systems!(ticker_ledger)
+        ticker_ledgers[ticker] = ticker_ledger
+        
         last_order_ids[ticker] = 1
-        cur_bar_ids[ticker] = 1
+        cur_bar_ids[ticker]    = 1
     end
 
-    # TODO BAD
-    Entity(l, TimingData(start, dt), Cash(cash), PurchasePower(cash))
+    Entity(l, Clock(TimeDate(start), dt), Cash(cash), PurchasePower(cash))
+    for s in strategies
+        Entity(l, s)
+    end
+    
     return SimulatedTrader(l, nothing, ticker_ledgers, historical_ledgers, last_order_ids, cur_bar_ids, false, 1)
 end
 
 function reset!(trader::SimulatedTrader)
+    
     for (ticker, l) in trader.ticker_ledgers
+        
         empty_entities!(l)
         trader.last_order_ids[ticker] = 1
         trader.cur_bar_ids[ticker] = 1
+        
     end
-    dt = trader[TimingData][1].dtime
+    dt = trader[Clock][1].dtime
     cash = isempty(trader[PortfolioSnapshot]) ? trader[Cash][1].cash : trader[PortfolioSnapshot][1].cash
 
     start = minimum(x->x[Dataset][1].start, values(trader.historical_ledgers))
 
     empty_entities!(trader)
-    Entity(trader, TimingData(start, dt), Cash(cash), PurchasePower(cash))
+    Entity(trader.l, Clock(start, dt), Cash(cash), PurchasePower(cash))
     trader.cur_order_id = 1
     return trader
 end
 
 
-current_time(trader::SimulatedTrader) = trader[TimingData][1].time
+current_time(trader::SimulatedTrader) = trader[Clock][1].time
 
 function current_price(trader::SimulatedTrader, ticker::String, curt=current_time(trader))
 
@@ -92,38 +130,25 @@ function current_price(trader::SimulatedTrader, ticker::String, curt=current_tim
     return tl[Open][order_id].v
 end
 
-function Overseer.update(trader::SimulatedTrader)
-    singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash 
-    ticker_ledgers = values(trader.ticker_ledgers)
-    cur_es = sum(x -> length(x.entities), ticker_ledgers)
-    
-    update(stage(trader, :main), trader)
-    
-    if sum(x -> length(x.entities), ticker_ledgers) - cur_es > 0  
-        @sync for tl in ticker_ledgers
-            Threads.@spawn update(tl)
-        end
-    end
-    for s in stages(trader)
-        s.name == :main && continue
-        update(s, trader)
-    end
-    for tl in ticker_ledgers
-        empty!(tl[New])
-    end
-end 
 
 function start(trader::SimulatedTrader; sleep_time = 0.001)
 
-    last = trader[TimingData][1].time
+    last = trader[Clock][1].time
     for (ticker, ledger) in trader.historical_ledgers
         tstop = ledger[Dataset][1].stop === nothing ? TimeDate(now()) : ledger[Dataset][1].stop
         last = max(tstop, last)
     end
 
+    p = ProgressMeter.ProgressUnknown("Simulating..."; spinner = true) 
     while current_time(trader) < last && !trader.done
         update(trader)
+        showvalues = isempty(trader[PortfolioSnapshot]) ?
+                     [(:t, trader[Clock][1].time), (:value, trader[Cash][1].cash)] :
+                     [(:t, trader[Clock][1].time), (:value, trader[PortfolioSnapshot][end].value)]
+        ProgressMeter.next!(p; spinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏", showvalues = showvalues)
     end
+    ProgressMeter.finish!(p)
+    
     trader.done=false
 end
 
@@ -131,10 +156,11 @@ struct BarUpdater <: System end
 
 function Overseer.update(::BarUpdater, trader::SimulatedTrader)
     curt = current_time(trader)
-    open, close = market_open_close(curt)
-    # if curt < open || curt > close
-    #     return
-    # end
+
+    if !in_day(curt)
+        return
+    end
+    
     for (ticker, ledger) in trader.historical_ledgers
         
         ticker_ledger = trader.ticker_ledgers[ticker]
@@ -145,7 +171,8 @@ function Overseer.update(::BarUpdater, trader::SimulatedTrader)
         if cur_bar_id + 1 > length(tstampcomp)
             continue
         end
-        last_t = TimeStamp in ticker_ledger ? ticker_ledger[TimeStamp][end].t : TimeDate(0)
+        
+        last_t = TimeStamp in ticker_ledger && length(ticker_ledger[TimeStamp]) > 0 ? ticker_ledger[TimeStamp][end].t : TimeDate(0)
         if curt <= last_t
             continue
         end

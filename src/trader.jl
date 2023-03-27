@@ -5,13 +5,9 @@ Entity(t::AbstractTrader, args...) = Entity(t.l, TimeStamp(t), args...)
 function Overseer.update(trader::AbstractTrader)
     singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash 
     ticker_ledgers = values(trader.ticker_ledgers)
-    cur_es = sum(x -> length(x.entities), ticker_ledgers)
     
     update(stage(trader, :main), trader)
     
-    @sync for tl in ticker_ledgers
-        update(tl)
-    end
     for s in stages(trader)
         s.name == :main && continue
         update(s, trader)

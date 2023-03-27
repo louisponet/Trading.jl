@@ -3,13 +3,19 @@ mutable struct DataLedger <: AbstractLedger
     l::Ledger
 end 
 
+DataLedger(ticker::String) = DataLedger(ticker, Ledger())
+
 Overseer.ledger(d::DataLedger) = d.l
 
 function loop(ch::Channel, d::DataLedger)
     while true
-        (time, (o, h, l, c, v))  = take!(ch)
-        Entity(d, TimeStamp(time), Open(o), High(h), Low(l), Close(c), Volume(v))
-        Overseer.update(d)
+        try
+            (time, (o, h, l, c, v))  = take!(ch)
+            Entity(d, TimeStamp(time), Open(o), High(h), Low(l), Close(c), Volume(v), New())
+            Overseer.update(d)
+        catch e
+            showerror(stdout, e, catch_backtrace())
+        end
     end
 end
 
@@ -203,6 +209,7 @@ function Base.open(func::Function, dataprovider::RealtimeDataProvider)
             dataprovider.ws = ws
             func(dataprovider)
         catch e
+            showerror(stdout, e, catch_backtrace())
             if !(e isa InterruptException)
                 rethrow(e)
             end

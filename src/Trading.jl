@@ -30,7 +30,6 @@ const PAPER_TRADING_URL = URI("https://paper-api.alpaca.markets")
 const DATA_URL          = URI("https://data.alpaca.markets")
 
 const TRADING_STREAM_PAPER = URI("wss://paper-api.alpaca.markets/stream")
-const MARKET_DATA_STREAM = 
 
 include("utils.jl")
 include("dates.jl")
@@ -41,6 +40,9 @@ include("Components/core.jl")
 include("Components/indicators.jl")
 include("Components/portfolio.jl")
 include("Data/Data.jl")
+
+using .Data
+
 include("logging.jl")
 include("constants.jl")
 include("trader.jl")

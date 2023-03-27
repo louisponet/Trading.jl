@@ -1,6 +1,7 @@
-mutable struct RealtimeTrader <: AbstractTrader
+mutable struct RealtimeTrader{B <: Data.AbstractBroker} <: AbstractTrader
     l::Ledger
-    ticker_ledgers::Dict{String, Ledger}
+    broker::B
+    ticker_ledgers::Dict{String, Data.DataLedger}
     data_task::Union{Task, Nothing}
     trading_task::Union{Task, Nothing}
     loop::Union{Task, Nothing}
@@ -37,11 +38,11 @@ function RealtimeTrader(account, tickers::Vector{String}, strategies::Vector{Str
     
     ensure_systems!(l)
 
-    ticker_ledgers  = Dict{String, Ledger}()
+    ticker_ledgers  = Dict{String, Data.DataLedger}()
     
     for ticker in tickers
         
-        ticker_ledger = Ledger()
+        ticker_ledger = Data.DataLedger(ticker)
         for s in strategies
             for c in Overseer.requested_components(s.stage)
                 Overseer.ensure_component!(ticker_ledger, c)
@@ -50,7 +51,9 @@ function RealtimeTrader(account, tickers::Vector{String}, strategies::Vector{Str
 
         ensure_systems!(ticker_ledger)
         Overseer.ensure_component!(ticker_ledger, New)
+        
         ticker_ledgers[ticker] = ticker_ledger
+         
     end
 
     for s in strategies
@@ -166,8 +169,8 @@ end
 
 function authenticate_trading(ws, t::RealtimeTrader)
     send(ws, JSON3.write(Dict("action" => "auth",
-                              "key"    => t.account.key_id,
-                              "secret" => t.account.secret_key)))
+                              "key"    => t.broker.key_id,
+                              "secret" => t.broker.secret_key)))
     reply = receive(ws)
     try
         return JSON3.read(reply)["data"]["status"] == "authorized"
@@ -182,7 +185,7 @@ function subscribe_tickers(ws, tickers)
 end
 
 function delete_all_orders!(t::RealtimeTrader)
-    HTTP.delete(URI(PAPER_TRADING_URL, path="/v2/orders"), header(t.account))
+    HTTP.delete(URI(PAPER_TRADING_URL, path="/v2/orders"), Data.header(t.broker))
 end
 
 
@@ -207,23 +210,11 @@ function start_trading(trader::RealtimeTrader)
 end
 
 function start_data(trader::RealtimeTrader)
-    trader.data_task = Threads.@spawn @stoppable trader.stop_data begin
-        HTTP.open(MARKET_DATA_STREAM) do ws
-            if !authenticate_data(ws, trader)
-                error("couldn't authenticate")
-            end
-
-            subscribe_tickers(ws, trader.ticker_ledgers)
-            while true
-                msg = JSON3.read(receive(ws))
-                for m in msg
-                    if m[:T] == "b"
-                        bar_update!(trader, m)
-                    end
-                end
-            end
-        end
+    distributor = Data.DataDistributor(Data.RealtimeDataProvider(trader.broker))
+    for (ticker, ledger) in trader.ticker_ledgers
+        Data.register!(distributor, ledger)
     end
+    trader.data_task = Threads.@spawn @stoppable trader.stop_data Data.loop(distributor)
 end
 
 function start_main(trader::RealtimeTrader)
@@ -246,28 +237,12 @@ function start_main(trader::RealtimeTrader)
 end
     
 function fill_account!(trader::RealtimeTrader)
-    resp = HTTP.get(URI(PAPER_TRADING_URL, path="/v2/account"), Trading.header(trader.account))
-
-    if resp.status != 200
-        return error("Couldn't get Account details")
-    end
-
-    acc_parse = JSON3.read(resp.body)
-    cash = parse(Float64, acc_parse[:cash])
+    cash, positions = Data.account_details(trader.broker)
     Entity(trader, Cash(cash), PurchasePower(cash))
-
-    resp = HTTP.get(URI(PAPER_TRADING_URL, path="/v2/positions"), Trading.header(trader.account))
-    if resp.status != 200
-        return error("Couldn't get position details")
-    end
-
-    pos_parse = JSON3.read(resp.body)
-    for position in pos_parse
-        Entity(trader, Position(position[:symbol], parse(Float64, position[:qty])))
+    for p in positions
+        Entity(trader, Position(p...))
     end
 end
-    
-
 
 function start(trader::RealtimeTrader)
     if trader.loop !== nothing && !istaskdone(trader.loop)
@@ -280,13 +255,6 @@ function start(trader::RealtimeTrader)
     start_data(trader)
     start_main(trader)
     return trader
-end
-
-function bar_update!(trader::RealtimeTrader, bar)
-    sym = bar[:S]
-    tl                 = trader.ticker_ledgers[sym]
-    parsed_bar         = parse_bar(bar)
-    new_e              = Entity(tl, New(), parsed_bar...)
 end
 
 function order_update!(trader::RealtimeTrader, order_msg)
@@ -321,7 +289,7 @@ function submit_order(trader::RealtimeTrader, e; quantity = e.quantity)
         body["limit_price"] = string(e.price)
     end
         
-    resp = HTTP.post(URI(PAPER_TRADING_URL, path="/v2/orders"), Trading.header(trader.account), JSON3.write(body))
+    resp = HTTP.post(URI(PAPER_TRADING_URL, path="/v2/orders"), Data.header(trader.broker), JSON3.write(body))
     if resp.status != 200
         error("something went wrong")
     end

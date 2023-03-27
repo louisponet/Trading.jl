@@ -1,5 +1,5 @@
 const ALPACA_HISTORICAL_DATA_URL = URI("https://data.alpaca.markets")
-
+const ALPACA_PAPER_TRADING_URL   = URI("wss://paper-api.alpaca.markets/stream")
 
 Base.@kwdef mutable struct AlpacaBroker <: AbstractBroker
     key_id::String
@@ -26,7 +26,7 @@ header(b::AlpacaBroker) = ["APCA-API-KEY-ID" => b.key_id, "APCA-API-SECRET-KEY" 
 
 data_stream_url(::AlpacaBroker) = URI("wss://stream.data.alpaca.markets/v2/iex")
 
-function bars(::AlpacaBroker, msg::Vector)
+function bars(::AlpacaBroker, msg::AbstractVector)
     return map(filter(x->x[:T] == "b", msg)) do bar
         ticker = bar[:S]
         ticker, (TimeDate(bar[:t][1:end-1]), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
@@ -45,9 +45,15 @@ function authenticate_data(b::AlpacaBroker, ws::WebSocket)
     end
 end
 
+#TODO Make nice error
 function subscribe(::AlpacaBroker, ws::WebSocket, ticker::String)
-    send(ws, send(ws, JSON3.write(Dict("action" => "subscribe",
-                              "bars"  => [ticker]))))
+    send(ws, JSON3.write(Dict("action" => "subscribe",
+                              "bars"  => [ticker])))
+    msg = JSON3.read(receive(ws))
+    errid = findfirst(x->x[:T] == "error", msg)
+    if errid !== nothing
+        @error msg[errid][:msg]
+    end
 end
                               
 function Base.string(::AlpacaBroker, timeframe::Period)
@@ -154,3 +160,26 @@ function stock_query(broker::AlpacaBroker, symbol, start, stop=clock(), ::Type{T
     
     return TimeArray(timestamps, hcat([out[k] for k in dat_keys]...), collect(dat_keys))
 end
+
+
+function account_details(b::AlpacaBroker)
+    resp = HTTP.get(URI(ALPACA_PAPER_TRADING_URL, path="/v2/account"), header(b))
+
+    if resp.status != 200
+        return error("Couldn't get Account details")
+    end
+
+    acc_parse = JSON3.read(resp.body)
+    cash = parse(Float64, acc_parse[:cash])
+
+    resp = HTTP.get(URI(ALPACA_PAPER_TRADING_URL, path="/v2/positions"), header(b))
+    if resp.status != 200
+        return error("Couldn't get position details")
+    end
+
+    pos_parse = JSON3.read(resp.body)
+    positions = map(position -> (string(position[:symbol]), parse(Float64, position[:qty])), pos_parse)
+    return (;cash, positions)
+end
+
+

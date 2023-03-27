@@ -10,7 +10,7 @@ module Data
     using Overseer
     using Overseer: AbstractLedger
     
-    using ..Trading: clock, Clock, Open, High, Low, Close, TimeStamp, Volume
+    using ..Trading: clock, Clock, Open, High, Low, Close, TimeStamp, Volume, New
     
     include("types.jl")
     include("alpaca.jl")

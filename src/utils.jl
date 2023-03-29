@@ -63,7 +63,7 @@ macro stoppable(stop, expr)
         try
             fetch($tsk)
         catch $err
-            if !($err.task.exception isa InterruptException)
+            if !($err isa InterruptException) || !($err.task.exception isa InterruptException)
                 rethrow($err)
             end
         end

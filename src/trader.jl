@@ -1,6 +1,6 @@
 abstract type AbstractTrader <: AbstractLedger end
 
-Entity(t::AbstractTrader, args...) = Entity(t.l, TimeStamp(t), args...)
+Entity(t::AbstractTrader, args...) = Entity(Overseer.ledger(t), TimeStamp(t), args...)
 
 function Overseer.update(trader::AbstractTrader)
     singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash 
@@ -24,6 +24,9 @@ function current_position(t::AbstractLedger, ticker::String)
     pos_id === nothing && return 0.0
     return t[Position][pos_id].quantity
 end
+
+Data.current_price(t::AbstractTrader, ticker) = Data.current_price(t.broker, ticker)
+Data.submit_order(t::AbstractTrader, e) = put!(t.order_channel, e)
 
 TimeStamp(l::AbstractTrader) = TimeStamp(current_time(l))
 

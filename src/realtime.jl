@@ -3,28 +3,22 @@ mutable struct RealtimeTrader{B <: Data.AbstractBroker} <: AbstractTrader
     broker::B
     ticker_ledgers::Dict{String, Data.DataLedger}
     data_task::Union{Task, Nothing}
-    trading_task::Union{Task, Nothing}
-    loop::Union{Task, Nothing}
+    order_channel::Channel
+    main_task::Union{Task, Nothing}
     stop_main::Bool
-    stop_data::Bool
-    stop_trading::Bool
+    stop_data::Threads.Condition
 end
 
 Overseer.ledger(t::RealtimeTrader) = t.l
 
-in_session_stage(::Type{RealtimeTrader}) = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), DayCloser()])
-end_of_day_stage(::Type{RealtimeTrader})  = Stage(:main, [Seller(), Filler(), SnapShotter(), Timer(), DayOpener()])
+main_stage() = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), in_day(clock()) ? DayCloser() : DayOpener()])
 current_time(trader::RealtimeTrader) = TimeDate(now())
 
 function RealtimeTrader(account, tickers::Vector{String}, strategies::Vector{Strategy} = Strategy[])
     stages = Stage[]
     inday = in_day(now())
     
-    if inday 
-        push!(stages, in_session_stage(RealtimeTrader))
-    else
-        push!(stages, end_of_day_stage(RealtimeTrader))
-    end
+    push!(stages, main_stage())
 
     for s in strategies
         if !s.only_day
@@ -62,7 +56,7 @@ function RealtimeTrader(account, tickers::Vector{String}, strategies::Vector{Str
 
     Overseer.ensure_component!(l, New)
     
-    trader = RealtimeTrader(l, account, ticker_ledgers, nothing, nothing, nothing, false, false, false)
+    trader = RealtimeTrader(l, account, ticker_ledgers, nothing, Channel(), nothing, false, Threads.Condition())
     
     fill_account!(trader)
     
@@ -75,12 +69,12 @@ function Base.show(io::IO, ::MIME"text/plain", trader::RealtimeTrader)
     for (i, p) in enumerate(trader[Position])
         positions[i, 1] = p.ticker
         positions[i, 2] = p.quantity
-        positions[i, 3] = current_price(trader, p.ticker) * p.quantity
+        positions[i, 3] = Data.current_price(trader.broker, p.ticker) * p.quantity
     end
     
     println(io, "Trader\n")
-    println(io, "Main task:    $(trader.loop)")
-    println(io, "Trading task: $(trader.trading_task)")
+    println(io, "Main task:    $(trader.main_task)")
+    println(io, "Order channel: $(trader.order_channel)")
     println(io, "Data task:    $(trader.data_task)")
     println(io)
      
@@ -128,7 +122,7 @@ end
 
 function stop_main(trader::RealtimeTrader)
     trader.stop_main = true
-    while !istaskdone(trader.loop)
+    while !istaskdone(trader.main_task)
         sleep(1)
     end
     trader.stop_main = false
@@ -136,126 +130,102 @@ function stop_main(trader::RealtimeTrader)
 end
 
 function stop_data(trader::RealtimeTrader)
-    trader.stop_data = true
+    lock(trader.stop_data)
+    
+    notify(trader.stop_data, true)
+    unlock(trader.stop_data)
     while !istaskdone(trader.data_task)
         sleep(1)
     end
-    trader.stop_data = false
     return trader
 end
 
 function stop_trading(trader::RealtimeTrader)
-    trader.stop_trading = true
-    while !istaskdone(trader.trading_task)
-        sleep(1)
-    end
-    trader.stop_trading = false
-    return trader
+    close(trader.order_channel)
 end
 
 function stop_all(trader::RealtimeTrader)
-    trader.stop_trading = true
-    trader.stop_data = true
+    lock(trader.stop_data)
+    notify(trader.stop_data, true)
+    unlock(trader.stop_data)
     trader.stop_main = true
-    while !istaskdone(trader.trading_task) || !istaskdone(trader.data_task) || !istaskdone(trader.trading_task)
+    stop_trading(trader)
+    while !istaskdone(trader.data_task) || !istaskdone(trader.main_task)
         sleep(1)
     end
-    trader.stop_trading = false
-    trader.stop_data = false
     trader.stop_main = false
     return trader
 end
 
-function delete_all_orders!(t::RealtimeTrader)
-    HTTP.delete(URI(PAPER_TRADING_URL, path="/v2/orders"), Data.header(t.broker))
+delete_all_orders!(t::RealtimeTrader) = Data.delete_all_orders!(t.broker)
+
+function start_trading(trader::RealtimeTrader;threaded=true, kwargs...)
+    trader.order_channel = Channel(c -> Data.start_trading(c, trader.broker, trader[Order]), 100, spawn=threaded)
 end
 
-function start_trading(trader::RealtimeTrader)
-    trader.trading_task = Threads.@spawn @stoppable trader.stop_trading begin
-        HTTP.open(TRADING_STREAM_PAPER) do ws
-
-            if !authenticate_trading(ws, trader)
-                error("couldn't authenticate")
-            end
-            @info "Authenticated trading"
-            send(ws, JSON3.write(Dict("action" => "listen",
-                                      "data"  => Dict("streams" => ["trade_updates"]))))
-            while true
-                msg = JSON3.read(receive(ws))
-                if msg[:stream] == "trade_updates" && msg[:data][:event] == "fill"
-                    order_update!(trader, msg[:data][:order])
-                end
-            end
-        end
-    end
-end
-
-function start_data(trader::RealtimeTrader)
-    pipeline = Data.DataPipeline(Data.RealtimeDataSource(trader.broker))
+function start_data(trader::RealtimeTrader; threaded = true, kwargs...)
+    pipeline = Data.DataPipeline(trader.broker)
     for (ticker, ledger) in trader.ticker_ledgers
         Data.attach!(pipeline, ledger)
     end
-    trader.data_task = Threads.@spawn @stoppable trader.stop_data Data.start_stream(pipeline)
+    if threaded
+        trader.data_task = Threads.@spawn Data.start_stream(pipeline, trader.stop_data)
+    else
+        trader.data_task = @async Data.start_stream(pipeline, trader.stop_data)
+    end
+        
 end
 
-function start_main(trader::RealtimeTrader)
-    trader.loop = Threads.@spawn @stoppable trader.stop_main begin
-        while true
-            try
-                if !trader.stop_data && (trader.data_task === nothing || istaskdone(trader.data_task) || istaskfailed(trader.data_task))
-                    start_data(trader)
+function start_main(trader::RealtimeTrader;sleep_time = 1, threaded=true, kwargs...)
+    if threaded
+        trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
+            while true
+                try
+                    update(trader)
+                catch e
+                    showerror(stdout, e, catch_backtrace())
                 end
-                if !trader.stop_trading && (trader.trading_task === nothing || istaskdone(trader.trading_task) || istaskfailed(trader.trading_task))
-                    start_trading(trader)
-                end
-                update(trader)
-            catch e
-                log_error(e)
+                sleep(sleep_time)
             end
-            sleep(1)
+        end
+    else
+        trader.main_task = @async @stoppable trader.stop_main begin
+            while true
+                try
+                    update(trader)
+                catch e
+                    showerror(stdout, e, catch_backtrace())
+                end
+                sleep(sleep_time)
+            end
         end
     end
 end
     
 function fill_account!(trader::RealtimeTrader)
     cash, positions = Data.account_details(trader.broker)
+
+
+    empty!(trader[Cash])
+    empty!(trader[PurchasePower])
+    empty!(trader[Position])
+    
     Entity(trader, Cash(cash), PurchasePower(cash))
     for p in positions
         Entity(trader, Position(p...))
     end
 end
 
-function start(trader::RealtimeTrader)
-    if trader.loop !== nothing && !istaskdone(trader.loop)
+function start(trader::RealtimeTrader; kwargs...)
+    if trader.main_task !== nothing && !istaskdone(trader.main_task)
         error("Trader already started")
     end
 
     fill_account!(trader)
     
-    start_trading(trader)
-    start_data(trader)
-    start_main(trader)
+    start_trading(trader; kwargs...)
+    start_data(trader; kwargs...)
+    start_main(trader; kwargs...)
     return trader
 end
 
-function order_update!(trader::RealtimeTrader, order_msg)
-    uid = UUID(order_msg[:id])
-   
-    id = nothing
-    while id === nothing
-        id = findfirst(x->x.id == uid, trader[Order].data)
-    end
-
-    order = trader[Order].data[id]
-
-    order.status           = order_msg[:status]
-    order.updated_at       = TimeDate(order_msg[:updated_at][1:end-1])
-    order.filled_at        = TimeDate(order_msg[:filled_at][1:end-1])
-    order.submitted_at     = TimeDate(order_msg[:submitted_at][1:end-1])
-    order.filled_qty       = parse(Int, order_msg[:filled_qty])
-    order.filled_avg_price = parse(Float64, order_msg[:filled_avg_price])
-end
-
-current_price(trader::RealtimeTrader, ticker) = trader.ticker_ledgers[ticker][Close][end].v
-
-timestamp(trader::RealtimeTrader) = TimeStamp()

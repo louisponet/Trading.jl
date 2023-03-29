@@ -7,7 +7,6 @@ struct SnapShotter <: System end
 Overseer.requested_components(::SnapShotter) = (PortfolioSnapshot, TimeStamp)
 
 function Overseer.update(::SnapShotter, l::AbstractLedger)
-   
     curt = current_time(l)
     if !in_day(curt)
         return
@@ -25,10 +24,7 @@ function Overseer.update(::SnapShotter, l::AbstractLedger)
     
     for e in @entities_in(l, Position)
         push!(positions, deepcopy(e[Position]))
-        price = current_price(l, e.ticker)
-        if price === nothing
-            return
-        end
+        price = Data.current_price(l, e.ticker)
         totval += price * e.quantity
     end
     

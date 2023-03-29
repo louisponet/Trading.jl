@@ -31,7 +31,7 @@ function Base.string(t::TimeInForce.T)
     end
 end
 
-@component Base.@kwdef struct Purchase
+@component Base.@kwdef mutable struct Purchase
     ticker::String
     quantity::Float64
     type::OrderType.T
@@ -59,7 +59,7 @@ end
     requested_quantity::Float64
 end
 
-@component Base.@kwdef struct Sale
+@component Base.@kwdef mutable struct Sale
     ticker::String
     quantity::Float64
     type::OrderType.T

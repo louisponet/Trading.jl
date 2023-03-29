@@ -9,8 +9,10 @@ module Data
     using JSON3
     using Overseer
     using Overseer: AbstractLedger
-    
-    using ..Trading: clock, Clock, Open, High, Low, Close, TimeStamp, Volume, New
+    using UUIDs
+
+    using Overseer: EntityState
+    using ..Trading: clock, Clock, Open, High, Low, Close, TimeStamp, Volume, New, Purchase, Sale, OrderType, Order
     
     include("types.jl")
     include("alpaca.jl")

@@ -165,29 +165,10 @@ function stop_all(trader::RealtimeTrader)
     trader.stop_main = false
     return trader
 end
-    
-
-function authenticate_trading(ws, t::RealtimeTrader)
-    send(ws, JSON3.write(Dict("action" => "auth",
-                              "key"    => t.broker.key_id,
-                              "secret" => t.broker.secret_key)))
-    reply = receive(ws)
-    try
-        return JSON3.read(reply)["data"]["status"] == "authorized"
-    catch
-        return false
-    end
-end
-
-function subscribe_tickers(ws, tickers)
-    send(ws, JSON3.write(Dict("action" => "subscribe",
-                              "bars"  => collect(keys(tickers)))))
-end
 
 function delete_all_orders!(t::RealtimeTrader)
     HTTP.delete(URI(PAPER_TRADING_URL, path="/v2/orders"), Data.header(t.broker))
 end
-
 
 function start_trading(trader::RealtimeTrader)
     trader.trading_task = Threads.@spawn @stoppable trader.stop_trading begin
@@ -210,11 +191,11 @@ function start_trading(trader::RealtimeTrader)
 end
 
 function start_data(trader::RealtimeTrader)
-    distributor = Data.DataDistributor(Data.RealtimeDataProvider(trader.broker))
+    pipeline = Data.DataPipeline(Data.RealtimeDataSource(trader.broker))
     for (ticker, ledger) in trader.ticker_ledgers
-        Data.register!(distributor, ledger)
+        Data.attach!(pipeline, ledger)
     end
-    trader.data_task = Threads.@spawn @stoppable trader.stop_data Data.loop(distributor)
+    trader.data_task = Threads.@spawn @stoppable trader.stop_data Data.start_stream(pipeline)
 end
 
 function start_main(trader::RealtimeTrader)
@@ -276,40 +257,5 @@ function order_update!(trader::RealtimeTrader, order_msg)
 end
 
 current_price(trader::RealtimeTrader, ticker) = trader.ticker_ledgers[ticker][Close][end].v
-
-function submit_order(trader::RealtimeTrader, e; quantity = e.quantity)
-    side = Purchase ∈ e ? "buy" : "sell"
-    body = Dict("symbol"        => string(e.ticker),
-                "qty"           => string(quantity),
-                "side"          => side,
-                "type"          => string(e.type),
-                "time_in_force" => string(e.time_in_force))
-    
-    if e.type == OrderType.Limit
-        body["limit_price"] = string(e.price)
-    end
-        
-    resp = HTTP.post(URI(PAPER_TRADING_URL, path="/v2/orders"), Data.header(trader.broker), JSON3.write(body))
-    if resp.status != 200
-        error("something went wrong")
-    end
-
-    parse_body = JSON3.read(resp.body)
-
-    return Order(e.ticker,
-                 UUID(parse_body[:id]),
-                 UUID(parse_body[:client_order_id]),
-                 parse_body[:created_at] !== nothing ? TimeDate(parse_body[:created_at][1:end-1])     : nothing,
-                 parse_body[:updated_at] !== nothing ? TimeDate(parse_body[:updated_at][1:end-1])     : nothing,
-                 parse_body[:submitted_at] !== nothing ? TimeDate(parse_body[:submitted_at][1:end-1]) : nothing,
-                 parse_body[:filled_at] !== nothing ? TimeDate(parse_body[:filled_at][1:end-1])       : nothing,
-                 parse_body[:expired_at] !== nothing ? TimeDate(parse_body[:expired_at][1:end-1])     : nothing,
-                 parse_body[:canceled_at] !== nothing ? TimeDate(parse_body[:canceled_at][1:end-1])   : nothing,
-                 parse_body[:failed_at] !== nothing ? TimeDate(parse_body[:failed_at][1:end-1])       : nothing,
-                 parse(Float64, parse_body[:filled_qty]),
-                 parse_body[:filled_avg_price] !== nothing ? parse(Float64, parse_body[:filled_avg_price]) : 0.0,
-                 parse_body[:status],
-                 quantity)
-end
 
 timestamp(trader::RealtimeTrader) = TimeStamp()

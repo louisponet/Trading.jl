@@ -1,7 +1,6 @@
 const ALPACA_HISTORICAL_DATA_URL = URI("https://data.alpaca.markets")
-const ALPACA_PAPER_TRADING_URL   = URI("wss://paper-api.alpaca.markets/stream")
 
-Base.@kwdef mutable struct AlpacaBroker <: AbstractBroker
+ Base.@kwdef mutable struct AlpacaBroker <: AbstractBroker
     key_id::String
     secret_key::String
     rate::Int = 200
@@ -24,15 +23,17 @@ AlpacaBroker(key_id, secret_key; kwargs...) = AlpacaBroker(; key_id=key_id, secr
 Base.string(::AlpacaBroker, start::TimeDate) = string(start) * "Z"
 header(b::AlpacaBroker) = ["APCA-API-KEY-ID" => b.key_id, "APCA-API-SECRET-KEY" => b.secret_key]
 
-data_stream_url(::AlpacaBroker) = URI("wss://stream.data.alpaca.markets/v2/iex")
-
+data_stream_url(::AlpacaBroker)    = URI("wss://stream.data.alpaca.markets/v2/iex")
+trading_stream_url(::AlpacaBroker) = URI("wss://paper-api.alpaca.markets/stream") 
+trading_url(::AlpacaBroker) = URI("https://paper-api.alpaca.markets")
 function bars(::AlpacaBroker, msg::AbstractVector)
     return map(filter(x->x[:T] == "b", msg)) do bar
         ticker = bar[:S]
         ticker, (TimeDate(bar[:t][1:end-1]), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
     end
 end        
-        
+
+#TODO merge both
 function authenticate_data(b::AlpacaBroker, ws::WebSocket)
     send(ws, JSON3.write(Dict("action" => "auth",
                               "key"    => b.key_id,
@@ -40,6 +41,18 @@ function authenticate_data(b::AlpacaBroker, ws::WebSocket)
     reply = receive(ws)
     try
         return JSON3.read(reply)[1][:T] == "success"
+    catch
+        return false
+    end
+end
+
+function authenticate_trading(b::AlpacaBroker, ws::WebSocket)
+    send(ws, JSON3.write(Dict("action" => "auth",
+                              "key"    => b.key_id,
+                              "secret" => b.secret_key)))
+    reply = receive(ws)
+    try
+        return JSON3.read(reply)["data"]["status"] == "authorized"
     catch
         return false
     end
@@ -182,4 +195,21 @@ function account_details(b::AlpacaBroker)
     return (;cash, positions)
 end
 
+
+function parse_order(::AlpacaBroker, parse_body)
+    Order(parse_body[:symbol],
+                 UUID(parse_body[:id]),
+                 UUID(parse_body[:client_order_id]),
+                 parse_body[:created_at] !== nothing ? TimeDate(parse_body[:created_at][1:end-1])     : nothing,
+                 parse_body[:updated_at] !== nothing ? TimeDate(parse_body[:updated_at][1:end-1])     : nothing,
+                 parse_body[:submitted_at] !== nothing ? TimeDate(parse_body[:submitted_at][1:end-1]) : nothing,
+                 parse_body[:filled_at] !== nothing ? TimeDate(parse_body[:filled_at][1:end-1])       : nothing,
+                 parse_body[:expired_at] !== nothing ? TimeDate(parse_body[:expired_at][1:end-1])     : nothing,
+                 parse_body[:canceled_at] !== nothing ? TimeDate(parse_body[:canceled_at][1:end-1])   : nothing,
+                 parse_body[:failed_at] !== nothing ? TimeDate(parse_body[:failed_at][1:end-1])       : nothing,
+                 parse(Float64, parse_body[:filled_qty]),
+                 parse_body[:filled_avg_price] !== nothing ? parse(Float64, parse_body[:filled_avg_price]) : 0.0,
+                 parse_body[:status],
+                 parse_body[:requested_qty])
+end
 

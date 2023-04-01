@@ -7,7 +7,7 @@ function Overseer.update(::Purchaser, l::AbstractLedger)
     for e in @entities_in(l, Purchase && !Order)
 
         if e.type == OrderType.Market
-            cur_price = current_price(l, e.ticker)
+            cur_price = Data.current_price(l, e.ticker)
             cur_price == nothing && continue
         elseif e.type == OrderType.Limit
             cur_price = e.limit_price
@@ -24,8 +24,11 @@ function Overseer.update(::Purchaser, l::AbstractLedger)
             quantity = e.quantity
         end
 
+        e.quantity = round(quantity)
+        
         cash.cash -= tot_cost
-        l[e] = submit_order(l, e; quantity=quantity)
+    
+        Data.submit_order(l, e)
     end
 end
 
@@ -63,35 +66,36 @@ struct Seller <: System end
 Overseer.requested_components(::Seller) = (Sale, Position, Order)
 
 function Overseer.update(::Seller, l::AbstractLedger)
-    for e in @safe_entities_in(l, Sale && !Order)
-        posid = findfirst(x -> x.ticker == e.ticker, l[Position])
-        if posid === nothing
-            pop!(l[Sale], e)
-            continue
-        end
-
-        position = l[Position][posid]
+    for e in @entities_in(l, Sale && !Order)
+        if e.quantity === Inf
+            posid = findfirst(x -> x.ticker == e.ticker, l[Position])
             
-        if position.quantity == 0.0
-            pop!(l[Sale], e)
-            continue
-        end
-        
-        if position.quantity < e.quantity
-            quantity = position.quantity
-        else
-            quantity = e.quantity
-        end
+            if posid === nothing
+                pop!(l[Sale], e)
+                continue
+            end
 
-        l[e] = submit_order(l, e; quantity=quantity)
+            position = l[Position][posid]
+            
+            if position.quantity == 0.0
+                pop!(l[Sale], e)
+                continue
+            end
+        
+            if position.quantity < e.quantity
+                e.quantity = position.quantity
+            end
+        end
+        e.quantity = round(e.quantity)
+        Data.submit_order(l, e)
     end
 end
 
 struct DayCloser <: System end
 
-Overseer.requested_components(::DayCloser) = (Sale, Position,)
+Overseer.requested_components(::DayCloser) = (Sale, Position,Strategy)
 
-function Overseer.update(::DayCloser, l::T) where {T<:AbstractTrader}
+function Overseer.update(::DayCloser, l::AbstractLedger)
     cur_t   = current_time(l)
     close_t = market_open_close(cur_t)[2]
 
@@ -101,20 +105,27 @@ function Overseer.update(::DayCloser, l::T) where {T<:AbstractTrader}
 
     for e in @entities_in(l, Position)
         if e.quantity > 0
-            l[e] = Sale(e.ticker, Inf, OrderType.Market, TimeInForce.GTC, 0.0, 0.0)
+            Entity(l, Sale(e.ticker, Inf, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+        elseif e.quantity < 0 
+            Entity(l, Purchase(e.ticker, -e.quantity, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
         end
     end
+    update(Purchaser(), l)
+    update(Seller(), l)
     
-    for e in @safe_entities_in(l, Purchase && !Filled && !Order)
-        pop!(l[Purchase], e)
-    end
-
     empty!(stages(l))
-    push!(l, end_of_day_stage(T))
+    stage = main_stage(current_time(l))
+    pop!(stage.steps)
+    push!(stage.steps, DayOpener())
+    push!(l, stage)
 
     for e in @entities_in(l, Strategy)
         if !e.only_day
             push!(l, e.stage)
+        else
+            for c in Overseer.requested_components(e.stage)
+                empty!(l[c])
+            end
         end
     end
     
@@ -125,20 +136,26 @@ struct DayOpener <: System end
 
 Overseer.requested_components(::DayOpener) = (Strategy,)
 
-function Overseer.update(::DayOpener, l::T) where {T <: AbstractTrader}
+function Overseer.update(::DayOpener, l::AbstractLedger)
     cur_t   = current_time(l)
-    open_t = market_open_close(cur_t)[1]
+    open_t, close_t = market_open_close(cur_t)
 
-    if open_t > cur_t 
+    if cur_t > close_t || open_t > cur_t 
         return
     end
 
     empty!(stages(l))
-    push!(l, in_session_stage(T))
-    
+    stage = main_stage(current_time(l))
+    pop!(stage.steps)
+    push!(stage.steps, DayCloser())
+    push!(l, stage)
+
     for e in @entities_in(l, Strategy)
         push!(l, e.stage)
     end
-
+    
     ensure_systems!(l)
+    for ledger in values(l.ticker_ledgers)
+        empty_entities!(ledger)
+    end
 end

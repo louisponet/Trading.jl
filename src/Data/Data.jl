@@ -17,5 +17,7 @@ module Data
     include("types.jl")
     include("historical.jl")
     include("alpaca.jl")
+    include("tradinglink.jl")
+    include("ledger.jl")
     
 end

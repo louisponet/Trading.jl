@@ -25,6 +25,9 @@ function Overseer.update(::SnapShotter, l::AbstractLedger)
     for e in @entities_in(l, Position)
         push!(positions, deepcopy(e[Position]))
         price = Data.current_price(l, e.ticker)
+        if price === nothing
+            return
+        end
         totval += price * e.quantity
     end
     
@@ -37,6 +40,8 @@ Overseer.requested_components(::Timer) = (Clock,)
 
 function Overseer.update(::Timer, l::AbstractLedger)
     for t in l[Clock]
-        t.time += t.dtime
+        if t.dtime.value == 0
+            t.time = clock()
+        end
     end
 end

@@ -134,7 +134,6 @@ function stock_query(broker::AlpacaBroker, symbol, start, stop=nothing, ::Type{T
         broker.nrequests += 1
         if resp.status == 200
             t = JSON3.read(resp.body)
-
             if t[section_symbol] === nothing
                 if t["next_page_token"] === nothing
                     return

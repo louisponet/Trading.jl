@@ -4,25 +4,20 @@ end
 
 Overseer.ledger(trader::SimulatedTrader) = trader.trader.l
 
-function SimulatedTrader(account, tickers::Vector{String}, strategies; dt=Minute(1), start=now() - dt*1000, stop = now(), cash = 1_000_000)
-    trader = RealtimeTrader(account, tickers, strategies)
-
-    if in_day(start)
-        pop!(stage(trader, :main).steps)
-        push!(stage(trader, :main).steps, DayCloser())
-    else
-        pop!(stage(trader, :main).steps)
-        push!(stage(trader, :main).steps, DayOpener())
-    end
+function SimulatedTrader(account, tickers::Vector{String}, strategies; dt=Minute(1), start=now() - dt*1000, stop = now(), cash = 1_000_000, only_day=true)
+    trader = RealtimeTrader(account, tickers, strategies, start=start)
 
     @info "Fetching historical data"
     Threads.@threads for ticker in tickers
-        Data.bars(account, ticker, start, stop, timeframe=dt) 
+        b = Data.bars(account, ticker, start, stop, timeframe=dt)
+        if only_day
+            account.bar_data[(ticker, dt)] = b[findall(x->in_day(x), timestamp(b))]
+        end
     end
 
-    c = Clock(TimeDate(start), dt)
-    Entity(trader, c)
-    account.clock = c
+    c = singleton(trader, Clock)
+    c.dtime = dt
+    account.clock = c[Clock]
     
     return SimulatedTrader(trader)
 end
@@ -54,14 +49,15 @@ function start(trader::SimulatedTrader; sleep_time = 0.001)
         last = max(tstop, last)
     end
 
-    start(trader.trader; sleep_time=0.0, threaded=false)
-    # p = ProgressMeter.ProgressUnknown("Simulating..."; spinner = true) 
-    # while current_time(trader) < last
-    #     showvalues = isempty(trader[PortfolioSnapshot]) ?
-    #                  [(:t, trader[Clock][1].time), (:value, trader[Cash][1].cash)] :
-    #                  [(:t, trader[Clock][1].time), (:value, trader[PortfolioSnapshot][end].value)]
-    #     ProgressMeter.next!(p; spinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏", showvalues = showvalues)
-    # end
-    # stop_all(trader.trader)
-    # ProgressMeter.finish!(p)
+    start(trader.trader; sleep_time=0.0, threaded=true)
+    p = ProgressMeter.ProgressUnknown("Simulating..."; spinner = true) 
+    while current_time(trader) < last
+        showvalues = isempty(trader[PortfolioSnapshot]) ?
+                     [(:t, trader[Clock][1].time), (:value, trader[Cash][1].cash)] :
+                     [(:t, trader[Clock][1].time), (:value, trader[PortfolioSnapshot][end].value)]
+        ProgressMeter.next!(p; spinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏", showvalues = showvalues)
+        sleep(1)
+    end
+    stop_all(trader.trader)
+    ProgressMeter.finish!(p)
 end

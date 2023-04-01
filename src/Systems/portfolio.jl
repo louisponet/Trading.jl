@@ -66,7 +66,7 @@ struct Seller <: System end
 Overseer.requested_components(::Seller) = (Sale, Position, Order)
 
 function Overseer.update(::Seller, l::AbstractLedger)
-    for e in @safe_entities_in(l, Sale && !Order)
+    for e in @entities_in(l, Sale && !Order)
         if e.quantity === Inf
             posid = findfirst(x -> x.ticker == e.ticker, l[Position])
             
@@ -114,13 +114,18 @@ function Overseer.update(::DayCloser, l::AbstractLedger)
     update(Seller(), l)
     
     empty!(stages(l))
-    stage = main_stage()
+    stage = main_stage(current_time(l))
+    pop!(stage.steps)
     push!(stage.steps, DayOpener())
     push!(l, stage)
 
     for e in @entities_in(l, Strategy)
         if !e.only_day
             push!(l, e.stage)
+        else
+            for c in Overseer.requested_components(e.stage)
+                empty!(l[c])
+            end
         end
     end
     
@@ -140,7 +145,8 @@ function Overseer.update(::DayOpener, l::AbstractLedger)
     end
 
     empty!(stages(l))
-    stage = main_stage()
+    stage = main_stage(current_time(l))
+    pop!(stage.steps)
     push!(stage.steps, DayCloser())
     push!(l, stage)
 
@@ -149,4 +155,7 @@ function Overseer.update(::DayOpener, l::AbstractLedger)
     end
     
     ensure_systems!(l)
+    for ledger in values(l.ticker_ledgers)
+        empty_entities!(ledger)
+    end
 end

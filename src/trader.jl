@@ -2,21 +2,6 @@ abstract type AbstractTrader <: AbstractLedger end
 
 Entity(t::AbstractTrader, args...) = Entity(Overseer.ledger(t), TimeStamp(t), args...)
 
-function Overseer.update(trader::AbstractTrader)
-    singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash 
-    ticker_ledgers = values(trader.ticker_ledgers)
-    
-    update(stage(trader, :main), trader)
-    
-    for s in stages(trader)
-        s.name == :main && continue
-        update(s, trader)
-    end
-    for tl in ticker_ledgers
-        empty!(tl[New])
-    end
-end 
-
 in_day(l::AbstractTrader) = in_day(current_time(l))
 
 function current_position(t::AbstractLedger, ticker::String)
@@ -26,7 +11,10 @@ function current_position(t::AbstractLedger, ticker::String)
 end
 
 Data.current_price(t::AbstractTrader, ticker) = Data.current_price(t.broker, ticker)
-Data.submit_order(t::AbstractTrader, e) = put!(t.order_channel, e)
+
+function Data.submit_order(t::AbstractTrader, e)
+    t[e] = Data.submit_order(t.broker, e)
+end
 
 TimeStamp(l::AbstractTrader) = TimeStamp(current_time(l))
 

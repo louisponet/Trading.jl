@@ -3,22 +3,24 @@ mutable struct RealtimeTrader{B <: Data.AbstractBroker} <: AbstractTrader
     broker::B
     ticker_ledgers::Dict{String, Data.DataLedger}
     data_task::Union{Task, Nothing}
-    order_channel::Channel
+    trading_task::Union{Task, Nothing}
     main_task::Union{Task, Nothing}
     stop_main::Bool
+    stop_trading::Bool
     stop_data::Threads.Condition
+    new_data_event::Threads.Condition
 end
 
 Overseer.ledger(t::RealtimeTrader) = t.l
 
-main_stage() = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), in_day(clock()) ? DayCloser() : DayOpener()])
-current_time(trader::RealtimeTrader) = TimeDate(now())
+main_stage(t=clock()) = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), in_day(t) ? DayCloser() : DayOpener()])
+current_time(trader::RealtimeTrader) = isempty(trader[Clock]) ? clock() : trader[Clock][1].time
 
-function RealtimeTrader(account, tickers::Vector{String}, strategies::Vector{Strategy} = Strategy[])
+function RealtimeTrader(account, tickers::Vector{String}, strategies::Vector{Strategy} = Strategy[];start=clock())
     stages = Stage[]
-    inday = in_day(now())
+    inday = in_day(start)
     
-    push!(stages, main_stage())
+    push!(stages, main_stage(start))
 
     for s in strategies
         if !s.only_day
@@ -29,6 +31,7 @@ function RealtimeTrader(account, tickers::Vector{String}, strategies::Vector{Str
     end
         
     l = Ledger(stages...)
+    Entity(l, Clock(start, Minute(0)))
     
     ensure_systems!(l)
 
@@ -56,7 +59,7 @@ function RealtimeTrader(account, tickers::Vector{String}, strategies::Vector{Str
 
     Overseer.ensure_component!(l, New)
     
-    trader = RealtimeTrader(l, account, ticker_ledgers, nothing, Channel(), nothing, false, Threads.Condition())
+    trader = RealtimeTrader(l, account, ticker_ledgers, nothing, nothing, nothing, false, false, Threads.Condition(), Threads.Condition())
     
     fill_account!(trader)
     
@@ -74,7 +77,7 @@ function Base.show(io::IO, ::MIME"text/plain", trader::RealtimeTrader)
     
     println(io, "Trader\n")
     println(io, "Main task:    $(trader.main_task)")
-    println(io, "Order channel: $(trader.order_channel)")
+    println(io, "Trading task: $(trader.trading_task)")
     println(io, "Data task:    $(trader.data_task)")
     println(io)
      
@@ -141,7 +144,11 @@ function stop_data(trader::RealtimeTrader)
 end
 
 function stop_trading(trader::RealtimeTrader)
-    close(trader.order_channel)
+    trader.stop_trading=true
+    while !istaskdone(trader.trading_task)
+        sleep(1)
+    end
+    trader.stop_trading=false
 end
 
 function stop_all(trader::RealtimeTrader)
@@ -159,52 +166,67 @@ end
 
 delete_all_orders!(t::RealtimeTrader) = Data.delete_all_orders!(t.broker)
 
-function start_trading(trader::RealtimeTrader;threaded=true, kwargs...)
-    trader.order_channel = Channel(c -> Data.start_trading(c, trader.broker, trader[Order]), 100, spawn=threaded)
+function start_trading(trader::RealtimeTrader)
+    order_comp = trader[Order]
+    broker = trader.broker
+    trader.trading_task = Threads.@spawn @stoppable trader.stop_trading Data.trading_link(broker) do link
+        while true
+            try
+                received = receive(link)
+                if received === nothing
+                    continue
+                end
+                
+                uid = received.id
+
+                tries = 0
+                id = nothing
+                #TODO dangerous when an order would come from somewhere else
+                while id === nothing && tries < 100
+                    id = findlast(x->x.id == uid, order_comp.data)
+                    tries += 1
+                end
+                if id === nothing
+                    Entity(trader, received)
+                else
+                    order_comp[id] = received
+                end
+            catch e
+                if !(e isa InvalidStateException) && !(e isa EOFError) && !(e isa InterruptException)
+                    showerror(stdout, e, catch_backtrace())
+                end
+                break
+            end
+                    
+        end
+        @info "Closed Trading Stream"
+    end
 end
 
-function start_data(trader::RealtimeTrader; threaded = true, kwargs...)
+function start_data(trader::RealtimeTrader;  kwargs...)
     pipeline = Data.DataPipeline(trader.broker)
     for (ticker, ledger) in trader.ticker_ledgers
         Data.attach!(pipeline, ledger)
     end
-    if threaded
-        trader.data_task = Threads.@spawn Data.start_stream(pipeline, trader.stop_data)
-    else
-        trader.data_task = @async Data.start_stream(pipeline, trader.stop_data)
-    end
+    trader.data_task = Threads.@spawn Data.start_stream(pipeline, trader.stop_data, trader.new_data_event)
         
 end
 
-function start_main(trader::RealtimeTrader;sleep_time = 1, threaded=true, kwargs...)
-    if threaded
-        trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
-            while true
-                try
-                    update(trader)
-                catch e
-                    showerror(stdout, e, catch_backtrace())
-                end
-                sleep(sleep_time)
+function start_main(trader::RealtimeTrader;sleep_time = 1, kwargs...)
+    trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
+        while !trader.stop_main
+            try
+                update(trader)
+            catch e
+                showerror(stdout, e, catch_backtrace())
             end
-        end
-    else
-        trader.main_task = @async @stoppable trader.stop_main begin
-            while true
-                try
-                    update(trader)
-                catch e
-                    showerror(stdout, e, catch_backtrace())
-                end
-                sleep(sleep_time)
-            end
+            sleep(sleep_time)
         end
     end
 end
     
 function fill_account!(trader::RealtimeTrader)
     cash, positions = Data.account_details(trader.broker)
-
 
     empty!(trader[Cash])
     empty!(trader[PurchasePower])
@@ -223,9 +245,33 @@ function start(trader::RealtimeTrader; kwargs...)
 
     fill_account!(trader)
     
-    start_trading(trader; kwargs...)
+    start_trading(trader)
     start_data(trader; kwargs...)
     start_main(trader; kwargs...)
     return trader
 end
+
+function Overseer.update(trader::RealtimeTrader)
+    singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash 
+
+    for s in stages(trader)
+        update(s, trader)
+    end
+end 
+
+function Overseer.update(trader::RealtimeTrader{<:Data.HistoricalBroker})
+    singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash 
+    for s in stages(trader)
+        update(s, trader)
+    end
+    lock(trader.new_data_event)
+    try
+        lock(trader.broker.send_bars)
+        notify(trader.broker.send_bars)
+        unlock(trader.broker.send_bars)
+        wait(trader.new_data_event)
+    finally
+        unlock(trader.new_data_event)
+    end
+end 
 

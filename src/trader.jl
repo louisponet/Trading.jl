@@ -1,4 +1,4 @@
-mutable struct Trader{B <: Data.AbstractBroker}
+mutable struct Trader{B <: Data.AbstractBroker} <: AbstractLedger
     l::Ledger
     broker::B
     ticker_ledgers::Dict{String, Data.DataLedger}
@@ -13,7 +13,7 @@ end
 
 Overseer.ledger(t::Trader) = t.l
 
-main_stage(t=clock()) = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), in_day(t) ? DayCloser() : DayOpener()])
+main_stage(t=clock()) = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), DayCloser()])
 current_time(trader::Trader) = isempty(trader[Clock]) ? clock() : trader[Clock][1].time
 
 function Trader(account, tickers::Vector{String}, strategies::Vector{Strategy} = Strategy[];start=clock())
@@ -23,11 +23,7 @@ function Trader(account, tickers::Vector{String}, strategies::Vector{Strategy} =
     push!(stages, main_stage(start))
 
     for s in strategies
-        if !s.only_day
-            push!(stages, s.stage)
-        elseif inday
-            push!(stages, s.stage)
-        end
+        push!(stages, s.stage)
     end
         
     l = Ledger(stages...)
@@ -38,7 +34,6 @@ function Trader(account, tickers::Vector{String}, strategies::Vector{Strategy} =
     ticker_ledgers  = Dict{String, Data.DataLedger}()
     
     for ticker in tickers
-        
         ticker_ledger = Data.DataLedger(ticker)
         for s in strategies
             for c in Overseer.requested_components(s.stage)
@@ -50,7 +45,7 @@ function Trader(account, tickers::Vector{String}, strategies::Vector{Strategy} =
         Overseer.ensure_component!(ticker_ledger, New)
         
         ticker_ledgers[ticker] = ticker_ledger
-         
+        Entity(l, Position(ticker, 0.0)) 
     end
 
     for s in strategies
@@ -129,14 +124,17 @@ function stop_main(trader::Trader)
         sleep(1)
     end
     trader.stop_main = false
+    if trader.broker isa Data.HistoricalBroker
+        notify(trader.broker.send_bars)
+    end
     return trader
 end
 
 function stop_data(trader::Trader)
-    lock(trader.stop_data)
+    lock(trader.stop_data) do
+        notify(trader.stop_data, true)
+    end
     
-    notify(trader.stop_data, true)
-    unlock(trader.stop_data)
     while !istaskdone(trader.data_task)
         sleep(1)
     end
@@ -152,16 +150,10 @@ function stop_trading(trader::Trader)
 end
 
 function stop_all(trader::Trader)
-    lock(trader.stop_data)
-    notify(trader.stop_data, true)
-    unlock(trader.stop_data)
-    trader.stop_main = true
-    stop_trading(trader)
-    while !istaskdone(trader.data_task) || !istaskdone(trader.main_task)
-        sleep(1)
-    end
-    trader.stop_main = false
-    return trader
+    t1 = @async stop_data(trader)
+    t2 = @async stop_trading(trader)
+    t3 = @async stop_main(trader)
+    fetch(t1), fetch(t2), fetch(t3)
 end
 
 delete_all_orders!(t::Trader) = Data.delete_all_orders!(t.broker)
@@ -230,11 +222,15 @@ function fill_account!(trader::Trader)
 
     empty!(trader[Cash])
     empty!(trader[PurchasePower])
-    empty!(trader[Position])
     
     Entity(trader, Cash(cash), PurchasePower(cash))
     for p in positions
-        Entity(trader, Position(p...))
+        id = findfirst(x->x.ticker == p[1], trader[Position])
+        if id === nothing 
+            Entity(trader, Position(p...))
+        else
+            trader[Position][id].quantity = p[2]
+        end
     end
 end
 
@@ -270,6 +266,7 @@ function start(trader::Trader{<:Data.HistoricalBroker})
     end
     stop_all(trader)
     ProgressMeter.finish!(p)
+    return trader
 end
 
 function Overseer.update(trader::Trader)
@@ -282,17 +279,13 @@ end
 
 function Overseer.update(trader::Trader{<:Data.HistoricalBroker})
     singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash 
+    notify(trader.broker.send_bars)
+    
+    lock(trader.new_data_event) do 
+        wait(trader.new_data_event)
+    end
     for s in stages(trader)
         update(s, trader)
-    end
-    lock(trader.new_data_event)
-    try
-        lock(trader.broker.send_bars)
-        notify(trader.broker.send_bars)
-        unlock(trader.broker.send_bars)
-        wait(trader.new_data_event)
-    finally
-        unlock(trader.new_data_event)
     end
 end 
 
@@ -356,15 +349,25 @@ end
 
 function setup_simulation(account::Data.HistoricalBroker, tickers::Vector{String}, strategies; dt=Minute(1), start=now() - dt*1000, stop = now(), cash = 1_000_000, only_day=true)
     trader = Trader(account, tickers, strategies, start=start)
-
+    maxstart = start
+    minstop = stop
+    lck = ReentrantLock()
     @info "Fetching historical data"
     Threads.@threads for ticker in tickers
-        b = Data.bars(account, ticker, start, stop, timeframe=dt)
+        b = Data.bars(account, ticker, start, stop, timeframe=dt, normalize=true)
+        lock(lck) do 
+            maxstart = max(timestamp(b)[1], maxstart)
+            minstop  = min(timestamp(b)[end], minstop)
+        end
         if only_day
-            account.bar_data[(ticker, dt)] = b[findall(x->in_day(x), timestamp(b))]
+            account.bar_data[(ticker, dt)] = Data.only_trading(b)
         end
     end
 
+    for ticker in tickers
+        account.bar_data[(ticker, dt)] = to(from(account.bar_data[(ticker, dt)], maxstart), minstop)
+    end
+    
     c = singleton(trader, Clock)
     c.dtime = dt
     account.clock = c[Clock]
@@ -374,16 +377,26 @@ end
 
 function reset!(trader::Trader)
     for (ticker, l) in trader.ticker_ledgers
-        
         empty_entities!(l)
-        
     end
     dt = trader[Clock][1].dtime
 
     start = minimum(x->timestamp(x)[1], values(trader.broker.bar_data))
 
-    empty_entities!(trader)
-    Entity(trader, Clock(TimeDate(start), dt)) 
+    empty!(trader[Purchase])
+    empty!(trader[Order])
+    empty!(trader[Sale])
+    empty!(trader[Filled])
+    empty!(trader[Cash])
+    empty!(trader[Clock])
+    empty!(trader[TimeStamp])
+    empty!(trader[PortfolioSnapshot])
+    
+    c = Clock(TimeDate(start), dt)
+    Entity(trader, c)
+    if trader.broker isa Data.HistoricalBroker
+        trader.broker.clock = c
+    end
     fill_account!(trader)
     return trader
 end
@@ -398,6 +411,15 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols=keys(components(l)))
 
     tcomp = l[TimeStamp]
     for T in cols
+
+        if T == TimeStamp
+            continue
+        end
+        
+        if !hasmethod(value, (T,))
+            continue
+        end
+        
         T_comp = l[T]
         es_to_store = filter(e -> e in tcomp, @entities_in(l[T]))
         if length(es_to_store) < 2
@@ -405,18 +427,22 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols=keys(components(l)))
         end
         timestamps = map(x->DateTime(tcomp[x].t), es_to_store)
 
-        fields_to_store = filter(x -> fieldtype(T, x) <: Number, fieldnames(T))
-        colnames = map(f -> "$(T)_$f", fields_to_store)
-        if isempty(fields_to_store)
-            continue
-        end
-
-        dat = map(fields_to_store) do field
-            map(x->Float64(getfield(x[T], field)), es_to_store)
-        end
-        t = TimeArray(timestamps, hcat(dat...), String[colnames...])
+        colname = replace("$(T)", "Trading." => "")
+        
+        t = TimeArray(timestamps, map(x-> value(l[T][x]), es_to_store), String[colname])
         out = out === nothing ? t : merge(out, t, method=:outer)
     end
+
+    if l isa Trader
+        for (ticker, ledger) in l.ticker_ledgers
+            ta = TimeArray(ledger)
+
+            colnames(ta) .= Symbol.((ticker * "_",) .* string.(colnames(ta)))
+            
+            out = merge(out, ta, method=:outer)
+        end
+    end
+    
     return out
 end
 

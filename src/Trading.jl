@@ -46,8 +46,6 @@ using .Data
 include("logging.jl")
 include("constants.jl")
 include("trader.jl")
-include("realtime.jl")
-include("simulation.jl")
 include("Systems/core.jl")
 include("Systems/indicators.jl")
 include("Systems/portfolio.jl")

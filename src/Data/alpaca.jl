@@ -39,10 +39,15 @@ function receive_bars(b::AlpacaBroker, ws)
     bars(b, JSON3.read(receive(ws)))
 end
 
+bar_fields(::AlpacaBroker) = (:t, :o, :h, :l, :c, :v, :n, :vw)
+
+mock_bar(b::AlpacaBroker, ticker, vals) = merge((T="b", S=ticker), NamedTuple(map(x -> x[1] => x[2], zip(bar_fields(b), vals))))
+
 function bars(::AlpacaBroker, msg::AbstractVector)
     return map(filter(x->x[:T] == "b", msg)) do bar
         ticker = bar[:S]
-        ticker, (TimeDate(bar[:t][1:end-1]), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
+        t = strip(bar[:t], 'Z') 
+        ticker, (TimeDate(string(t)), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
     end
 end        
 
@@ -75,11 +80,6 @@ end
 function subscribe_bars(::AlpacaBroker, ticker::String, ws::WebSocket)
     send(ws, JSON3.write(Dict("action" => "subscribe",
                               "bars"  => [ticker])))
-    # msg = JSON3.read(receive(ws))
-    # errid = findfirst(x->x[:T] == "error", msg)
-    # if errid !== nothing
-    #     @error msg[errid][:msg]
-    # end
 end
                               
 function Base.string(::AlpacaBroker, timeframe::Period)
@@ -145,13 +145,13 @@ function stock_query(broker::AlpacaBroker, symbol, start, stop=nothing, ::Type{T
             data = t[section_symbol]
 
             n_dat = length(data)
-            dat_keys = sort(collect(filter(!isequal(:t), keys(data[1]))))
+            dat_keys = bar_fields(broker)[2:end]
             t_dat = Dict([k => Vector{T}(undef, n_dat) for k in dat_keys])
             t_timestamps = Vector{TimeDate}(undef, n_dat)
 
             Threads.@threads for i in 1:n_dat
                 d = data[i]
-                t_timestamps[i] = TimeDate(d[:t][1:end-1])
+                t_timestamps[i] = TimeDate(string(strip(d[:t], 'Z')))
                 
                 for k in dat_keys
                     t_dat[k][i] = d[k]
@@ -233,7 +233,8 @@ function parse_order(::AlpacaBroker, parse_body)
                  parse(Float64, parse_body[:filled_qty]),
                  parse_body[:filled_avg_price] !== nothing ? parse(Float64, parse_body[:filled_avg_price]) : 0.0,
                  parse_body[:status],
-                 parse(Float64,parse_body[:qty]))
+                 parse(Float64,parse_body[:qty]),
+                 0.0)
 end
 
 side(::AlpacaBroker, ::EntityState{Tuple{Component{Purchase}}}) = "buy"
@@ -295,9 +296,14 @@ end
 
 current_time(::AlpacaBroker) = clock()
 
+function current_price(provider::AlpacaBroker, ticker)
+    dat = latest_quote(provider, ticker)
+    return dat === nothing ? nothing : (dat[1] + dat[2])/2
+end
+
 function failed_order(broker, order)
     t = current_time(broker)
-    return Order(order.ticker, uuid1(), uuid1(), t, t, t, nothing, nothing, nothing, t, 0.0, 0.0, "failed", order.quantity)
+    return Order(order.ticker, uuid1(), uuid1(), t, t, t, nothing, nothing, nothing, t, 0.0, 0.0, "failed", order.quantity, 0.0)
 end
 
 function submit_order(broker::AlpacaBroker, order)

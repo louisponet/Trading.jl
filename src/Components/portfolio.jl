@@ -57,6 +57,7 @@ end
     status          ::String
 
     requested_quantity::Float64
+    fee::Float64
 end
 
 @component Base.@kwdef mutable struct Sale
@@ -113,6 +114,7 @@ end
 @inline Base.:(>=)(b::PortfolioSnapshot, i::Number) = b.value >= i
 @inline Base.:(<=)(i::Number, b::PortfolioSnapshot) = i <= b.value
 @inline Base.:(<=)(b::PortfolioSnapshot, i::Number) = b.value <= i
+value(p::PortfolioSnapshot) = p.value
 
 @assign PortfolioSnapshot with Is{Indicator}
 

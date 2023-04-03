@@ -42,7 +42,8 @@ end
 Base.zero(::T) where {T<:SingleValIndicator} = T(0.0)
 @inline Base.sqrt(b::T) where {T <: SingleValIndicator} = T(sqrt(b.v))
 @inline Base.isless(b::SingleValIndicator, i) = b.v < i
-@inline value(b::SingleValIndicator) = b.v
+@inline value(b::SingleValIndicator) = value(b.v)
+@inline value(b::Number) = b
 @inline Base.convert(::Type{T}, b::SingleValIndicator) where {T <: Number} = convert(T, b.v)
 
 @assign SingleValIndicator with Is{Indicator}

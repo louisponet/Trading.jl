@@ -12,7 +12,9 @@ module Data
     using UUIDs
 
     using Overseer: EntityState
-    using ..Trading: clock, Clock, Open, High, Low, Close, TimeStamp, Volume, New, Purchase, Sale, OrderType, Order, @stoppable
+    using ..Trading: Clock, Open, High, Low, Close, TimeStamp, Volume, New, Purchase, Sale, OrderType, Order
+    using ..Trading: clock,  @stoppable, in_trading
+    
     
     include("types.jl")
     include("historical.jl")

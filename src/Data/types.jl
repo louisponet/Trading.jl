@@ -30,7 +30,7 @@ Interface for different datasources.
 """
 abstract type AbstractDataSource end
 
-current_price(link::AbstractDataSource, ticker) = nothing 
+current_price(provider::AbstractBroker, args...) = price(provider, current_time(provider), args...)
 last_close(link::AbstractDataSource, ticker)    = nothing
 
 const HistoricalTradeDataDict = Dict{String, TimeArray{Any, 2, TimeDate, Matrix{Any}}}
@@ -40,7 +40,7 @@ const HistoricalBarDataDict = Dict{Tuple{String, Period}, TimeArray{Float64, 2, 
 broker(b::AbstractBroker) = b
 stock_query(b::AbstractBroker, args...; kwargs...) = stock_query(broker(b), args...; kwargs...)
 
-function retrieve_data(provider::AbstractBroker, set, key, start, stop, args...; kwargs...)
+function retrieve_data(provider::AbstractBroker, set, key, start, stop, args...;normalize=false, kwargs...)
     ticker = key isa Tuple ? first(key) : key
 
     dt = key isa Tuple ? last(key) : Millisecond(1)
@@ -55,6 +55,7 @@ function retrieve_data(provider::AbstractBroker, set, key, start, stop, args...;
                 new_data = stock_query(provider, ticker, start, stop, args...; kwargs...)
                 
                 if new_data !== nothing
+                    new_data = normalize ? normalize_timearray(new_data; kwargs...) : new_data
                     set[key] = vcat(new_data, data)
                 end
                 
@@ -64,6 +65,7 @@ function retrieve_data(provider::AbstractBroker, set, key, start, stop, args...;
                 new_data = stock_query(provider, ticker, start, stop, args...; kwargs...)
 
                 if new_data !== nothing
+                    new_data = normalize ? normalize_timearray(new_data; kwargs...) : new_data
                     set[key] = vcat(data, new_data)
                 end
                 
@@ -79,6 +81,7 @@ function retrieve_data(provider::AbstractBroker, set, key, start, stop, args...;
             new_data = stock_query(provider, ticker, start, next_stop, args...; kwargs...)
             
             if new_data !== nothing
+                new_data = normalize ? normalize_timearray(new_data; kwargs...) : new_data
                 out_data = vcat(new_data, data)
                 set[key] = out_data
             else
@@ -98,6 +101,7 @@ function retrieve_data(provider::AbstractBroker, set, key, start, stop, args...;
             
             new_data = stock_query(provider, ticker, next_start, stop, args...; kwargs...)
             if new_data !== nothing
+                new_data = normalize ? normalize_timearray(new_data; kwargs...) : new_data
                 out_data = vcat(out_data, new_data)
                 set[key] = vcat(data, new_data)
             end
@@ -107,6 +111,7 @@ function retrieve_data(provider::AbstractBroker, set, key, start, stop, args...;
     end
     data = stock_query(provider, ticker, start, stop, args...; kwargs...)
     if data !== nothing
+        data = normalize ? normalize_timearray(data; kwargs...) : data
         set[key] = data
     end
     
@@ -119,11 +124,14 @@ function bars(provider::AbstractBroker, ticker, start, stop=clock(); timeframe::
     stop  = round(stop, typeof(timeframe), RoundUp)
 
     t = retrieve_data(provider, provider.bar_data, (ticker, timeframe), start, stop, Float64; section="bars", timeframe=timeframe, kwargs...)
-
-    provider.bar_data[(ticker, timeframe)] = normalize(t, timeframe)
 end
 
-function normalize(tf::TimeArray{T}, timeframe::Period) where {T}
+"""
+    normalize_timearray
+
+Interpolates missing values on a timeframe basis.
+"""
+function normalize_timearray(tf::TimeArray{T}; timeframe::Period = Minute(1), daily=false, kwargs...) where {T}
     tstamps = timestamp(tf)
     vals  = values(tf) 
     start = tstamps[1]
@@ -140,19 +148,16 @@ function normalize(tf::TimeArray{T}, timeframe::Period) where {T}
 
         dt = curt - prevt
 
-        if dt == timeframe
+        if dt == timeframe || (daily && day(curt) != day(prevt))
             push!(out_times, curt)
             for ic in 1:ncols
                 push!(out_vals[ic], vals[i, ic])
             end
             continue
         end
-
         nsteps = dt / timeframe
-        
         for j in 1:nsteps
             push!(out_times, prevt + timeframe * j)
-
             for ic in 1:ncols
                 vp = vals[prev_i, ic]
                 push!(out_vals[ic], vp + (vals[i, ic] - vp)/nsteps * j)
@@ -169,8 +174,19 @@ quotes(provider::AbstractBroker, ticker, args...; kwargs...) =
 trades(provider::AbstractBroker, ticker, args...; kwargs...) = 
     retrieve_data(provider, provider.trade_data, ticker, args...; section="trades", kwargs...)
 
-function current_price(provider::AbstractBroker, ticker)
-    dat = latest_quote(provider, ticker)
-    return dat === nothing ? nothing : (dat[1] + dat[2])/2
+function only_trading(bars::TimeArray)
+    return bars[findall(x->in_trading(x), timestamp(bars))]
 end
+
+function split_days(ta::T) where {T <: TimeArray}
+    tstamps = timestamp(ta)
+    day_change_ids = [1; findall(x-> day(tstamps[x-1]) != day(tstamps[x]), 2:length(ta)) .+ 1; length(ta)+1]
+
+    out = Vector{T}(undef, length(day_change_ids)-1)
+    Threads.@threads for i = 1:length(day_change_ids)-1
+        out[i] = ta[day_change_ids[i]:day_change_ids[i+1]-1]
+    end
+    return out
+end
+
 

@@ -30,3 +30,15 @@ function in_day(t)
     return open <= t <= close
 end
 
+function in_trading(t)
+    open, close = market_open_close(t)
+    return dayofweek(t) <= 5 && open <= t <= close
+end
+
+function previous_trading_day(t=clock())
+    prev_day = t - Day(1)
+    while dayofweek(prev_day) >= 5
+        prev_day -= Day(1)
+    end
+    return prev_day
+end

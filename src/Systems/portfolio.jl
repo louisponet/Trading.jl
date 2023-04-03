@@ -50,6 +50,7 @@ function Overseer.update(::Filler, l::AbstractLedger)
                 quantity_filled = -e.filled_qty
             end
             cash.cash -= e.filled_avg_price * quantity_filled
+            cash.cash -= e.fee
             
             id = findfirst(x->x.ticker == ticker, l[Position])
             if id === nothing
@@ -99,63 +100,23 @@ function Overseer.update(::DayCloser, l::AbstractLedger)
     cur_t   = current_time(l)
     close_t = market_open_close(cur_t)[2]
 
-    if close_t - cur_t > Minute(1)
+    if abs(close_t - cur_t) > Minute(1)
         return
     end
 
-    for e in @entities_in(l, Position)
-        if e.quantity > 0
-            Entity(l, Sale(e.ticker, Inf, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
-        elseif e.quantity < 0 
-            Entity(l, Purchase(e.ticker, -e.quantity, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
-        end
+    for e in @safe_entities_in(l, (Purchase || Sale) && !Filled)
+        delete!(l, e)
     end
-    update(Purchaser(), l)
-    update(Seller(), l)
-    
-    empty!(stages(l))
-    stage = main_stage(current_time(l))
-    pop!(stage.steps)
-    push!(stage.steps, DayOpener())
-    push!(l, stage)
-
-    for e in @entities_in(l, Strategy)
-        if !e.only_day
-            push!(l, e.stage)
-        else
-            for c in Overseer.requested_components(e.stage)
-                empty!(l[c])
-            end
-        end
-    end
-    
-    ensure_systems!(l)
-end
-
-struct DayOpener <: System end
-
-Overseer.requested_components(::DayOpener) = (Strategy,)
-
-function Overseer.update(::DayOpener, l::AbstractLedger)
-    cur_t   = current_time(l)
-    open_t, close_t = market_open_close(cur_t)
-
-    if cur_t > close_t || open_t > cur_t 
-        return
-    end
-
-    empty!(stages(l))
-    stage = main_stage(current_time(l))
-    pop!(stage.steps)
-    push!(stage.steps, DayCloser())
-    push!(l, stage)
-
-    for e in @entities_in(l, Strategy)
-        push!(l, e.stage)
-    end
-    
-    ensure_systems!(l)
-    for ledger in values(l.ticker_ledgers)
-        empty_entities!(ledger)
-    end
+    # for e in @entities_in(l, Position)
+    #     if e.quantity > 0
+    #         Entity(l, Sale(e.ticker, Inf, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+    #     elseif e.quantity < 0 
+    #         Entity(l, Purchase(e.ticker, -e.quantity, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+    #     end
+    # end
+    # update(Purchaser(), l)
+    # update(Seller(), l)
+    # for ledger in values(l.ticker_ledgers)
+    #     empty_entities!(ledger)
+    # end
 end

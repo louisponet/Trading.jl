@@ -20,19 +20,23 @@ function start(trader::Trader{<:HistoricalBroker})
     end
 
     start(trader; sleep_time=0.0)
-    p = ProgressMeter.ProgressUnknown("Simulating..."; spinner = true) 
+    p = ProgressMeter.ProgressUnknown("Simulating..."; spinner = true)
+    
     while current_time(trader) < last
         showvalues = isempty(trader[PortfolioSnapshot]) ?
                      [(:t, trader[Clock][1].time), (:value, trader[Cash][1].cash)] :
                      [(:t, trader[Clock][1].time), (:value, trader[PortfolioSnapshot][end].value)]
+                     
         ProgressMeter.next!(p; spinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏", showvalues = showvalues)
         sleep(1)
     end
+    
     stop_all(trader)
+    
     ProgressMeter.finish!(p)
+    
     return trader
 end
-
 
 function start_data(trader::Trader;  kwargs...)
     trader.data_task = Threads.@spawn @stoppable trader.stop_data bar_stream(trader.broker) do stream
@@ -59,7 +63,7 @@ function start_data(trader::Trader;  kwargs...)
                 end
                     
             catch e
-                if !(e isa InvalidStateException) && !(e isa EOFError)
+                if !(e isa InvalidStateException) && !(e isa EOFError) && !(e isa InterruptException)
                     showerror(stdout, e, catch_backtrace())
                 end
             end

@@ -27,11 +27,11 @@ using ProgressMeter
 using PrettyTables
 
 include("utils.jl")
-include("timearrays.jl")
 
 include("Components/core.jl")
 include("Components/indicators.jl")
 include("Components/portfolio.jl")
+include("timearrays.jl")
 include("datacache.jl")
 include("brokers.jl")
 include("ticker_ledger.jl")

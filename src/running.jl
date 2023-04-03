@@ -35,12 +35,11 @@ end
 
 
 function start_data(trader::Trader;  kwargs...)
-    bar_stream(trader.broker) do stream
+    trader.data_task = Threads.@spawn @stoppable trader.stop_data bar_stream(trader.broker) do stream
         for (ticker, q) in trader.ticker_ledgers
             register!(stream, ticker)
         end
-        stop = false
-        trader.data_task = Threads.@spawn @stoppable trader.stop_data while !trader.stop_data
+        while !trader.stop_data
             try
                 bars = receive(stream)
                 updated_tickers = Set{String}()

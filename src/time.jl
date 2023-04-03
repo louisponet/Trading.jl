@@ -8,6 +8,12 @@ function current_time()
     return TimeDate(tm.year + 1900, tm.month + 1, Int64(tm.mday), Int64(tm.hour), Int64(tm.min), Int64(tm.sec)) + Microsecond(tv.usec)
 end
 
+current_time(broker::HistoricalBroker) = broker.clock.time
+current_time(::AlpacaBroker) = current_time()
+
+current_time(trader::Trader{<:HistoricalBroker}) = trader[Clock][1].time
+current_time(::Trader) = current_time() 
+
 function market_open_close(date, timezone=tz"EST")
     y = round(date, Year, RoundDown)
     d = round(date, Day, RoundDown)
@@ -18,9 +24,8 @@ function market_open_close(date, timezone=tz"EST")
     return TimeDate(DateTime(open)), TimeDate(DateTime(close))
 end
 
-function yesterday()
-    return TimeDate(round(now() - Day(1), Dates.Day))
-end
+yesterday() = 
+    TimeDate(round(now() - Day(1), Dates.Day))
 
 function in_day(t)
     open, close = market_open_close(t)
@@ -42,7 +47,5 @@ function previous_trading_day(t=current_time())
     return prev_day
 end
 
-current_time(trader::Trader{<:HistoricalBroker}) = trader[Clock][1].time
-current_time(::Trader) = current_time() 
-current_time(broker::HistoricalBroker) = broker.clock.time
-current_time(::AlpacaBroker) = current_time()
+is_market_open(t, period::T=Minute(1)) where {T} = 
+    T(0) <= market_open_close(t)[1] - t <= T(1)

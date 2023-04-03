@@ -1,5 +1,5 @@
 """
-    Trader
+    Trader(broker::AbstractBroker; tickers::Vector{String}, strategies::Vector{Strategy}, start=current_time())
 
 Holds all data and tasks related to trading. 
 """
@@ -19,11 +19,15 @@ end
 Overseer.ledger(t::Trader) = t.l
 Overseer.Entity(t::Trader, args...) = Entity(Overseer.ledger(t), TimeStamp(current_time(t)), args...)
 
+Base.getindex(t::Trader, id::String) = t.ticker_ledgers[id]
+
 main_stage() = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), DayCloser()])
 
-function Trader(broker::AbstractBroker, tickers::Vector{String}, strategies::Vector{Strategy} = Strategy[]; start=current_time())
+function Trader(broker::AbstractBroker; tickers::Vector{String}      = String[],
+                                        strategies::Vector{Strategy} = Strategy[],
+                                        start = current_time())
+                                        
     stages = Stage[]
-    inday = in_day(start)
     
     push!(stages, main_stage())
 
@@ -32,52 +36,53 @@ function Trader(broker::AbstractBroker, tickers::Vector{String}, strategies::Vec
     end
         
     l = Ledger(stages...)
+    
     Entity(l, Clock(start, Minute(0)))
     
-    ensure_systems!(l)
-
-    ticker_ledgers  = Dict{String, TickerLedger}()
-    
-    for ticker in tickers
-        ticker_ledger = TickerLedger(ticker)
-        for s in strategies
-            for c in Overseer.requested_components(s.stage)
-                Overseer.ensure_component!(ticker_ledger, c)
-            end
-        end
-
-        ensure_systems!(ticker_ledger)
-        
-        ticker_ledgers[ticker] = ticker_ledger
-        Entity(l, Position(ticker, 0.0)) 
-    end
-
     for s in strategies
         Entity(l, s)
     end
     
-    trader = Trader(l, broker, ticker_ledgers, nothing, nothing, nothing, false, false, false, Threads.Condition())
+    ensure_systems!(l)
+    
+    trader = Trader(l, broker, Dict{String, TickerLedger}(), nothing, nothing, nothing, false, false, false, Threads.Condition())
     
     fill_account!(trader)
+    
+    for t in tickers
+        add_ticker!(trader, t)
+    end
     
     return trader
 end
 
-function BackTester(broker::HistoricalBroker, tickers::Vector{String}, strategies::Vector{Strategy}; dt=Minute(1), start=now() - dt*1000, stop = now(), cash = 1_000_000, only_day=true)
-    trader = Trader(broker, tickers, strategies, start=start)
+function BackTester(broker::HistoricalBroker; tickers::Vector{String}      = String[],
+                                              strategies::Vector{Strategy} = Strategy[],
+                                              dt       = Minute(1),
+                                              start    = current_time() - dt*1000,
+                                              stop     = current_time(),
+                                              only_day = true)
+                                              
+    trader = Trader(broker; tickers=tickers, strategies=strategies, start=start)
+    
     maxstart = start
     minstop = stop
+    
     lck = ReentrantLock()
     @info "Fetching historical data"
+    
     Threads.@threads for ticker in tickers
         b = bars(broker, ticker, start, stop, timeframe=dt, normalize=true)
+        
         lock(lck) do 
             maxstart = max(timestamp(b)[1], maxstart)
             minstop  = min(timestamp(b)[end], minstop)
         end
+        
         if only_day
             bars(broker)[(ticker, dt)] = only_trading(b)
         end
+        
     end
 
     for ticker in tickers
@@ -91,11 +96,34 @@ function BackTester(broker::HistoricalBroker, tickers::Vector{String}, strategie
     return trader
 end
 
+function add_ticker!(trader::Trader, ticker::String)
+    
+    ticker_ledger = TickerLedger(ticker)
+    
+    for s in @entities_in(trader, Strategy)
+        for c in Overseer.requested_components(s.stage)
+            Overseer.ensure_component!(ticker_ledger, c)
+        end
+    end
+
+    ensure_systems!(ticker_ledger)
+    
+    trader.ticker_ledgers[ticker] = ticker_ledger
+
+    if !has_position(trader, ticker) 
+        Entity(trader.l, Position(ticker, 0.0))
+    end
+    
+    return ticker_ledger
+end
+
 function current_position(t::AbstractLedger, ticker::String)
     pos_id = findfirst(x->x.ticker == ticker, t[Position])
     pos_id === nothing && return 0.0
     return t[Position][pos_id].quantity
 end
+
+has_position(t::AbstractLedger, ticker::String) = any(x -> x.ticker == ticker, t[Position])
 
 function Base.show(io::IO, ::MIME"text/plain", trader::Trader)
     
@@ -162,7 +190,7 @@ function ensure_systems!(l::AbstractLedger)
         ind_stage = Stage(:indicators, System[])
     end
 
-    for (T, c) in components(l)
+    for T in keys(components(l))
         if T <: SMA                    && SMACalculator()                ∉ ind_stage
             push!(ind_stage,              SMACalculator())
         elseif T <: MovingStdDev       && MovingStdDevCalculator()       ∉ ind_stage
@@ -195,9 +223,11 @@ function ensure_systems!(l::AbstractLedger)
 end
 
 function reset!(trader::Trader)
-    for (ticker, l) in trader.ticker_ledgers
+    
+    for l in values(trader.ticker_ledgers)
         empty_entities!(l)
     end
+    
     dt = trader[Clock][1].dtime
 
     start = minimum(x->timestamp(x)[1], values(bars(trader.broker)))

@@ -40,9 +40,8 @@ function interpolate_timearray(tf::TimeArray{T}; timeframe::Period = Minute(1), 
     TimeArray(out_times, hcat(out_vals...), colnames(tf))
 end
 
-function only_trading(bars::TimeArray)
-    return bars[findall(x->in_trading(x), timestamp(bars))]
-end
+only_trading(bars::TimeArray) =
+    bars[findall(x->in_trading(x), timestamp(bars))]
 
 function split_days(ta::T) where {T <: TimeArray}
     tstamps = timestamp(ta)
@@ -55,10 +54,8 @@ function split_days(ta::T) where {T <: TimeArray}
     return out
 end
 
-function TimeSeries.timestamp(l::AbstractLedger)
+TimeSeries.timestamp(l::AbstractLedger) = 
     unique(map(x->DateTime(x.t), l[Trading.TimeStamp]))
-end
-
 
 function TimeSeries.TimeArray(c::AbstractComponent{PortfolioSnapshot}, tcomp)
     es_to_store = filter(e -> e in tcomp, @entities_in(c))
@@ -71,13 +68,13 @@ function TimeSeries.TimeArray(c::AbstractComponent{PortfolioSnapshot}, tcomp)
 
     for e in es_to_store
         for p in e.positions
-            arr = get!(pos_dict, p.ticker, Float64[])
+            arr = get!(pos_dict, p.ticker * "_position", Float64[])
             push!(arr, p.quantity)
         end
         push!(pos_dict["value"], e.value) 
     end
     
-    return TimeArray(tstamps, hcat(values(pos_dict)...), keys(pos_dict) .* "_position")
+    return TimeArray(tstamps, hcat(values(pos_dict)...), collect(keys(pos_dict)))
 end
 
 function TimeSeries.TimeArray(c::AbstractComponent{T}, tcomp) where {T}
@@ -126,11 +123,4 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols=keys(components(l)))
     end
     
     return out
-end
-
-function TimeSeries.TimeArray(ticker, timeframe, start, stop, account)
-    l = Ledger(Stage(:core, [Trading.DatasetAdder()]))
-    Entity(l, account, Trading.Dataset(ticker, timeframe, start, stop))
-    Trading.update(l)
-    return TimeArray(l)
 end

@@ -2,14 +2,11 @@ using TimeZones
 
 const LOCAL_TZ = tz"Europe/Zurich"
 
-function clock()
+function current_time()
     tv = Base.Libc.TimeVal()
     tm = Libc.TmStruct(tv.sec)
     return TimeDate(tm.year + 1900, tm.month + 1, Int64(tm.mday), Int64(tm.hour), Int64(tm.min), Int64(tm.sec)) + Microsecond(tv.usec)
 end
-
-Base.round(x::TimeDate, ::Type{T}, t::RoundingMode) where {T<:Period} = TimeDate(round(DateTime(x), T, t))
-Base.round(x::TimeDate, ::Type{T}) where {T<:Period} = round(x, T, RoundDown())
 
 function market_open_close(date, timezone=tz"EST")
     y = round(date, Year, RoundDown)
@@ -30,15 +27,22 @@ function in_day(t)
     return open <= t <= close
 end
 
+in_day(l::Trader) = in_day(current_time(l))
+
 function in_trading(t)
     open, close = market_open_close(t)
     return dayofweek(t) <= 5 && open <= t <= close
 end
 
-function previous_trading_day(t=clock())
+function previous_trading_day(t=current_time())
     prev_day = t - Day(1)
     while dayofweek(prev_day) >= 5
         prev_day -= Day(1)
     end
     return prev_day
 end
+
+current_time(trader::Trader{<:HistoricalBroker}) = trader[Clock][1].time
+current_time(::Trader) = current_time() 
+current_time(broker::HistoricalBroker) = broker.clock.time
+current_time(::AlpacaBroker) = current_time()

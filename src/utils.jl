@@ -7,6 +7,17 @@ function Base.showerror(io::IO, err::StallException, args...)
     showerror(io, err.e, args...)
 end
 
+"""
+    @timeout
+
+Macro to create a self interrupting task after a specified number of seconds.
+If the task finished before completing nothing happens.
+
+# Example:
+```julia
+@timeout 30 sleep(31) # Will interrupt the sleeping after 30 seconds 
+```
+"""
 macro timeout(seconds, expr, err_expr=:(nothing))
     tsk        = gensym("tsk")
     start_time = gensym("start_time")
@@ -44,6 +55,22 @@ macro timeout(seconds, expr, err_expr=:(nothing))
     end)
 end
 
+"""
+    @stoppable
+
+Macro to create an interruptable task based on the boolean value of the specified variable.
+
+# Example:
+```julia
+stop = false
+@async @stoppable stop while true
+    println("not stopped")
+    sleep(1)
+end
+
+stop = true # will interrupt the printing
+```
+"""
 macro stoppable(stop, expr)
     tsk        = gensym("tsk")
     timer      = gensym("timer")
@@ -71,3 +98,10 @@ macro stoppable(stop, expr)
 end
 
 
+function log_error(e; kwargs...)
+    s = IOBuffer()
+    showerror(s, e, catch_backtrace(); backtrace=true)
+    errormsg = String(resize!(s.data, s.size))
+    @error errormsg kwargs...
+    return errormsg
+end

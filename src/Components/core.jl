@@ -1,3 +1,17 @@
+import Base: zero, +, -, /, *, sqrt, ^
+@trait Indicator
+
+@implement Is{Indicator} by zero(_) 
+@implement Is{Indicator} by (+)(_, _) 
+@implement Is{Indicator} by (-)(_, _) 
+@implement Is{Indicator} by (*)(_, _) 
+@implement Is{Indicator} by (/)(_, ::Int) 
+@implement Is{Indicator} by (*)(_, ::AbstractFloat) 
+@implement Is{Indicator} by (*)(::AbstractFloat, _) 
+@implement Is{Indicator} by (*)(::Integer, _) 
+@implement Is{Indicator} by (sqrt)(_) 
+@implement Is{Indicator} by (^)(_, ::Int) 
+
 @component Base.@kwdef mutable struct Clock
     time::TimeDate = TimeDate(now())
     dtime::Period  = Minute(1)
@@ -5,7 +19,6 @@ end
 
 # All need to have a single field v
 abstract type SingleValIndicator end
-
 
 @component struct Open <: SingleValIndicator
     v::Float64
@@ -53,24 +66,3 @@ Base.zero(::T) where {T<:SingleValIndicator} = T(0.0)
 end
 
 TimeStamp() = TimeStamp(TimeDate(now()))
-
-@pooled_component mutable struct Dataset
-    ticker::String
-    timeframe::String
-    start::TimeDate
-    stop::Union{TimeDate, Nothing}
-    first_e::Entity
-    last_e::Entity
-end
-
-Dataset(ticker, timeframe, start, stop=nothing) = Dataset(ticker, timeframe, start, stop, Entity(0), Entity(0))
-
-@component struct TickerQueue
-    q::SPMCQueue
-end
-
-@component struct TradeConnection
-    websocket::HTTP.WebSockets.WebSocket
-end
-
-@component struct New end

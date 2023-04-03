@@ -3,18 +3,6 @@
 end
 value(m::MovingStdDev) = value(m.σ)
 
-# for op in (:+, :-, :*)
-#     @eval @inline Base.$op(b1::MovingStdDev, b2::MovingStdDev) = MovingStdDev($op(b1.σ, b2.σ))
-# end
-# @inline Base.:(/)(b::MovingStdDev, i::Int) = MovingStdDev(b.σ/i)
-# @inline Base.:(^)(b::MovingStdDev, i::Int) = MovingStdDev(b.σ^i)
-
-# @inline Base.:(*)(b::MovingStdDev, i::AbstractFloat) = MovingStdDev(b.σ*i)
-# @inline Base.:(*)(i::AbstractFloat, b::MovingStdDev) = b * i
-# @inline Base.sqrt(b::MovingStdDev) = MovingStdDev(sqrt(b.σ))
-
-# @assign MovingStdDev with Is{Indicator}
-
 @component struct SMA{horizon, T}
     sma::T
 end
@@ -95,7 +83,6 @@ value(ud::UpDown) = (value(ud.up), value(ud.down))
     rsi::T
 end
 value(rsi::RSI) = value(rsi.rsi)
-
 
 @component struct Sharpe{horizon, T}
     sharpe::T

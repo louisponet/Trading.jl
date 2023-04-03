@@ -7,7 +7,7 @@ function Overseer.update(::Purchaser, l::AbstractLedger)
     for e in @entities_in(l, Purchase && !Order)
 
         if e.type == OrderType.Market
-            cur_price = Data.current_price(l, e.ticker)
+            cur_price = current_price(l, e.ticker)
             cur_price == nothing && continue
         elseif e.type == OrderType.Limit
             cur_price = e.limit_price
@@ -28,7 +28,7 @@ function Overseer.update(::Purchaser, l::AbstractLedger)
         
         cash.cash -= tot_cost
     
-        Data.submit_order(l, e)
+        submit_order(l, e)
     end
 end
 
@@ -88,7 +88,7 @@ function Overseer.update(::Seller, l::AbstractLedger)
             end
         end
         e.quantity = round(e.quantity)
-        Data.submit_order(l, e)
+        submit_order(l, e)
     end
 end
 

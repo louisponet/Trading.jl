@@ -25,7 +25,6 @@ for (ticker, l) in trader.ticker_ledgers
     end
 end
 
-n_bars_in_day = findall(x->Trading.in_day(x), timestamp(Trading.bars(broker)[("stock1", Minute(1))]))
+n_bars_in_day = length(findall(x->Trading.in_day(x), timestamp(Trading.bars(broker)[("stock1", Minute(1))])))
 
 @test n_bars_in_day == length(trader[Trading.PortfolioSnapshot])
-

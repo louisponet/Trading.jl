@@ -9,7 +9,6 @@ function bars(broker::AbstractBroker, ticker, start, stop=current_time(); timefr
 end
 
 function bars(::Union{AlpacaBroker, MockBroker}, msg::AbstractVector)
-    @show msg
     return map(filter(x->x[:T] == "b", msg)) do bar
         ticker = bar[:S]
         ticker, (parse_time(bar[:t]), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))

@@ -240,7 +240,7 @@ function data_query(broker::AlpacaBroker, symbol, start, stop=nothing, ::Type{T}
 
             Threads.@threads for i in 1:n_dat
                 d = data[i]
-                t_timestamps[i] = TimeDate(string(strip(d[:t], 'Z')))
+                t_timestamps[i] = parse_time(d[:t])
                 
                 for k in dat_keys
                     t_dat[k][i] = d[k]

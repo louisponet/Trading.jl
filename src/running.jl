@@ -141,7 +141,7 @@ function stop_data(trader::Trader)
     while !istaskdone(trader.data_task)
         sleep(1)
     end
-    trader.stop_data = true
+    trader.stop_data = false
     return trader
 end
 

@@ -11,8 +11,7 @@ end
 function bars(::AlpacaBroker, msg::AbstractVector)
     return map(filter(x->x[:T] == "b", msg)) do bar
         ticker = bar[:S]
-        t = strip(bar[:t], 'Z') 
-        ticker, (TimeDate(string(t)), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
+        ticker, (parse_time(bar[:t]), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
     end
 end
 

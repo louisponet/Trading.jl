@@ -2,6 +2,28 @@ using TimeZones
 
 const LOCAL_TZ = tz"Europe/Zurich"
 
+function parse_time(str)
+    date, time = split(str, 'T')
+    decimals_TZ = match(r"\.(\d+)([^\d]*.*)", time)
+    if decimals_TZ !== nothing
+        if !isempty(decimals_TZ.captures[2])
+            tz = TimeZone(decimals_TZ.captures[2])
+        else
+            tz = LOCAL_TZ
+        end
+        
+        return DateTime(astimezone(ZonedDateTime(DateTime(date*"T"*time[1:12]), tz), LOCAL_TZ))
+    else
+        TZ = match(r"(.*:\d\d)([^\d:]+.*)", str)
+        if !isempty(TZ.captures[2])
+            tz = TimeZone(TZ.captures[2])
+        else
+            tz = LOCAL_TZ
+        end
+        DateTime(astimezone(ZonedDateTime(DateTime(TZ.captures[1]), tz), LOCAL_TZ))
+    end
+end
+
 function current_time()
     tv = Base.Libc.TimeVal()
     tm = Libc.TmStruct(tv.sec)

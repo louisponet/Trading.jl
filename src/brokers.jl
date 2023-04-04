@@ -15,6 +15,11 @@ abstract type AbstractBroker end
 broker(b::AbstractBroker) = b
 data_query(b::AbstractBroker, args...; kwargs...) = data_query(broker(b), args...; kwargs...)
 
+"""
+    AuthenticationException
+
+Use when throwing a failed authentication to a broker.
+"""
 struct AuthenticationException <: Exception
     e
 end
@@ -31,7 +36,7 @@ function retrieve_data(broker::AbstractBroker, set, key, start, stop, args...; n
     dt = key isa Tuple ? last(key) : Millisecond(1)
     @assert stop === nothing || start <= stop ArgumentError("start should be <= stop")
     
-    if haskey(set, key)
+    if haskey(set, key) && !isempty(set[key])
 
         data = set[key]
         timestamps = timestamp(data)
@@ -106,3 +111,4 @@ end
 
 include("brokers/alpaca.jl")
 include("brokers/historical.jl")
+include("brokers/mock.jl")

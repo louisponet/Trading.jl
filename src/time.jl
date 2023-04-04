@@ -14,7 +14,7 @@ function parse_time(str)
         
         return DateTime(astimezone(ZonedDateTime(DateTime(date*"T"*time[1:12]), tz), LOCAL_TZ))
     else
-        TZ = match(r"(.*:\d\d)([^\d:]+.*)", str)
+        TZ = match(r"(.*:\d\d)([^\d:]*.*)", str)
         if !isempty(TZ.captures[2])
             tz = TimeZone(TZ.captures[2])
         else

@@ -88,6 +88,10 @@ function BackTester(broker::HistoricalBroker; tickers::Vector{String}      = Str
     for ticker in tickers
         bars(broker)[(ticker, dt)] = to(from(bars(broker)[(ticker, dt)], maxstart), minstop)
     end
+
+    if all(isempty, values(bars(broker)))
+        error("No data to backtest")
+    end
     
     c = singleton(trader, Clock)
     c.dtime = dt

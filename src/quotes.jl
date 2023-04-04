@@ -30,6 +30,11 @@ function price(broker::HistoricalBroker, price_t, ticker)
     @assert haskey(bars(broker), (ticker, broker.clock.dtime)) "Ticker $ticker not in historical bar data"
     
     bars_ = bars(broker)[(ticker, broker.clock.dtime)]
+    
+    if isempty(bars_)
+        return nothing
+    end
+    
     first_t = timestamp(bars_)[1]
 
     price_t = broker.clock.time

@@ -3,7 +3,7 @@ using Test
 
 broker = Trading.HistoricalBroker(Trading.MockBroker())
 
-@test_throws CompositeException trader = Trading.BackTester(broker;
+@test_throws ErrorException trader = Trading.BackTester(broker;
                             tickers = ["stock1", "stock2"],
                             start = DateTime("2023-01-01T00:00:00"),
                             stop = DateTime("2023-01-02T00:00:00"),

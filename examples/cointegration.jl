@@ -1,5 +1,5 @@
 using Pkg
-Pkg.add("https://github.com/louisponet/Trading.jl")
+Pkg.add(url="https://github.com/louisponet/Trading.jl")
 Pkg.add(["Plots", "GLM", "HypothesisTests", "Statistics", "ThreadPools"])
 
 using Trading
@@ -9,7 +9,7 @@ using HypothesisTests
 using Statistics
 using ThreadPools
 
-using TimeSeries: rename
+using Trading.TimeSeries: rename
 
 using Trading: Purchase, Sale, Close, LogVal, Filled, Order, TimeStamp, PortfolioSnapshot,
                OrderType, TimeInForce, PurchasePower, Strategy, Trader,
@@ -362,9 +362,7 @@ acc.fixed_transaction_fee = 0.0
 # msft_aapl_γ = mean_daily_γ(acc, "MSFT", "AAPL", TimeDate("2023-03-01T00:00:00"), TimeDate("2023-03-31T23:59:59"))
 
 msft_aapl_γ = γ_2021
-start = TimeDate("2022-01-01T00:00:00")
-stop = TimeDate("2022-12-30T23:59:59")
 
-trader = pair_trader(acc, "MSFT", "AAPL", start, stop, msft_aapl_γ, z_thr=3.0)
+trader = pair_trader(acc, "MSFT", "AAPL", TimeDate("2022-01-01T00:00:00"), TimeDate("2022-12-30T23:59:59"), msft_aapl_γ, z_thr=3.0)
 start(trader)
 plot_simulation(trader)

@@ -31,6 +31,13 @@ function Base.string(t::TimeInForce.T)
     end
 end
 
+"""
+    Purchase
+
+The local representation of a purchase order.
+This will be turned into an [`Order`](@ref) by the [`Purchaser`](@ref) `System` as soon as
+it's communicated to the [`broker`](@ref AbstractBroker).
+"""
 @component Base.@kwdef mutable struct Purchase
     ticker::String
     quantity::Float64
@@ -41,6 +48,23 @@ end
     trail_percent::Float64 = 0.0
 end
 
+@component Base.@kwdef mutable struct Sale
+    ticker::String
+    quantity::Float64
+    type::OrderType.T
+    time_in_force::TimeInForce.T
+
+    price::Float64 = 0.0
+    trail_percent::Float64 = 0.0
+end
+
+
+"""
+    Order
+
+Representation of a [`Purchase`](@ref) or [`Sale`](@ref) order that has been
+communicated to the [`broker`](@ref AbstractBroker).
+"""
 @component Base.@kwdef mutable struct Order
     ticker          ::String
     id              ::UUID
@@ -60,35 +84,46 @@ end
     fee::Float64
 end
 
-@component Base.@kwdef mutable struct Sale
-    ticker::String
-    quantity::Float64
-    type::OrderType.T
-    time_in_force::TimeInForce.T
-
-    price::Float64 = 0.0
-    trail_percent::Float64 = 0.0
-end
-
 @component struct Filled
     avg_price::Float64
     quantity::Float64
 end
 
 # Dollars
+"""
+    Cash
+
+Represents the actual cash balance. Currently there is no particular currency tied to this.
+"""
 @component mutable struct Cash
     cash::Float64
 end
 
+"""
+    PurchasePower
+
+Represents the current purchasing power. This is updated at the start of each `update` cycle to the current value of the [`Cash`](@ref) singleton.
+It can thus be used to determine how many purchases/trades can be made during one cycle.  
+"""
 @component mutable struct PurchasePower
     cash::Float64
 end
 
+"""
+    Position
+
+Represents a position held in an equity represented by ticker.
+"""
 @component mutable struct Position
     ticker::String
     quantity::Float64
 end
 
+"""
+    PortfolioSnapshot
+
+A snapshot of the current [`Positions`](@ref) and [`Cash`](@ref) value of the portfolio.
+"""
 @component struct PortfolioSnapshot
     positions::Vector{Position}
     cash::Float64
@@ -118,6 +153,11 @@ value(p::PortfolioSnapshot) = p.value
 
 @assign PortfolioSnapshot with Is{Indicator}
 
+"""
+    Strategy
+
+A `Stage` with a set of `Systems` that execute a strategy.
+"""
 @component struct Strategy
     stage::Stage
     only_day::Bool

@@ -1,5 +1,7 @@
 using Pkg
 Pkg.add(url="https://github.com/louisponet/Trading.jl")
+Pkg.add(url="https://github.com/louisponet/Overseer.jl", branch="master")
+
 Pkg.add(["Plots", "GLM", "HypothesisTests", "Statistics", "ThreadPools"])
 
 using Trading

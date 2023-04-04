@@ -1,3 +1,7 @@
+using Pkg
+Pkg.add("https://github.com/louisponet/Trading.jl")
+Pkg.add(["Plots", "GLM", "HypothesisTests", "Statistics", "ThreadPools"])
+
 using Trading
 using Plots
 using GLM

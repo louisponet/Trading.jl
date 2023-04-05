@@ -34,12 +34,14 @@ function receive_bars(b::AlpacaBroker, ws)
     bars(b, JSON3.read(receive(ws)))
 end
 
+last_time(dp::HistoricalBroker) = maximum(x->timestamp(x)[end], values(bars(dp)))
+
 function receive_bars(dp::HistoricalBroker, args...)
     wait(dp.send_bars)
     curt = dp.clock.time
     
     msg = NamedTuple[]
-    while isempty(msg) && dp.clock.time <= maximum(x->timestamp(x)[end], values(bars(dp)))
+    while isempty(msg) && dp.clock.time <= last_time(dp) 
         dp.clock.time += dp.clock.dtime
         for (ticker, frame) in bars(dp)
             
@@ -69,6 +71,9 @@ struct BarStream{B<:AbstractBroker, W}
 end
 HTTP.receive(b::BarStream) = receive_bars(b.broker, b.ws)
 
+WebSockets.isclosed(b::BarStream) = WebSockets.isclosed(b.ws)
+WebSockets.isclosed(b::BarStream{<:HistoricalBroker}) = b.broker.clock.time > last_time(b.broker)
+
 register!(b::BarStream, ticker) = subscribe_bars(b.broker, ticker, b.ws)
 
 function bar_stream(func::Function, broker::AlpacaBroker)
@@ -79,7 +84,7 @@ function bar_stream(func::Function, broker::AlpacaBroker)
         end
         
         try
-            func(BarStream(broker, ws))
+            return func(BarStream(broker, ws))
         catch e
             showerror(stdout, e, catch_backtrace())
             if !(e isa InterruptException)
@@ -92,7 +97,7 @@ end
 
 function bar_stream(func::Function, broker::HistoricalBroker)
     try
-        func(BarStream(broker, nothing))
+        return func(BarStream(broker, nothing))
     catch e
         if !(e isa InterruptException)
             rethrow(e)

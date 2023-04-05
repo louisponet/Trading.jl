@@ -42,7 +42,7 @@ makedocs(; modules = [Trading],
          pages = ["Home" => "index.md"])
 
 # Deploy docs to gh-pages branch
-deploydocs(; repo = "github.com/louisponet/Trading.jl.git", devbranch = "main")
+deploydocs(; repo = "github.com/louisponet/Trading.jl.git", devbranch = "master")
 
 if !CONTINUOUS_INTEGRATION
     println("\nDocs generated, try $(joinpath(BUILDPATH, "index.html"))")

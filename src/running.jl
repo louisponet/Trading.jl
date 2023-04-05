@@ -43,7 +43,7 @@ function start_data(trader::Trader;  kwargs...)
         for (ticker, q) in trader.ticker_ledgers
             register!(stream, ticker)
         end
-        while !trader.stop_data
+        while !trader.stop_data && !isclosed(stream)
             try
                 bars = receive(stream)
                 updated_tickers = Set{String}()

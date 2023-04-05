@@ -1,10 +1,17 @@
 # Trading
 
 ## Trader
-
-
 ```@docs
 Trading.Trader
+```
+
+## Brokers
+
+```@docs
+Trading.AbstractBroker
+Trading.AlpacaBroker
+Trading.HistoricalBroker
+Trading.MockBroker
 ```
 
 ## Portfolio
@@ -19,6 +26,10 @@ Trading.Sale
 Trading.Order
 Trading.Filled
 Trading.PortfolioSnapshot
+```
+```@docs
+Trading.OrderLink
+Trading.order_link
 ```
 
 ### Systems
@@ -38,6 +49,10 @@ Trading.High
 Trading.Low
 Trading.Close
 Trading.Volume
+```
+```@docs
+Trading.BarStream
+Trading.bar_stream
 ```
 
 ## Indicators
@@ -73,3 +88,4 @@ Trading.LogValCalculator
 Trading.DifferenceCalculator
 Trading.RelativeDifferenceCalculator
 ```
+

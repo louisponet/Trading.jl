@@ -1,4 +1,20 @@
-bars(broker::AbstractBroker) = broker.cache.bar_data
+"""
+    bars(broker, ticker, start, stop; timeframe, kwargs...)
+
+Retrieve the bar data for `ticker` from `start` to `stop` and with an interval of `timeframe`.
+When using [`AlpacaBroker`](@ref) see the [Bar Object](https://alpaca.markets/docs/api-references/market-data-api/stock-pricing-data/historical/#bars)
+documentation for further reference.
+
+# Example
+```julia
+broker = AlpacaBroker(<key_id>, <secret_key>)
+
+bars(broker, "AAPL", DateTime("2022-01-01T00:00:00"), DateTime("2023-01-01T00:00:00")l timeframe = Minute(1))
+```
+
+The above will retrieve 2022 bar data "AAPL" on a Minute resolution. 
+"""
+bars(b::AbstractBroker) = broker(b).cache.bar_data
 
 function bars(broker::AbstractBroker, ticker, start, stop=current_time(); timeframe::Period, kwargs...)
     
@@ -62,7 +78,7 @@ end
     BarStream
 
 Supplies a stream of bars from a broker.
-Can be opened by calling [`bar_stream`](@ref) on a [`AbstractBroker`](@ref).
+Can be created by calling [`bar_stream`](@ref) on an [`AbstractBroker`](@ref).
 See [`receive`](@ref) and [`register!`](@ref) for more information.
 """
 struct BarStream{B<:AbstractBroker, W}

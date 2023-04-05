@@ -183,7 +183,7 @@ bar_fields(::AlpacaBroker) = (:t, :o, :h, :l, :c, :v, :n, :vw)
 mock_bar(b::AlpacaBroker, ticker, vals) = merge((T="b", S=ticker), NamedTuple(map(x -> x[1] => x[2], zip(bar_fields(b), vals))))
 
 function data_query(broker::AlpacaBroker, symbol, start, stop=nothing, ::Type{T} = Any; section, limit=1000, kwargs...) where {T}
-    
+    @show start, stop 
     query = Dict{String, Any}("start" => string(broker, start))
     if stop !== nothing
         query["end"] = string(broker, stop)

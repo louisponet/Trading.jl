@@ -88,10 +88,10 @@ end
 function start_trading(trader::Trader)
     order_comp = trader[Order]
     broker = trader.broker
-    trader.trading_task = Threads.@spawn @stoppable trader.stop_trading order_link(broker) do link
+    trader.trading_task = Threads.@spawn @stoppable trader.stop_trading order_stream(broker) do stream
         while true
             try
-                received = receive(link)
+                received = receive(stream)
                 if received === nothing
                     continue
                 end

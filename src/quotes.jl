@@ -1,4 +1,18 @@
-quotes(broker::AbstractBroker) = broker.cache.quotes_data 
+"""
+    quotes(broker, ticker, start, stop)
+
+Returns the quotes made for `ticker` between `start` and `stop`.
+When using [`AlpacaBroker`](@ref) see the [Quote Object](https://alpaca.markets/docs/api-references/market-data-api/stock-pricing-data/historical/#quotes)
+documentation for further reference.
+
+# Example
+```julia
+broker = AlpacaBroker(<key_id>, <secret_key>)
+
+quotes(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:31:00"))
+```
+"""
+quotes(b::AbstractBroker) = broker(b).cache.quotes_data 
 quotes(broker::AbstractBroker, ticker, args...; kwargs...) =
     retrieve_data(broker, broker.quote_data, ticker, args...; section="quotes", kwargs...)
     

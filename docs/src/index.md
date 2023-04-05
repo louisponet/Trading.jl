@@ -27,11 +27,6 @@ Trading.Order
 Trading.Filled
 Trading.PortfolioSnapshot
 ```
-```@docs
-Trading.OrderLink
-Trading.order_link
-```
-
 ### Systems
 ```@docs
 Trading.Purchaser
@@ -49,10 +44,6 @@ Trading.High
 Trading.Low
 Trading.Close
 Trading.Volume
-```
-```@docs
-Trading.BarStream
-Trading.bar_stream
 ```
 
 ## Indicators

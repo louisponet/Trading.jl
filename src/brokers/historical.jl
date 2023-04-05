@@ -7,7 +7,6 @@ stream when calling `receive` on this broker.
 """
 Base.@kwdef mutable struct HistoricalBroker{B <: AbstractBroker} <: AbstractBroker
     broker::B
-    cache::DataCache = DataCache()
     clock::Clock = Clock(current_time(), Millisecond(1))
     last::TimeDate = TimeDate(0)
     cash::Float64 = 100000.0

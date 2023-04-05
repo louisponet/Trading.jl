@@ -1,4 +1,18 @@
-trades(broker::AbstractBroker) = broker.cache.trades_data 
+"""
+    trades(broker, ticker, start, stop)
+
+Returns the trades made for `ticker` between `start` and `stop`.
+When using [`AlpacaBroker`](@ref) see the [Trade Object](https://alpaca.markets/docs/api-references/market-data-api/stock-pricing-data/historical/#trades)
+documentation for further reference.
+
+# Example
+```julia
+broker = AlpacaBroker(<key_id>, <secret_key>)
+
+trades(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:31:00"))
+```
+"""
+trades(b::AbstractBroker) = broker(b).cache.trades_data 
 trades(broker::AbstractBroker, ticker, args...; kwargs...) = 
     retrieve_data(broker, trades(broker), ticker, args...; section="trades", kwargs...)
 
@@ -114,35 +128,35 @@ delete_all_orders!(::HistoricalBroker) = nothing
 delete_all_orders!(t::Trader) = delete_all_orders!(t.broker)
 
 """
-    OrderLink
+    OrderStream
 
 Interface to support executing trades and retrieving account updates.
 """
-Base.@kwdef struct OrderLink{B <: AbstractBroker}
+Base.@kwdef struct OrderStream{B <: AbstractBroker}
     broker::B
     ws::Union{Nothing, WebSocket} = nothing
 end
 
-OrderLink(b::AbstractBroker; kwargs...) = OrderLink(;broker=b, kwargs...)
+OrderStream(b::AbstractBroker; kwargs...) = OrderStream(;broker=b, kwargs...)
 
-HTTP.receive(order_link::OrderLink) = receive_order(order_link.broker, order_link.ws)
+HTTP.receive(order_link::OrderStream) = receive_order(order_link.broker, order_link.ws)
 
 """
-    order_link(f::Function, broker::AbstractBroker)
+    order_stream(f::Function, broker::AbstractBroker)
 
-Creates an [`OrderLink`](@ref) to stream order data.
+Creates an [`OrderStream`](@ref) to stream order data.
 Uses the same semantics as a standard `HTTP.WebSocket`.
 
 # Example
 ```julia
 broker = AlpacaBroker(<key_id>, <secret_key>)
 
-order_link(broker) do link
-    order = receive(link)
+order_stream(broker) do stream
+    order = receive(stream)
 end
 ```
 """
-function order_link(f::Function, broker::AlpacaBroker)
+function order_stream(f::Function, broker::AlpacaBroker)
     HTTP.open(trading_stream_url(broker)) do ws
         if !authenticate_trading(broker, ws)
             error("couldn't authenticate")
@@ -151,7 +165,7 @@ function order_link(f::Function, broker::AlpacaBroker)
         send(ws, JSON3.write(Dict("action" => "listen",
                                   "data"  => Dict("streams" => ["trade_updates"]))))
         try
-            f(OrderLink(broker, ws))
+            f(OrderStream(broker, ws))
         catch e
             showerror(stdout, e, catch_backtrace())
             if !(e isa InterruptException)
@@ -161,5 +175,5 @@ function order_link(f::Function, broker::AlpacaBroker)
     end
 end
 
-order_link(f::Function, broker::HistoricalBroker) = f(OrderLink(broker, nothing))
+order_stream(f::Function, broker::HistoricalBroker) = f(OrderStream(broker, nothing))
 

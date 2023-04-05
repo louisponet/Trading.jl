@@ -39,7 +39,8 @@ makedocs(; modules = [Trading],
                              # Ignore links that point to GitHub's edit pages, as they redirect to the
                              # login screen and cause a warning:
                              r"https://github.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/edit(.*)"],
-         pages = ["Home" => "index.md"])
+         pages = ["Home" => "index.md",
+                  "Data" => "data.md"])
 
 # Deploy docs to gh-pages branch
 deploydocs(; repo = "github.com/louisponet/Trading.jl.git", devbranch = "master")

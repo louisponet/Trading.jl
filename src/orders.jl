@@ -127,6 +127,21 @@ OrderLink(b::AbstractBroker; kwargs...) = OrderLink(;broker=b, kwargs...)
 
 HTTP.receive(order_link::OrderLink) = receive_order(order_link.broker, order_link.ws)
 
+"""
+    order_link(f::Function, broker::AbstractBroker)
+
+Creates an [`OrderLink`](@ref) to stream order data.
+Uses the same semantics as a standard `HTTP.WebSocket`.
+
+# Example
+```julia
+broker = AlpacaBroker(<key_id>, <secret_key>)
+
+order_link(broker) do link
+    order = receive(link)
+end
+```
+"""
 function order_link(f::Function, broker::AlpacaBroker)
     HTTP.open(trading_stream_url(broker)) do ws
         if !authenticate_trading(broker, ws)

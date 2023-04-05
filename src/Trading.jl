@@ -14,6 +14,7 @@ using Statistics
 using LinearAlgebra
 using HTTP
 using HTTP.WebSockets
+using HTTP.WebSockets: isclosed
 using JSON3
 using JLD2
 using BinaryTraits
@@ -46,6 +47,12 @@ include("time.jl")
 include("Systems/core.jl")
 include("Systems/indicators.jl")
 include("Systems/portfolio.jl")
+
+
+export Trader, start, stop_all, stop_main, stop_trading, stop_data
+export AlpacaBroker, HistoricalBroker
+export bars, quotes, trades
+
 
 function __init__()
     init_traits(@__MODULE__)

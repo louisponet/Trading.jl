@@ -151,6 +151,7 @@ function stop_trading(trader::Trader)
         sleep(1)
     end
     trader.stop_trading=false
+    return trader
 end
 
 function stop_all(trader::Trader)
@@ -158,6 +159,7 @@ function stop_all(trader::Trader)
     t2 = @async stop_trading(trader)
     t3 = @async stop_main(trader)
     fetch(t1), fetch(t2), fetch(t3)
+    return trader
 end
 
 function Overseer.update(trader::Trader)

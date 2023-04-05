@@ -63,6 +63,6 @@ jobs:
       - run: |
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
-            using RomeoDFT
+            using Trading
             DocMeta.setdocmeta!(Trading, :DocTestSetup, :(using Trading); recursive=true)
             doctest(Trading)'

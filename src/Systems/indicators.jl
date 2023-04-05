@@ -1,4 +1,8 @@
-# TODO move away from DataSets
+"""
+    SMACalculator
+
+Calculates the [`SMA`](@ref) of data.
+"""
 struct SMACalculator <: System end
 
 function Overseer.update(s::SMACalculator, l::AbstractLedger)
@@ -26,6 +30,11 @@ function sma(comp, sma_comp::AbstractComponent{sma_T}) where {sma_T <: SMA}
     end
 end
 
+"""
+    MovingStdDevCalculator
+
+Calculates the [`MovingStdDev`](@ref) of data.
+"""
 struct MovingStdDevCalculator <: System end
 
 function Overseer.update(s::MovingStdDevCalculator, l::AbstractLedger)
@@ -59,6 +68,11 @@ function stdev(comp, stdev_comp::AbstractComponent{stdev_T}) where {stdev_T <: M
     end
 end
 
+"""
+    EMACalculator
+
+Calculates the [`EMA`](@ref) of data.
+"""
 Base.@kwdef struct EMACalculator <: System
     smoothing::Int = 2
 end
@@ -94,13 +108,17 @@ function ema(comp, ema_comp::AbstractComponent{ema_T},smoothing) where {ema_T <:
     end
 end
 
+"""
+    BollingerCalculator
+
+Calculates the [`Bollinger`](@ref) bands for data.
+The `width` parameter can be tuned, by default it is `2.0`.
+"""
 Base.@kwdef struct BollingerCalculator <: System
     width::Float64 = 2.0
 end
 
 function Overseer.update(s::BollingerCalculator, l::AbstractLedger)
-    # We need the sma for bollinger bands so we first ensure it is
-    # created.
     @sync for (T, c) in components(l)
         
         if T <: Bollinger
@@ -117,7 +135,6 @@ function Overseer.update(s::BollingerCalculator, l::AbstractLedger)
     end
 end
 
-#TODO FIX
 function bollinger(comp::AbstractComponent{T}, sma_comp::AbstractComponent{sma_T}, bol_comp::AbstractComponent{bol_T}, width) where {T, sma_T<:SMA, bol_T<:Bollinger}
     stdev = zero(T)
     horizon = sma_T.parameters[1]
@@ -158,6 +175,11 @@ function bollinger_stage(;
     return Stage(name, [sma_calc, bol_calc])
 end
 
+"""
+    DifferenceCalculator
+
+Computes the lag 1 differences of data values.
+"""
 struct DifferenceCalculator <: System end
     
 function Overseer.update(::DifferenceCalculator, l::AbstractLedger)
@@ -194,7 +216,12 @@ function updown(from_comp, to_comp::AbstractComponent{ud_T}) where {ud_T <: UpDo
         end
     end
 end
-                    
+
+"""
+    RSICalculator
+
+Calculates the [`RSI`](@ref) of values.
+"""
 struct RSICalculator <: System end
 
 function Overseer.update(s::RSICalculator, l::AbstractLedger)
@@ -231,6 +258,11 @@ function rsi_stage(horizon::Int         = 14,
     return Stage(:rsi, [DifferenceCalculator(),ud, ud_ema, rsi])
 end
 
+"""
+    SharpeCalculator
+
+Calculates the bare [`Sharpe`](@ref) ratio of data.
+"""
 struct SharpeCalculator <: System end
 
 function Overseer.update(s::SharpeCalculator, l::AbstractLedger)
@@ -263,6 +295,11 @@ end
 sharpe_stage() =
     Stage(:sharpe, [DifferenceCalculator(), SMACalculator(), MovingStdDevCalculator(), SharpeCalculator()])
 
+"""
+    LogValCalculator
+
+Calculates the logarithms of data.
+"""
 struct LogValCalculator <: System end
 
 function Overseer.update(::LogValCalculator, l::AbstractLedger)
@@ -288,6 +325,11 @@ function Base.log(comp::Overseer.AbstractComponent{T}, log_comp::Overseer.Abstra
     
 end
 
+"""
+    RelativeDifferenceCalculator
+
+Calculates the lag 1 [`RelativeDifference`](@ref) of data.
+"""
 struct RelativeDifferenceCalculator <: System end
     
 function Overseer.update(::RelativeDifferenceCalculator, l::AbstractLedger)

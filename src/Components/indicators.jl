@@ -1,18 +1,38 @@
+"""
+    MovingStdDev{horizon, T}
+
+The moving standard deviation of a value over timeframe of `horizon`.
+"""
 @component struct MovingStdDev{horizon, T}
     σ::T
 end
 value(m::MovingStdDev) = value(m.σ)
 
+"""
+    SMA{horizon, T}
+
+The simple moving average of a value over a timeframe of `horizon`.
+"""
 @component struct SMA{horizon, T}
     sma::T
 end
 value(sma::SMA) = value(sma.sma)
 
+"""
+    EMA{horizon, T}
+
+The exponential moving average of a value over timeframe of `horizon`.
+"""
 @component struct EMA{horizon, T}
     ema::T
 end
 value(ema::EMA) = value(ema.ema)
 
+"""
+    Bollinger{horizon, T}
+
+The up and down Bollinger bands for a value, over a timeframe of `horizon`.
+"""
 @component struct Bollinger{horizon, T}
     up::T
     down::T
@@ -21,36 +41,28 @@ value(b::Bollinger) = (value(b.up), value(b.down))
 
 for diff_T in (:Difference, :RelativeDifference)
     @eval begin
-        @component struct $diff_T{T}
-            d::T
+        @component struct $diff_T{T} <: SingleValIndicator
+            v::T
         end
-        value(d::$diff_T) = value(d.d)
+        value(d::$diff_T) = value(d.v)
 
-        Base.zero(d::$diff_T) = $diff_T(zero(d.d))
-    end
-    for op in (:+, :-, :*, :/)
-        @eval @inline Base.$op(b1::$diff_T, b2::$diff_T) = $diff_T($op(b1.d, b2.d))
-    end
-    @eval begin
-        @inline Base.:(/)(b::$diff_T, i::Int) = $diff_T(b.d/i)
-        @inline Base.:(^)(b::$diff_T, i::Int) = $diff_T(b.d^i)
-
-        @inline Base.:(*)(b::$diff_T, i::AbstractFloat) = $diff_T(b.d*i)
-        @inline Base.:(*)(i::AbstractFloat, b::$diff_T) = b * i
-        @inline Base.:(*)(i::Integer, b::$diff_T) = b * i
-        @inline Base.sqrt(b::$diff_T) = $diff_T(sqrt(b.d))
-        @inline Base.:(<)(i::Number, b::$diff_T) = i < b.d
-        @inline Base.:(<)(b::$diff_T, i::Number) = b.d < i
-        @inline Base.:(>)(i::Number, b::$diff_T) = i > b.d
-        @inline Base.:(>)(b::$diff_T, i::Number) = b.d > i
-        @inline Base.:(>=)(i::Number, b::$diff_T) = i >= b.d
-        @inline Base.:(>=)(b::$diff_T, i::Number) = b.d >= i
-        @inline Base.:(<=)(i::Number, b::$diff_T) = i <= b.d
-        @inline Base.:(<=)(b::$diff_T, i::Number) = b.d <= i
-        @assign $diff_T with Is{Indicator}
+        Base.zero(d::$diff_T) = $diff_T(zero(value(d)))
     end
 end
 
+"""
+    Difference
+
+The lag 1 difference.
+"""
+Difference
+
+"""
+    RelativeDifference
+
+The lag 1 relative difference.
+"""
+RelativeDifference
 
 @component struct UpDown{T}
     up::T
@@ -79,11 +91,22 @@ end
 @assign UpDown with Is{Indicator}
 value(ud::UpDown) = (value(ud.up), value(ud.down))
 
+"""
+    RSI{horizon, T}
+
+The relative strength index of a value over timeframe of `horizon`.
+"""
 @component struct RSI{horizon, T}
     rsi::T
 end
+
 value(rsi::RSI) = value(rsi.rsi)
 
+"""
+    Sharpe{horizon, T}
+
+The sharpe ratio of a value over a timeframe `horizon`.
+"""
 @component struct Sharpe{horizon, T}
     sharpe::T
 end

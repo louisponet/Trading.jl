@@ -48,6 +48,13 @@ it's communicated to the [`broker`](@ref AbstractBroker).
     trail_percent::Float64 = 0.0
 end
 
+"""
+    Purchase
+
+The local representation of a sell order.
+This will be turned into an [`Order`](@ref) by the [`Seller`](@ref) `System` as soon as
+it's communicated to the [`broker`](@ref AbstractBroker).
+"""
 @component Base.@kwdef mutable struct Sale
     ticker::String
     quantity::Float64
@@ -64,6 +71,8 @@ end
 
 Representation of a [`Purchase`](@ref) or [`Sale`](@ref) order that has been
 communicated to the [`broker`](@ref AbstractBroker).
+Once the status goes to "filled" the filling information will be
+taken by the [`Filler`](@ref) `System` to create a [`Filled`](@ref) component. 
 """
 @component Base.@kwdef mutable struct Order
     ticker          ::String
@@ -84,6 +93,11 @@ communicated to the [`broker`](@ref AbstractBroker).
     fee::Float64
 end
 
+"""
+    Filled
+
+Represents the filled `avg_price` and `quantity` of an [`Order`](@ref).
+"""
 @component struct Filled
     avg_price::Float64
     quantity::Float64

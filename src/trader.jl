@@ -248,6 +248,11 @@ function reset!(trader::Trader)
     
     c = Clock(TimeDate(start), dt)
     Entity(Overseer.ledger(trader), c)
+    
+    for p in trader[Position]
+        p.quantity = 0.0
+    end
+    
     if trader.broker isa HistoricalBroker
         trader.broker.clock = c
     end

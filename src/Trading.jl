@@ -49,7 +49,7 @@ include("Systems/indicators.jl")
 include("Systems/portfolio.jl")
 
 
-export Trader, start, stop_all, stop_main, stop_trading, stop_data
+export Trader, BackTester, start, stop_all, stop_main, stop_trading, stop_data
 export AlpacaBroker, HistoricalBroker
 export bars, quotes, trades
 
@@ -69,9 +69,9 @@ module Core
 end
 
 module Portfolio
-    using ..Trading: Purchase, Sale, Position,
+    using ..Trading: Purchase, Sale, Position, PortfolioSnapshot,
                      current_position
-    export Purchase, Sale, Position,
+    export Purchase, Sale, Position, PortfolioSnapshot,
            current_position
 end
 

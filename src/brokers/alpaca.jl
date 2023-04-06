@@ -150,8 +150,6 @@ end
 
 AlpacaBroker(key_id, secret_key; kwargs...) = AlpacaBroker(; key_id=key_id, secret_key=secret_key, kwargs...)
 
-Base.string(::AlpacaBroker, start::TimeDate) = string(start) * "Z"
-
 header(b::AlpacaBroker) = ["APCA-API-KEY-ID" => b.key_id, "APCA-API-SECRET-KEY" => b.secret_key]
 
 data_stream_url(::AlpacaBroker)            = URI("wss://stream.data.alpaca.markets/v2/iex")
@@ -171,6 +169,10 @@ function Base.string(::AlpacaBroker, timeframe::Period)
 end
 
 Base.string(::AlpacaBroker, a) = string(a)
+
+function Base.string(::AlpacaBroker, a::DateTime)
+    return string(ZonedDateTime(a, LOCAL_TZ))
+end
 
 function data_fields(b::AlpacaBroker, section::String)
     if section == "bars"

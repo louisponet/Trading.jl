@@ -70,10 +70,9 @@ end
     end
 
     trader = Trading.BackTester(broker;
-                                strategies = [Strategy(:slowfast, [SlowFast()], false)],
-                                tickers = ["stock1", "stock2"],
+                                strategies = [Strategy(:slowfast, [SlowFast()], false) => ["stock1", "stock2"]],
                                 start = DateTime("2023-01-01T00:00:00"),
-                                stop = DateTime("2023-01-02T00:00:00"),
+                                stop = DateTime("2023-01-06T00:00:00"),
                                 dt=Minute(1),
                                 only_day=false)
 
@@ -84,6 +83,7 @@ end
         end
     end
 
+    @test !isempty(trader["stock1"][SMA{50, Close}])
     n_bars_in_day = length(findall(x->Trading.in_day(x), timestamp(Trading.bars(broker)[("stock1", Minute(1))])))
 
     @test n_bars_in_day == length(trader[Trading.PortfolioSnapshot])

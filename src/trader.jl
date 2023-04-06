@@ -1,5 +1,5 @@
 """
-    Trader(broker::AbstractBroker; tickers::Vector{String}, strategies::Vector{Strategy}, start=current_time())
+    Trader(broker::AbstractBroker; strategies::Vector{Pair{String, Vector{Strategy}}}, start=current_time())
 
 Holds all data and tasks related to trading. 
 """
@@ -23,8 +23,7 @@ Base.getindex(t::Trader, id::String) = t.ticker_ledgers[id]
 
 main_stage() = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), DayCloser()])
 
-function Trader(broker::AbstractBroker; tickers::Vector{String}      = String[],
-                                        strategies::Vector{Strategy} = Strategy[],
+function Trader(broker::AbstractBroker; strategies::Vector{Pair{Strategy, Vector{String}}} = Pair{Strategy, Vector{String}}[],
                                         start = current_time())
                                         
     stages = Stage[]
@@ -32,7 +31,7 @@ function Trader(broker::AbstractBroker; tickers::Vector{String}      = String[],
     push!(stages, main_stage())
 
     for s in strategies
-        push!(stages, s.stage)
+        push!(stages, first(s).stage)
     end
         
     l = Ledger(stages...)
@@ -40,7 +39,7 @@ function Trader(broker::AbstractBroker; tickers::Vector{String}      = String[],
     Entity(l, Clock(start, Minute(0)))
     
     for s in strategies
-        Entity(l, s)
+        Entity(l, first(s))
     end
     
     ensure_systems!(l)
@@ -48,7 +47,9 @@ function Trader(broker::AbstractBroker; tickers::Vector{String}      = String[],
     trader = Trader(l, broker, Dict{String, TickerLedger}(), nothing, nothing, nothing, false, false, false, Threads.Condition())
     
     fill_account!(trader)
-    
+
+    tickers = unique(Iterators.flatten(map(x->last(x), strategies)))
+   
     for t in tickers
         add_ticker!(trader, t)
     end
@@ -56,14 +57,13 @@ function Trader(broker::AbstractBroker; tickers::Vector{String}      = String[],
     return trader
 end
 
-function BackTester(broker::HistoricalBroker; tickers::Vector{String}      = String[],
-                                              strategies::Vector{Strategy} = Strategy[],
+function BackTester(broker::HistoricalBroker; strategies::Vector{Pair{Strategy, Vector{String}}} = Pair{Strategy, Vector{String}}[],
                                               dt       = Minute(1),
                                               start    = current_time() - dt*1000,
                                               stop     = current_time(),
                                               only_day = true)
                                               
-    trader = Trader(broker; tickers=tickers, strategies=strategies, start=start)
+    trader = Trader(broker; strategies=strategies, start=start)
     
     maxstart = start
     minstop = stop
@@ -71,6 +71,7 @@ function BackTester(broker::HistoricalBroker; tickers::Vector{String}      = Str
     lck = ReentrantLock()
     @info "Fetching historical data"
     
+    tickers = unique(Iterators.flatten(map(x->last(x), strategies)))
     Threads.@threads for ticker in tickers
         b = bars(broker, ticker, start, stop, timeframe=dt, normalize=true)
         

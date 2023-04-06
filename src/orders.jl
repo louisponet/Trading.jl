@@ -68,7 +68,7 @@ end
 
 function receive_order(b::AlpacaBroker, ws)
     msg = JSON3.read(receive(ws))
-    if msg[:stream] == "trade_updates" && msg[:data][:event] == "fill"
+    if msg[:stream] == "trade_updates"
         return parse_order(b, msg[:data][:order])
     end
 end

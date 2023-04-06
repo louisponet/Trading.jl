@@ -63,7 +63,7 @@ module Indicators
     export SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
 end
 
-module Core
+module Basic
     using ..Trading: Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference, RelativeDifference
     export Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference, RelativeDifference
 end

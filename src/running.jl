@@ -80,11 +80,15 @@ end
 
 function start_main(trader::Trader;sleep_time = 1, kwargs...)
     trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
-        while !trader.stop_main
+        while true
             try
                 update(trader)
             catch e
-                showerror(stdout, e, catch_backtrace())
+                if !(e isa InterruptException)
+                    showerror(stdout, e, catch_backtrace())
+                else
+                    rethrow()
+                end
             end
             sleep(sleep_time)
         end
@@ -95,6 +99,7 @@ function start_trading(trader::Trader)
     order_comp = trader[Order]
     broker = trader.broker
     trader.trading_task = Threads.@spawn @stoppable trader.stop_trading order_stream(broker) do stream
+        trader.is_trading = true
         while true
             try
                 received = receive(stream)
@@ -126,6 +131,7 @@ function start_trading(trader::Trader)
             end
                     
         end
+        trader.is_trading = false
         @info "Closed Trading Stream"
     end
 end

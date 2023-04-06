@@ -12,6 +12,7 @@ mutable struct Trader{B <: AbstractBroker} <: AbstractLedger
     main_task      ::Union{Task, Nothing}
     stop_main      ::Bool
     stop_trading   ::Bool
+    is_trading     ::Bool
     stop_data      ::Bool
     new_data_event ::Threads.Condition
 end
@@ -43,7 +44,7 @@ function Trader(broker::AbstractBroker; strategies::Vector{Pair{Strategy, Vector
     
     ensure_systems!(l)
     
-    trader = Trader(l, broker, Dict{String, TickerLedger}(), nothing, nothing, nothing, false, false, false, Threads.Condition())
+    trader = Trader(l, broker, Dict{String, TickerLedger}(), nothing, nothing, nothing, false, false,false, false, Threads.Condition())
     
     fill_account!(trader)
 

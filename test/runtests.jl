@@ -2,7 +2,7 @@ using Trading
 using Test
 
 using Trading.Strategies
-using Trading.Core
+using Trading.Basic
 using Trading.Indicators
 using Trading.Portfolio
 
@@ -60,9 +60,6 @@ end
     tstamps = timestamp(int_b)
     @test all(x-> x ∈ tstamps, DateTime("2023-01-10T15:28:00"):Minute(1):DateTime("2023-01-10T16:37:00"))
 end
-
-struct SlowFast <: System end
-Overseer.requested_components(::Type{SlowFast}) = (SMA{50, Close}, SMA{200, Close}, Close, Volume)
 
 function Overseer.update(s::SlowFast, t::Trader)
     for (ticker, ticker_ledger) in t.ticker_ledgers
@@ -140,6 +137,40 @@ end
     @test positions == sum(x->x.quantity, trader[PortfolioSnapshot][end].positions) == -2.0
     @test n_purchases == length(trader[Purchase]) == 143
     @test n_sales == length(trader[Sale]) == 145
+    
+end
+
+@testset "Order" begin
+    broker = AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"])
+
+    trader = Trader(broker)
+
+    Trading.start(trader)
+
+    while !trader.is_trading
+        sleep(0.1)
+    end
+    e = Entity(trader, Purchase("AAPL", 1))
+    while e ∉ trader[Trading.Order]
+        sleep(0.001)
+    end
+
+    Trading.delete_all_orders!(trader)
+    tries = 0
+    while trader[Trading.Order][e].status == "accepted" && tries <= 300
+        sleep(0.1)
+        tries += 1
+    end
+    @test tries <= 300
+
+    @test trader[Trading.Order][e].status ∈ ("filled", "canceled")
+    if trader[Trading.Order][e].status == "filled"
+        e2 = Entity(trader, Trading.Sale("AAPL", 1))
+        while e ∉ trader[Trading.Order]
+            sleep(0.001)
+        end
+    end
+    
     
 end
 

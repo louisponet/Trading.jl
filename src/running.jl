@@ -49,7 +49,13 @@ function start_data(trader::Trader;  kwargs...)
                 updated_tickers = Set{String}()
                 for (ticker, tbar) in bars
                     time, bar  = tbar
-                    Entity(trader.ticker_ledgers[ticker], TimeStamp(time), Open(bar[1]), High(bar[2]), Low(bar[3]), Close(bar[4]), Volume(round(Int,bar[5])))
+                    _Entity(trader.ticker_ledgers[ticker],
+                            TimeStamp(time),
+                            Open(bar[1]),
+                            High(bar[2]),
+                            Low(bar[3]),
+                            Close(bar[4]),
+                            Volume(round(Int,bar[5])))
                     push!(updated_tickers, ticker)
                 end
                 

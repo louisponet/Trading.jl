@@ -58,4 +58,26 @@ function __init__()
     init_traits(@__MODULE__)
 end
 
+module Indicators
+    using ..Trading: SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
+    export SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
+end
+
+module Core
+    using ..Trading: Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference, RelativeDifference
+    export Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference, RelativeDifference
+end
+
+module Portfolio
+    using ..Trading: Purchase, Sale, Position,
+                     current_position
+    export Purchase, Sale, Position,
+           current_position
+end
+
+module Strategies
+    using ..Trading: Strategy, current_price, current_time, new_entities, lag
+    export Strategy, current_price, current_time, new_entities, lag
+end
+
 end

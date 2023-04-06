@@ -32,7 +32,11 @@ function Base.string(t::TimeInForce.T)
 end
 
 """
-    Purchase
+    Purchase(ticker, quantity;
+             type          = OrderType.Market,
+             time_in_force = TimeInForce.GTC,
+             price         = 0.0,
+             trail_percent = 0.0)
 
 The local representation of a purchase order.
 This will be turned into an [`Order`](@ref) by the [`Purchaser`](@ref) `System` as soon as
@@ -41,15 +45,22 @@ it's communicated to the [`broker`](@ref AbstractBroker).
 @component Base.@kwdef mutable struct Purchase
     ticker::String
     quantity::Float64
-    type::OrderType.T
-    time_in_force::TimeInForce.T
+    type::OrderType.T = OrderType.Market
+    time_in_force::TimeInForce.T = TimeInForce.GTC
 
     price::Float64 = 0.0
     trail_percent::Float64 = 0.0
 end
 
+Purchase(ticker, quantity; kwargs...) =
+    Purchase(;ticker=ticker, quantity=quantity, kwargs...)
+
 """
-    Purchase
+    Sale(ticker, quantity;
+             type          = OrderType.Market,
+             time_in_force = TimeInForce.GTC,
+             price         = 0.0,
+             trail_percent = 0.0)
 
 The local representation of a sell order.
 This will be turned into an [`Order`](@ref) by the [`Seller`](@ref) `System` as soon as
@@ -58,12 +69,15 @@ it's communicated to the [`broker`](@ref AbstractBroker).
 @component Base.@kwdef mutable struct Sale
     ticker::String
     quantity::Float64
-    type::OrderType.T
-    time_in_force::TimeInForce.T
+    type::OrderType.T = OrderType.Market
+    time_in_force::TimeInForce.T = TimeInForce.GTC
 
     price::Float64 = 0.0
     trail_percent::Float64 = 0.0
 end
+
+Sale(ticker, quantity; kwargs...) =
+    Sale(;ticker=ticker, quantity=quantity, kwargs...)
 
 
 """
@@ -176,3 +190,5 @@ A `Stage` with a set of `Systems` that execute a strategy.
     stage::Stage
     only_day::Bool
 end
+
+Strategy(name::Symbol, steps, only_day) = Strategy(Stage(name, steps), only_day)

@@ -103,11 +103,9 @@ end
 function add_ticker!(trader::Trader, ticker::String)
     
     ticker_ledger = TickerLedger(ticker)
-    
+
     for s in @entities_in(trader, Strategy)
-        for c in Overseer.requested_components(s.stage)
-            Overseer.ensure_component!(ticker_ledger, c)
-        end
+        register_strategy!(ticker_ledger, s.stage)
     end
 
     ensure_systems!(ticker_ledger)
@@ -218,11 +216,14 @@ function ensure_systems!(l::AbstractLedger)
         end
     end
 
-    mainid = findfirst(x -> x.name == :main, stages(l))
-    if mainid === nothing
-        push!(l, ind_stage)
-    else
-        insert!(stages(l), mainid + 1, ind_stage)
+    # Now insert the indicators stage in the most appropriate spot
+    if stageid === nothing
+        mainid = findfirst(x -> x.name == :main, stages(l))
+        if mainid === nothing
+            push!(l, ind_stage)
+        else
+            insert!(stages(l), mainid + 1, ind_stage)
+        end
     end
 end
 

@@ -21,26 +21,25 @@ Overseer.Entity(t::Trader, args...) = Entity(Overseer.ledger(t), TimeStamp(curre
 
 Base.getindex(t::Trader, id::String) = t.ticker_ledgers[id]
 
-main_stage() = Stage(:main, [Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), DayCloser()])
+main_stage() = Stage(:main, [StrategyRunner(), Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), DayCloser()])
 
 function Trader(broker::AbstractBroker; strategies::Vector{Pair{Strategy, Vector{String}}} = Pair{Strategy, Vector{String}}[],
                                         start = current_time())
                                         
-    stages = Stage[]
+    l = Ledger(main_stage())
     
-    push!(stages, main_stage())
-
-    for s in strategies
-        push!(stages, first(s).stage)
-    end
+    for strat in strategies
         
-    l = Ledger(stages...)
+        s = first(strat).stage
+        
+        for c in Overseer.requested_components(s)
+            Overseer.ensure_component!(l, c)
+        end
+        
+        Entity(l, first(strat))
+    end
     
     Entity(l, Clock(start, Minute(0)))
-    
-    for s in strategies
-        Entity(l, first(s))
-    end
     
     ensure_systems!(l)
     
@@ -105,8 +104,8 @@ function add_ticker!(trader::Trader, ticker::String)
     
     ticker_ledger = TickerLedger(ticker)
 
-    for s in @entities_in(trader, Strategy)
-        register_strategy!(ticker_ledger, s.stage)
+    for s in trader[Strategy]
+        register_strategy!(ticker_ledger, s)
     end
 
     ensure_systems!(ticker_ledger)
@@ -248,7 +247,7 @@ function reset!(trader::Trader)
     empty!(trader[PortfolioSnapshot])
     
     c = Clock(TimeDate(start), dt)
-    Entity(trader, c)
+    Entity(Overseer.ledger(trader), c)
     if trader.broker isa HistoricalBroker
         trader.broker.clock = c
     end

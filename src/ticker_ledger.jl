@@ -36,6 +36,7 @@ function register_strategy!(tl::TickerLedger, strategy::S) where {S<:Stage}
         register_strategy!(tl, s)
     end
 end
+register_strategy!(tl::TickerLedger, strategy::Strategy) = register_strategy!(tl, strategy.stage)
 
 """
     NewEntitiesIterator

@@ -24,46 +24,57 @@ Base.getindex(t::Trader, id::String) = t.ticker_ledgers[id]
 
 main_stage() = Stage(:main, [StrategyRunner(), Purchaser(), Seller(), Filler(), SnapShotter(), Timer(), DayCloser()])
 
-function Trader(broker::AbstractBroker; strategies::Vector{Pair{Strategy, Vector{String}}} = Pair{Strategy, Vector{String}}[],
+function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[],
                                         start = current_time())
                                         
     l = Ledger(main_stage())
+    ticker_ledgers = Dict{String, TickerLedger}()
     
     for strat in strategies
         
-        s = first(strat).stage
-        
-        for c in Overseer.requested_components(s)
+        for c in Overseer.requested_components(strat.stage)
             Overseer.ensure_component!(l, c)
         end
         
-        Entity(l, first(strat))
+        Entity(l, strat)
+
+        for ticker in strat.tickers
+            
+            tl = get!(ticker_ledgers, ticker, TickerLedger(ticker))
+            register_strategy!(tl, strat)
+
+            if !has_position(l, ticker)
+                Entity(l, Position(ticker, 0.0))
+            end
+            
+        end
+
+        combined = join(strat.tickers, "_")
+        tl = get!(ticker_ledgers, combined, TickerLedger(combined))
+        register_strategy!(tl, strat)
+    end
+
+    for ledger in values(ticker_ledgers)
+        ensure_systems!(ledger)
     end
     
     Entity(l, Clock(start, Minute(0)))
     
     ensure_systems!(l)
     
-    trader = Trader(l, broker, Dict{String, TickerLedger}(), nothing, nothing, nothing, false, false,false, false, Base.Event())
+    trader = Trader(l, broker, ticker_ledgers, nothing, nothing, nothing, false, false,false, false, Base.Event())
     
     fill_account!(trader)
-
-    tickers = unique(Iterators.flatten(map(x->last(x), strategies)))
    
-    for t in tickers
-        add_ticker!(trader, t)
-    end
-    
     return trader
 end
 
-function BackTester(broker::HistoricalBroker; strategies::Vector{Pair{Strategy, Vector{String}}} = Pair{Strategy, Vector{String}}[],
-                                              dt       = Minute(1),
+function BackTester(broker::HistoricalBroker; dt       = Minute(1),
                                               start    = current_time() - dt*1000,
                                               stop     = current_time(),
-                                              only_day = true)
+                                              only_day = true, kwargs...)
                                               
-    trader = Trader(broker; strategies=strategies, start=start)
+    trader = Trader(broker; start=start, kwargs...)
     
     maxstart = start
     minstop = stop
@@ -71,7 +82,8 @@ function BackTester(broker::HistoricalBroker; strategies::Vector{Pair{Strategy, 
     lck = ReentrantLock()
     @info "Fetching historical data"
     
-    tickers = unique(Iterators.flatten(map(x->last(x), strategies)))
+    tickers = collect(keys(trader.ticker_ledgers))
+    
     Threads.@threads for ticker in tickers
         b = bars(broker, ticker, start, stop, timeframe=dt, normalize=true)
         
@@ -100,25 +112,6 @@ function BackTester(broker::HistoricalBroker; strategies::Vector{Pair{Strategy, 
     broker.clock = c[Clock]
     
     return trader
-end
-
-function add_ticker!(trader::Trader, ticker::String)
-    
-    ticker_ledger = TickerLedger(ticker)
-
-    for s in trader[Strategy]
-        register_strategy!(ticker_ledger, s)
-    end
-
-    ensure_systems!(ticker_ledger)
-    
-    trader.ticker_ledgers[ticker] = ticker_ledger
-
-    if !has_position(trader, ticker) 
-        Entity(trader.l, Position(ticker, 0.0))
-    end
-    
-    return ticker_ledger
 end
 
 function current_position(t::AbstractLedger, ticker::String)

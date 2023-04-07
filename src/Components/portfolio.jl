@@ -180,15 +180,3 @@ end
 value(p::PortfolioSnapshot) = p.value
 
 @assign PortfolioSnapshot with Is{Indicator}
-
-"""
-    Strategy
-
-A `Stage` with a set of `Systems` that execute a strategy.
-"""
-@component struct Strategy
-    stage::Stage
-    only_day::Bool
-end
-
-Strategy(name::Symbol, steps, only_day) = Strategy(Stage(name, steps), only_day)

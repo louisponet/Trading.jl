@@ -22,7 +22,8 @@ function Overseer.update(::StrategyRunner, t::Trader)
         if e.only_day && !inday
             continue
         end
-
-        update(e.stage, t)
+        tickers = e.tickers
+        combined = join(tickers, "_")
+        update(e.stage, t, [map(ticker -> t[ticker], e.tickers); t[combined]])
     end
 end

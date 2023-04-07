@@ -17,7 +17,7 @@ function TickerLedger(ticker::String)
     TickerLedger(ticker, l)
 end
 
-Overseer.Entity(tl::TickerLedger, args...) = error("You, my friend, are not allowed to add entities to a TickerLedger.")
+# Overseer.Entity(tl::TickerLedger, args...) = error("You, my friend, are not allowed to add entities to a TickerLedger.")
 _Entity(tl::TickerLedger, args...) = Entity(tl.l, args...)
 
 Overseer.ledger(d::TickerLedger) = d.l
@@ -38,6 +38,28 @@ function register_strategy!(tl::TickerLedger, strategy::S) where {S<:Stage}
 end
 register_strategy!(tl::TickerLedger, strategy::Strategy) = register_strategy!(tl, strategy.stage)
 
+function reset!(tl::TickerLedger, strat::S) where {S}
+    
+    for CT in Overseer.requested_components(strat)
+        
+        CT in tl && empty!(tl[CT])
+        etype = CT
+        
+        while eltype(etype) != etype
+            etype = eltype(etype)
+            
+            if etype <: Number
+                break
+            end
+            
+            etype in tl && empty!(tl[etype])
+        end
+        
+    end
+    empty!(tl[Seen{S}])
+end
+
+
 """
     NewEntitiesIterator
 
@@ -48,6 +70,8 @@ struct NewEntitiesIterator{S<:Seen, TT <: Tuple}
     seen_comp::Component{S}
     components::TT
 end
+
+Base.length(it::NewEntitiesIterator) = length(it.shortest) - length(it.seen_comp) - 1 
 
 #TODO It's a bit slow on construction (150ns), Can't be generated due to worldage with user specified requested_components 
 """

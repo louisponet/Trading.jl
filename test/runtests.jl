@@ -7,6 +7,7 @@ using Trading.Indicators
 using Trading.Portfolio
 
 struct SlowFast <: System end
+    
 Overseer.requested_components(::Type{SlowFast}) = (SMA{50, Close}, SMA{200, Close}, Close, Volume)
 
 @testset "Ticker Ledger" begin
@@ -61,8 +62,9 @@ end
     @test all(x-> x ∈ tstamps, DateTime("2023-01-10T15:28:00"):Minute(1):DateTime("2023-01-10T16:37:00"))
 end
 
-function Overseer.update(s::SlowFast, t::Trader)
-    for (ticker, ticker_ledger) in t.ticker_ledgers
+function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
+    for ticker_ledger in ticker_ledgers
+        ticker = ticker_ledger.ticker
         for e in new_entities(ticker_ledger, s)
             lag_e = lag(e, 1)
             
@@ -91,7 +93,7 @@ end
 
 
     trader = Trading.BackTester(broker;
-                                strategies = [Strategy(:slowfast, [SlowFast()], false) => ["stock1", "stock2"]],
+                                strategies = [Strategy(:slowfast, [SlowFast()], tickers=["stock1"])],
                                 start = DateTime("2023-01-01T00:00:00"),
                                 stop = DateTime("2023-01-06T00:00:00"),
                                 dt=Minute(1),
@@ -112,7 +114,8 @@ end
 
 
     trader = BackTester(broker;
-                        strategies = [Strategy(:slowfast, [SlowFast()], false) => ["AAPL", "MSFT"]],
+                        strategies = [Strategy(:slowfast, [SlowFast()], tickers=["AAPL"]),
+                                      Strategy(:slowfast, [SlowFast()], tickers=["MSFT"])],
                         start = DateTime("2023-01-01T00:00:00"),
                         stop = DateTime("2023-02-01T00:00:00"),
                         dt=Minute(1),

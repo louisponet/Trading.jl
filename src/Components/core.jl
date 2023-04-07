@@ -18,14 +18,14 @@ import Base: zero, +, -, /, *, sqrt, ^
 end
 
 # All need to have a single field v
-abstract type SingleValIndicator end
+abstract type SingleValIndicator{T} end
 
 """
     Open
 
 The opening price of a given bar.
 """
-@component struct Open <: SingleValIndicator
+@component struct Open <: SingleValIndicator{Float64}
     v::Float64
 end
 
@@ -34,7 +34,7 @@ end
 
 The closing price of a given bar.
 """
-@component struct Close <: SingleValIndicator
+@component struct Close <: SingleValIndicator{Float64}
     v::Float64
 end
 
@@ -43,7 +43,7 @@ end
 
 The highest price of a given bar.
 """
-@component struct High <: SingleValIndicator
+@component struct High <: SingleValIndicator{Float64}
     v::Float64
 end
 
@@ -52,7 +52,7 @@ end
 
 The lowest price of a given bar.
 """
-@component struct Low <: SingleValIndicator
+@component struct Low <: SingleValIndicator{Float64}
     v::Float64
 end
 
@@ -61,7 +61,7 @@ end
 
 The traded volume of a given bar.
 """
-@component struct Volume <: SingleValIndicator
+@component struct Volume <: SingleValIndicator{Float64}
     v::Float64
 end
 
@@ -70,7 +70,7 @@ end
 
 The logarithm of a value.
 """
-@component struct LogVal{T} <: SingleValIndicator
+@component struct LogVal{T} <: SingleValIndicator{T}
     v::T
 end
 
@@ -92,6 +92,7 @@ Base.zero(::T) where {T<:SingleValIndicator} = T(0.0)
 @inline value(b::SingleValIndicator) = value(b.v)
 @inline value(b::Number) = b
 @inline Base.convert(::Type{T}, b::SingleValIndicator) where {T <: Number} = convert(T, value(b))
+Base.eltype(::Type{SingleValIndicator{T}}) where {T} = T
 
 @assign SingleValIndicator with Is{Indicator}
 
@@ -105,3 +106,16 @@ Associates a time to an `Entity`.
 end
 
 TimeStamp() = TimeStamp(TimeDate(now()))
+
+"""
+    Strategy
+
+A `Stage` with a set of `Systems` that execute a strategy.
+"""
+@component Base.@kwdef struct Strategy
+    stage::Stage
+    only_day::Bool = false
+    tickers::Vector{String} = String[]
+end
+
+Strategy(name::Symbol, steps; kwargs...) = Strategy(stage=Stage(name, steps); kwargs...)

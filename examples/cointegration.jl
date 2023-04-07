@@ -1,17 +1,16 @@
-using Pkg
-Pkg.add(url="https://github.com/louisponet/Trading.jl")
-Pkg.add(url="https://github.com/louisponet/Overseer.jl", branch="master")
-
-Pkg.add(["Plots", "GLM", "HypothesisTests", "Statistics", "ThreadPools"])
-
 using Trading
+using Trading.Strategies
+using Trading.Basic
+using Trading.Indicators
+using Trading.Portfolio
+
 using Plots
 using GLM
 using HypothesisTests
 using Statistics
 using ThreadPools
 
-using Trading.TimeSeries: rename
+using TimeSeries: rename
 
 using Trading: Purchase, Sale, Close, LogVal, Filled, Order, TimeStamp, PortfolioSnapshot,
                OrderType, TimeInForce, PurchasePower, Strategy, Trader,
@@ -138,144 +137,137 @@ function cointegration_timearray(account, ticker1, ticker2, start, stop; γ=0.78
 end
 
 
-@pooled_component mutable struct Pair
-    ticker1::String
-    ticker2::String
-    γ::NTuple{5,Float64}
-    z_thr::Float64
-end
-
 @component struct Spread <: Trading.SingleValIndicator
     v::Float64
 end
 
-@component struct Seen end
+struct SpreadCalculator <: System
+    γ::NTuple{5,Float64}
+end
+Overseer.prepare(::SpreadCalculator, l) =
+    Overseer.ensure_component!(l, Spread)
 
-struct PairStrat <: System end
+Overseer.requested_components(::SpreadCalculator) = (LogVal{Close}, )
+
+struct PairStrat{horizon}
+    γ::NTuple{5,Float64}
+    z_thr::Float64
+end
+Overseer.requested_components(::PairStrat{horizon}) where {horizon} = (SMA{horizon, Spread},MovingStdDev{horizon, Spread})
 
 @component struct ZScore{T} <: Trading.SingleValIndicator
     v::T
 end
 
-Overseer.requested_components(::PairStrat) = (Spread, Seen, Trading.MovingStdDev{20, Spread},
-                                               Trading.SMA{20, Spread}, Close, LogVal{Close}, ZScore{Spread})
+function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
 
-Overseer.prepare(::PairStrat, l::Overseer.AbstractLedger) = Overseer.ensure_component!(l, Pair)
-function Overseer.update(::PairStrat, m::Trading.Trader)
-    
-    pairs_comp  = m[Pair]
-    spread_comp = m[Spread]
-    seen_comp   = m[Seen]
-    sma_comp    = m[Trading.SMA{20, Spread}]
-    z_comp      = m[ZScore{Spread}]
-    stddev_comp = m[Trading.MovingStdDev{20, Spread}]
+    @assert length(ticker_ledgers) == 3 "Pairs Strategy only implemented for 2 tickers at a time"
+    combined_ledger = ticker_ledgers[end]
 
     curt = current_time(m)
 
     # We clear all data at market open
     if Trading.is_market_open(curt)
-        
-        for (pair, pair_es) in pools(pairs_comp)
-            empty_entities!(m.ticker_ledgers[pair.ticker1])
-            empty_entities!(m.ticker_ledgers[pair.ticker2])
+        for l in ticker_ledgers[1:2]
+            reset!(l, s)
         end
-    
-        empty!(spread_comp)
-        empty!(seen_comp)
-        empty!(sma_comp)
-        empty!(z_comp)
-        empty!(stddev_comp)
-        
     end
 
-    new_pos = false
-    cash = m[PurchasePower][1].cash
+    new_bars1 = new_entities(ticker_ledgers[1], s)
+    new_bars2 = new_entities(ticker_ledgers[2], s)
 
+    tickers = map(x->x.ticker, ticker_ledgers[1:2])
+    @assert length(new_bars1) == length(new_bars2) "New bars differ for tickers $tickers"
+    
+    γ = s.γ[dayofweek(curt)]
+    
+    for (b1, b2) in zip(new_bars1, new_bars2)
+        Entity(combined_ledger, Spread(b1.v - γ * b2.v))
+    end
+end
+function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
+
+    curt = current_time(m)
+    if Trading.is_market_open(curt)
+        reset!(ticker_ledgers[end], s)
+    end
+
+    cash = m[PurchasePower][1].cash
+    new_pos = false
     pending_order = any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
 
-    for ie in length(seen_comp)+1:length(spread_comp)
+    pending_order || !in_trading(curt) && return
+    
+    z_comp = ticker_ledgers[end][ZScore{Spread}]
+
+    ticker1 = ticker_ledgers[1].ticker
+    ticker2 = ticker_ledgers[2].ticker
+    
+    γ = s.γ[dayofweek(curt)]
+    
+    for e in new_entities(ticker_ledgers[end], s)
 
         # Even if an order is already pending we still need to "see" the remaining entities
-        e = entity(spread_comp, ie)
-        m[e] = Seen()
-        
-        if e ∉ sma_comp || pending_order || !in_trading(curt)
-            continue
-        end
-        
-        v         = spread_comp[ie].v
-        sma       = sma_comp[e].sma
-        σ         = stddev_comp[e].σ 
+        v         = e.v
+        sma       = e.sma
+        σ         = e.σ 
         z_score   = (v - sma) / σ
         z_comp[e] = ZScore{Spread}(z_score)
         
-        pair      = pairs_comp[e]
-        
-        curpos1 = current_position(m, pair.ticker1)
-        curpos2 = current_position(m, pair.ticker2)
+        curpos1 = current_position(m, ticker1)
+        curpos2 = current_position(m, ticker2)
 
-        p1 = current_price(m, pair.ticker1)
-        p2 = current_price(m, pair.ticker2)
+        p1 = current_price(m, ticker1)
+        p2 = current_price(m, ticker2)
 
-        quantity2(n1) = round(Int, n1 * p1 * pair.γ[dayofweek(curt)] / p2)
+        quantity2(n1) = round(Int, n1 * p1 * γ / p2)
         # quantity2(n1) = round(Int, n1 * pair.γ)
 
         new_pos && continue
         if curpos1 == curpos2 == 0
             
-            if z_score < -pair.z_thr
+            if z_score < -s.z_thr
                 new_pos = true
                 q = cash / p1 
-                Entity(m, Purchase(pair.ticker1, q, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
-                Entity(m, Sale(pair.ticker2, quantity2(q), OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+                Entity(m, Purchase(ticker1, q))
+                Entity(m, Sale(ticker2, quantity2(q)))
 
-            elseif z_score > pair.z_thr
+            elseif z_score > s.z_thr
                 new_pos = true
                 q = cash / p1 
                 
-                Entity(m, Purchase(pair.ticker2, quantity2(q), OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
-                Entity(m, Sale(pair.ticker1, q, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+                Entity(m, Purchase(ticker2, quantity2(q)))
+                Entity(m, Sale(ticker1, q))
             end
         end
+
+        lag_e = lag(e, 1)
+        lag_e === nothing && continue
         
-        ie - 1 == 0 && continue
-        
-        if any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
+        if new_pos
             continue
         end
-        lag_e = entity(spread_comp, ie-1)
         
-        if lag_e in spread_comp && sign(v - sma.v) != sign(spread_comp[lag_e].v - sma.v)
+        if sign(v - sma.v) != sign(lag_e.v - lag_e.sma.v)
 
             if curpos1 < 0.0
-                Entity(m, Purchase(pair.ticker1, -curpos1, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+                Entity(m, Purchase(ticker1, -curpos1))
+                new_pos = true
             elseif curpos1 > 0.0
-                Entity(m, Sale(pair.ticker1, curpos1, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+                Entity(m, Sale(ticker1, curpos1))
+                new_pos = true
             end
 
             if curpos2 < 0.0
-                Entity(m, Purchase(pair.ticker2, -curpos2, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+                Entity(m, Purchase(ticker2, -curpos2))
+                new_pos = true
             elseif curpos2 > 0.0
-                Entity(m, Sale(pair.ticker2, curpos2, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+                Entity(m, Sale(ticker2, curpos2))
+                new_pos = true
             end
-            new_pos = true
+            
         end
     end
-   
-    for (pair, pair_es) in pools(pairs_comp)
-        ledger1 = m.ticker_ledgers[pair.ticker1]
-        ledger2 = m.ticker_ledgers[pair.ticker2]
-        logcomp1 = ledger1[LogVal{Close}]
-        logcomp2 = ledger2[LogVal{Close}]
-        
-        @inbounds for ie in length(spread_comp)+1:length(logcomp1)
-            e1 = logcomp1[ie]
-            e2 = logcomp2[ie]
-            new_e = Entity(m, Spread(e1.v - pair.γ[dayofweek(curt)] * e2.v))
-            pairs_comp[new_e] = pair_es[1]
-        end
-    end
-
 end
 
 
@@ -351,7 +343,7 @@ function pair_trader(broker, ticker1::String, ticker2::String, start, stop, γ; 
 end
 
 
-acc = HistoricalBroker(AlpacaBroker("<key_id>", "<secret_key>"))
+acc = HistoricalBroker(AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"]))
 
 acc.variable_transaction_fee = 0.0
 acc.fee_per_share = 0.005
@@ -364,7 +356,9 @@ acc.fixed_transaction_fee = 0.0
 # msft_aapl_γ = mean_daily_γ(acc, "MSFT", "AAPL", TimeDate("2023-03-01T00:00:00"), TimeDate("2023-03-31T23:59:59"))
 
 msft_aapl_γ = γ_2021
+start = TimeDate("2022-01-01T00:00:00")
+stop = TimeDate("2022-12-30T23:59:59")
 
-trader = pair_trader(acc, "MSFT", "AAPL", TimeDate("2022-01-01T00:00:00"), TimeDate("2022-12-30T23:59:59"), msft_aapl_γ, z_thr=3.0)
+trader = pair_trader(acc, "MSFT", "AAPL", start, stop, msft_aapl_γ, z_thr=3.0)
 start(trader)
 plot_simulation(trader)

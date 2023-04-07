@@ -64,9 +64,9 @@ function start_data(trader::Trader;  kwargs...)
                         Overseer.update(trader.ticker_ledgers[ticker])
                     end
                 end
-                lock(trader.new_data_event) do 
-                    notify(trader.new_data_event)
-                end
+                # lock(trader.new_data_event) do 
+                notify(trader.new_data_event)
+                # end
                     
             catch e
                 if !(e isa InvalidStateException) && !(e isa EOFError) && !(e isa InterruptException)
@@ -174,9 +174,8 @@ end
 function Overseer.update(trader::Trader)
     singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash
     
-    lock(trader.new_data_event) do 
-        wait(trader.new_data_event)
-    end
+    wait(trader.new_data_event)
+    reset(trader.new_data_event)
 
     for s in stages(trader)
         update(s, trader)
@@ -188,9 +187,10 @@ function Overseer.update(trader::Trader{<:HistoricalBroker})
     
     notify(trader.broker.send_bars)
     
-    lock(trader.new_data_event) do 
-        wait(trader.new_data_event)
-    end
+    # lock(trader.new_data_event) do 
+    wait(trader.new_data_event)
+    reset(trader.new_data_event)
+    # end
     
     for s in stages(trader)
         update(s, trader)

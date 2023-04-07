@@ -14,7 +14,7 @@ mutable struct Trader{B <: AbstractBroker} <: AbstractLedger
     stop_trading   ::Bool
     is_trading     ::Bool
     stop_data      ::Bool
-    new_data_event ::Threads.Condition
+    new_data_event ::Base.Event
 end
 
 Overseer.ledger(t::Trader) = t.l
@@ -44,7 +44,7 @@ function Trader(broker::AbstractBroker; strategies::Vector{Pair{Strategy, Vector
     
     ensure_systems!(l)
     
-    trader = Trader(l, broker, Dict{String, TickerLedger}(), nothing, nothing, nothing, false, false,false, false, Threads.Condition())
+    trader = Trader(l, broker, Dict{String, TickerLedger}(), nothing, nothing, nothing, false, false,false, false, Base.Event())
     
     fill_account!(trader)
 
@@ -262,6 +262,7 @@ function reset!(trader::Trader)
     if trader.broker isa HistoricalBroker
         reset(trader.broker.send_bars)
     end
+    reset(trader.new_data_event)
     
     fill_account!(trader)
     return trader

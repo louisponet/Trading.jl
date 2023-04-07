@@ -24,7 +24,7 @@ Overseer.ledger(d::TickerLedger) = d.l
 
 function register_strategy!(tl::TickerLedger, strategy::S) where {S<:System} 
     Overseer.ensure_component!(tl, Seen{S})
-    for c in Overseer.requested_components(S)
+    for c in Overseer.requested_components(strategy)
         Overseer.ensure_component!(tl, c)
     end
     Overseer.prepare(tl)
@@ -82,7 +82,7 @@ and were not yet seen.
 I.e. each entity in those components will be looped over once and only once when iteratively calling `new_entities`.
 """
 function new_entities(tl::TickerLedger, strategy::S) where {S}
-    comps = map(x -> tl[x], Overseer.requested_components(S))
+    comps = map(x -> tl[x], Overseer.requested_components(strategy))
     shortest = comps[findmin(x -> length(x.indices), comps)[2]].indices
     seen_comp = tl[Seen{S}]
     return NewEntitiesIterator(shortest, seen_comp, comps)

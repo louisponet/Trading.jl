@@ -76,8 +76,11 @@ module Portfolio
 end
 
 module Strategies
-    using ..Trading: Strategy, current_price, current_time, new_entities, lag, reset!
-    export Strategy, current_price, current_time, new_entities, lag, reset!
+    using ..Trading: Strategy, current_price, current_time, new_entities,  reset!
+    export Strategy, current_price, current_time, new_entities, reset!
+    
+    using TimeSeries: lag
+    export lag
 end
 
 end

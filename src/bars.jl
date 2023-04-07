@@ -56,7 +56,6 @@ function receive_bars(dp::HistoricalBroker, args...)
     wait(dp.send_bars)
     reset(dp.send_bars)
     curt = dp.clock.time
-    
     msg = Tuple{String, Tuple{DateTime, NTuple{5,Float64}}}[]
     while isempty(msg) && dp.clock.time <= last_time(dp) 
         dp.clock.time += dp.clock.dtime

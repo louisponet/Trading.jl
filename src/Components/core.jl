@@ -92,7 +92,7 @@ Base.zero(::T) where {T<:SingleValIndicator} = T(0.0)
 @inline value(b::SingleValIndicator) = value(b.v)
 @inline value(b::Number) = b
 @inline Base.convert(::Type{T}, b::SingleValIndicator) where {T <: Number} = convert(T, value(b))
-Base.eltype(::Type{SingleValIndicator{T}}) where {T} = T
+Base.eltype(::Type{<:SingleValIndicator{T}}) where {T} = T
 
 @assign SingleValIndicator with Is{Indicator}
 

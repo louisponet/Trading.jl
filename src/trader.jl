@@ -82,7 +82,7 @@ function BackTester(broker::HistoricalBroker; dt       = Minute(1),
     lck = ReentrantLock()
     @info "Fetching historical data"
     
-    tickers = collect(keys(trader.ticker_ledgers))
+    tickers =  filter(x->!occursin("_", x), collect(keys(trader.ticker_ledgers)))
     
     Threads.@threads for ticker in tickers
         b = bars(broker, ticker, start, stop, timeframe=dt, normalize=true)

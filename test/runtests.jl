@@ -8,13 +8,13 @@ using Trading.Portfolio
 
 struct SlowFast <: System end
     
-Overseer.requested_components(::Type{SlowFast}) = (SMA{50, Close}, SMA{200, Close}, Close, Volume)
+Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close}, Close, Volume)
 
 @testset "Ticker Ledger" begin
     l = Trading.TickerLedger("AAPL")
     Trading.register_strategy!(l, SlowFast())
 
-    for CT in Overseer.requested_components(SlowFast)
+    for CT in Overseer.requested_components(SlowFast())
         @test CT in l
     end
 

@@ -133,7 +133,7 @@ Base.@kwdef mutable struct AlpacaBroker <: AbstractBroker
     cache::DataCache = DataCache()
     rate::Int = 200
     last::TimeDate = current_time()
-    nrequests::UInt64 = 0
+    @atomic nrequests::Int
     
     function AlpacaBroker(key_id, secret_key, cache, rate, last, nrequests)
         try
@@ -148,7 +148,7 @@ Base.@kwdef mutable struct AlpacaBroker <: AbstractBroker
     
 end
 
-AlpacaBroker(key_id, secret_key; kwargs...) = AlpacaBroker(; key_id=key_id, secret_key=secret_key, kwargs...)
+AlpacaBroker(key_id, secret_key; kwargs...) = AlpacaBroker(; key_id=key_id, secret_key=secret_key, nrequests=0, kwargs...)
 
 header(b::AlpacaBroker) = ["APCA-API-KEY-ID" => b.key_id, "APCA-API-SECRET-KEY" => b.secret_key]
 
@@ -205,24 +205,18 @@ function data_query(broker::AlpacaBroker, symbol, start, stop=nothing, ::Type{T}
     while true
 
         #TODO requests are throttling more than they should
-        if broker.nrequests == broker.rate
-            st = Minute(1) - (current_time() - broker.last)
-            if st < Minute(0)
-                broker.nrequests = 0
-                broker.last = current_time()
-            else
-                @info "Account request limit reached, throttling..."
-                sleep(convert(Microsecond, st))
-            end
-        end
-        
-        if current_time() - broker.last > Minute(1)
-            broker.nrequests = 0
-            broker.last = current_time()
+        while broker.nrequests == broker.rate
+            sleep(1)
         end
         
         resp = HTTP.get(make_uri(), header(broker))
-        broker.nrequests += 1
+        @atomic broker.nrequests += 1
+        
+        @async begin
+            sleep(60)
+            @atomic broker.nrequests -= 1
+        end
+        
         if resp.status == 200
             t = JSON3.read(resp.body)
             if t[section_symbol] === nothing

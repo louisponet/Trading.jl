@@ -41,6 +41,11 @@ end
 function start_data(trader::Trader;  kwargs...)
     trader.data_task = Threads.@spawn @stoppable trader.stop_data bar_stream(trader.broker) do stream
         for (ticker, q) in trader.ticker_ledgers
+            
+            if occursin("_", ticker)
+                continue
+            end
+            
             register!(stream, ticker)
         end
         while !trader.stop_data && !isclosed(stream)

@@ -6,7 +6,7 @@ Calculates the [`SMA`](@ref) of data.
 struct SMACalculator <: System end
 
 function Overseer.update(s::SMACalculator, l::AbstractLedger)
-    @sync for (T, c) in components(l)
+    for (T, c) in components(l)
         if T <: SMA && T.parameters[2] ∈ l
             sma(l[T.parameters[2]], c)
         end
@@ -38,7 +38,7 @@ Calculates the [`MovingStdDev`](@ref) of data.
 struct MovingStdDevCalculator <: System end
 
 function Overseer.update(s::MovingStdDevCalculator, l::AbstractLedger)
-    @sync for (T, c) in components(l)
+    for (T, c) in components(l)
         if T <: MovingStdDev && T.parameters[2] ∈ l
             stdev(l[T.parameters[2]], c)
         end
@@ -78,7 +78,7 @@ Base.@kwdef struct EMACalculator <: System
 end
 
 function Overseer.update(s::EMACalculator, l::AbstractLedger)
-    @sync for (T, c) in components(l)
+    for (T, c) in components(l)
         if T <: EMA && T.parameters[2] ∈ l
             ema(l[T.parameters[2]], c, s.smoothing)
         end
@@ -119,7 +119,7 @@ Base.@kwdef struct BollingerCalculator <: System
 end
 
 function Overseer.update(s::BollingerCalculator, l::AbstractLedger)
-    @sync for (T, c) in components(l)
+    for (T, c) in components(l)
         
         if T <: Bollinger
             

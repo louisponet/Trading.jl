@@ -100,14 +100,11 @@ end
     Trading.start(trader)
     for (ticker, l) in trader.ticker_ledgers
         for c in (Open, Close, High, Low, Volume, TimeStamp)
-            @test length(l[c]) == length(bars(broker)[(ticker, Minute(1))]) - 1
+            @test length(l[c]) == length(bars(broker)[(ticker, Minute(1))])
         end
     end
 
     @test !isempty(trader["stock1"][SMA{50, Close}])
-    n_bars_in_day = length(findall(x->Trading.in_day(x), timestamp(Trading.bars(broker)[("stock1", Minute(1))])))
-
-    @test n_bars_in_day == length(trader[Trading.PortfolioSnapshot])
 end
 
 @testset "Real Backtesting run" begin
@@ -122,7 +119,11 @@ end
                         only_day=false)
 
     Trading.start(trader)
+
     totval = trader[PortfolioSnapshot][end].value
+    tsnap = map(x->x.value, trader[PortfolioSnapshot])
+    tstamps = map(x->x.t, trader[Trading.TimeStamp])
+    
     positions = sum(x->x.quantity, trader[PortfolioSnapshot][end].positions)
     n_purchases = length(trader[Purchase]) 
     n_sales = length(trader[Sale])
@@ -132,11 +133,17 @@ end
     Trading.reset!(trader)
 
     Trading.start(trader)
+    tsnap2 = map(x->x.value, trader[PortfolioSnapshot])
+    tstamps2 = map(x->x.t, trader[Trading.TimeStamp])
 
-    @test totval == trader[PortfolioSnapshot][end].value == 99976.98607275469
+
+    @test totval == trader[PortfolioSnapshot][end].value == 99977.11587275469
     @test positions == sum(x->x.quantity, trader[PortfolioSnapshot][end].positions) == -2.0
     @test n_purchases == length(trader[Purchase]) == 143
     @test n_sales == length(trader[Sale]) == 145
+    @test sum(tsnap .- tsnap2) == 0
+    @test tstamps == tstamps2 
+
     
 end
 

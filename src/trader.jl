@@ -96,6 +96,7 @@ function BackTester(broker::HistoricalBroker; strategies::Vector{Pair{Strategy, 
     
     c = singleton(trader, Clock)
     c.dtime = dt
+    c.time -= dt
     broker.clock = c[Clock]
     
     return trader
@@ -236,7 +237,7 @@ function reset!(trader::Trader)
     
     dt = trader[Clock][1].dtime
 
-    start = minimum(x->timestamp(x)[1], values(bars(trader.broker)))
+    start = minimum(x->timestamp(x)[1], values(bars(trader.broker))) - dt
 
     empty!(trader[Purchase])
     empty!(trader[Order])
@@ -257,6 +258,11 @@ function reset!(trader::Trader)
     if trader.broker isa HistoricalBroker
         trader.broker.clock = c
     end
+
+    if trader.broker isa HistoricalBroker
+        reset(trader.broker.send_bars)
+    end
+    
     fill_account!(trader)
     return trader
 end

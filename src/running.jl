@@ -90,7 +90,7 @@ function start_main(trader::Trader;sleep_time = 1, kwargs...)
                     rethrow()
                 end
             end
-            sleep(sleep_time)
+            # sleep(sleep_time)
         end
     end
 end
@@ -142,9 +142,6 @@ function stop_main(trader::Trader)
         sleep(1)
     end
     trader.stop_main = false
-    if trader.broker isa HistoricalBroker
-        notify(trader.broker.send_bars)
-    end
     return trader
 end
 
@@ -175,7 +172,11 @@ function stop_all(trader::Trader)
 end
 
 function Overseer.update(trader::Trader)
-    singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash 
+    singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash
+    
+    lock(trader.new_data_event) do 
+        wait(trader.new_data_event)
+    end
 
     for s in stages(trader)
         update(s, trader)

@@ -54,9 +54,10 @@ last_time(dp::HistoricalBroker) = maximum(x->timestamp(x)[end], values(bars(dp))
 
 function receive_bars(dp::HistoricalBroker, args...)
     wait(dp.send_bars)
+    reset(dp.send_bars)
     curt = dp.clock.time
     
-    msg = NamedTuple[]
+    msg = Tuple{String, Tuple{DateTime, NTuple{5,Float64}}}[]
     while isempty(msg) && dp.clock.time <= last_time(dp) 
         dp.clock.time += dp.clock.dtime
         for (ticker, frame) in bars(dp)
@@ -66,12 +67,11 @@ function receive_bars(dp::HistoricalBroker, args...)
             dat === nothing && continue
             
             vals = values(dat)
-            push!(msg, mock_bar(dp.broker, first(ticker), (string(timestamp(dat)[1]), vals...)))
+            push!(msg, (first(ticker), (timestamp(dat)[1], (view(vals, 1:5)...,))))
         end
     end
     dp.last = dp.clock.time
-    reset(dp.send_bars)
-    return bars(dp.broker, msg)
+    return msg
 end
             
 """

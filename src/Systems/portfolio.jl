@@ -9,7 +9,15 @@ Overseer.requested_components(::Purchaser) = (Purchase, Order, PurchasePower)
 
 function Overseer.update(::Purchaser, l::AbstractLedger)
     cash = singleton(l, PurchasePower)
-    for e in @entities_in(l, Purchase && !Order)
+    purchase_comp = l[Purchase]
+    order_comp = l[Order]
+    
+    for ie in length(purchase_comp):-1:1
+        e = @inbounds entity(purchase_comp, ie)
+
+        if e in order_comp
+            return
+        end
 
         if e.type == OrderType.Market
             cur_price = current_price(l, e.ticker)
@@ -48,7 +56,16 @@ struct Seller <: System end
 Overseer.requested_components(::Seller) = (Sale, Position, Order)
 
 function Overseer.update(::Seller, l::AbstractLedger)
-    for e in @entities_in(l, Sale && !Order)
+    sale_comp = l[Sale]
+    order_comp = l[Order]
+    
+    for ie in length(sale_comp):-1:1
+        e = @inbounds entity(sale_comp, ie)
+
+        if e in order_comp
+            return
+        end
+        
         if e.quantity === Inf
             posid = findfirst(x -> x.ticker == e.ticker, l[Position])
             
@@ -84,8 +101,15 @@ struct Filler <: System end
 Overseer.requested_components(::Filler) = (Filled,Cash, Position)
 
 function Overseer.update(::Filler, l::AbstractLedger)
-    cash = singleton(l, Cash) 
+    
+    if length(l[Order]) == length(l[Filled])
+        return
+    end
+    
+    cash = singleton(l, Cash)
+    
     for e in @entities_in(l, Order && !Filled)
+        
         if e.status == "filled"
             l[e] = Filled(e.filled_avg_price, e.filled_qty)
 
@@ -96,15 +120,18 @@ function Overseer.update(::Filler, l::AbstractLedger)
                 ticker = l[Sale][e].ticker
                 quantity_filled = -e.filled_qty
             end
+            
             cash.cash -= e.filled_avg_price * quantity_filled
             cash.cash -= e.fee
             
             id = findfirst(x->x.ticker == ticker, l[Position])
+            
             if id === nothing
                 Entity(l, Position(ticker, quantity_filled))
             else
                 l[Position][id].quantity += quantity_filled
             end
+            
         end
     end
 end
@@ -129,6 +156,9 @@ function Overseer.update(::DayCloser, l::AbstractLedger)
         return
     end
 
+    if length(l[Purchase]) + length(l[Sale]) == length(l[Filled])
+        return
+    end
     for e in @safe_entities_in(l, (Purchase || Sale) && !Filled)
         delete!(l, e)
     end
@@ -161,10 +191,7 @@ Overseer.requested_components(::SnapShotter) = (PortfolioSnapshot, TimeStamp)
 
 function Overseer.update(s::SnapShotter, l::AbstractLedger)
     curt = current_time(l)
-    if !in_day(curt)
-        return
-    end
-    
+
     if length(l[PortfolioSnapshot]) > 0
         last_snapshot_e = last_entity(l[PortfolioSnapshot])
 

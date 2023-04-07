@@ -50,11 +50,11 @@ function fill_account!(trader::Trader)
     empty!(trader[Cash])
     empty!(trader[PurchasePower])
     
-    Entity(trader, Cash(cash), PurchasePower(cash))
+    Entity(trader.l, Cash(cash), PurchasePower(cash))
     for p in positions
         id = findfirst(x->x.ticker == p[1], trader[Position])
         if id === nothing 
-            Entity(trader, Position(p...))
+            Entity(trader.l, Position(p...))
         else
             trader[Position][id].quantity = p[2]
         end

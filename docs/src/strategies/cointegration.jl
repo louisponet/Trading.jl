@@ -43,8 +43,8 @@ function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
     combined_ledger = ticker_ledgers[end]
 
     curt = current_time(m)
-
-    # We clear all data at market open
+    
+    ## We clear all data from the previous day at market open
     if Trading.is_market_open(curt)
         for l in ticker_ledgers[1:2]
             reset!(l, s)
@@ -66,6 +66,8 @@ end
 
 function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
     curt = current_time(m)
+    
+    ## We clear all data from the previous day at market open
     if Trading.is_market_open(curt)
         reset!(ticker_ledgers[end], s)
     end
@@ -98,7 +100,7 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
         p2 = current_price(m, ticker2)
 
         quantity2(n1) = round(Int, n1 * p1 * γ / p2)
-        # quantity2(n1) = round(Int, n1 * pair.γ)
+        
         in_bought_leg = curpos1 > 0
         in_sold_leg = curpos1 < 0
 
@@ -155,7 +157,7 @@ broker = HistoricalBroker(AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"
 
 broker.variable_transaction_fee = 0.0
 broker.fee_per_share = 0.005
-broker.fixed_transaction_fee = 0.0
+broker.fixed_transaction_fee = 0.0;
 
 # Next we specify the daily cointegration parameters that were fit to 2022 data, and run the backtest on Minute data from the first 3 months of 2023.
 γ = (0.83971041721211, 0.7802162996942561, 0.8150936011572303, 0.8665354500999517, 0.8253480013737815)

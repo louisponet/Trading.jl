@@ -84,13 +84,32 @@ struct BarStream{B<:AbstractBroker, W}
     broker::B
     ws::W
 end
+
+"""
+    receive(barstream)
+
+Blocking function which will return new bars as soon as they are available.
+"""
 HTTP.receive(b::BarStream) = receive_bars(b.broker, b.ws)
 
 WebSockets.isclosed(b::BarStream) = WebSockets.isclosed(b.ws)
 WebSockets.isclosed(b::BarStream{<:HistoricalBroker}) = b.broker.clock.time > last_time(b.broker)
 
+"""
+    register!(barstream, ticker)
+
+Register a ticker to the [`BarStream`](@ref) so that [`receive`](@ref) will also
+return updates with new bars for `ticker`.
+"""
 register!(b::BarStream, ticker) = subscribe_bars(b.broker, ticker, b.ws)
 
+"""
+    bar_stream(f::Function, broker)
+
+Open a bar stream, calls function `f` with a [`BarStream`](@ref) object.
+Call [`receive`](@ref) on the [`BarStream`](@ref) to get new bars streamed in,
+and [`register!`](@ref) to register tickers for which to receive bar updates for.
+"""
 function bar_stream(func::Function, broker::AlpacaBroker)
     HTTP.open(data_stream_url(broker)) do ws
         

@@ -1,4 +1,7 @@
 # Data
+```@meta
+CurrentModule=Trading
+```
 
 ## Historical Acquisition
 
@@ -22,6 +25,8 @@ There are realtime data streams for bars and portfolio/order updates. They follo
 ```@docs
 Trading.BarStream
 Trading.bar_stream
+Trading.HTTP.receive(b::Trading.BarStream)
+Trading.register!(b::Trading.BarStream, ticker)
 ```
 
 ```@docs
@@ -82,6 +87,7 @@ Trading.SharpeCalculator
 ## General Data
 
 ```@docs
+Trading.SingleValIndicator
 Trading.LogVal
 Trading.Difference
 Trading.RelativeDifference
@@ -89,5 +95,9 @@ Trading.RelativeDifference
 Trading.LogValCalculator
 Trading.DifferenceCalculator
 Trading.RelativeDifferenceCalculator
+```
+
+```@docs
+Trading.value
 ```
 

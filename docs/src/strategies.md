@@ -1,4 +1,7 @@
 # Strategies
+```@meta
+CurrentModule = Trading
+```
 
 As with any other functionality in `Trading`, `Strategies` are represented by `Systems` and thus are treated on completely equal footing with the core functionality.
 There are three main parts that need to be implemented for a `Strategy` to be used: the `struct`, the `Overseer.update` function, and the `Overseer.requested_components` function.
@@ -94,7 +97,7 @@ elseif sma_50 < sma_200 && lag_sma_50 > lag_sma_200
 end
 ```
 If the fast sma crosses above the slow sma, we assume the stock is overbought and we sell it by creating an `Entity` with a  [`Sale`](@ref) component.
-Vice versa, If the fast sma crosses below the slow sma, we assume the stock is oversold and we buy it by creating an `Entity` with a  [`Buy`](@ref) component.
+Vice versa, If the fast sma crosses below the slow sma, we assume the stock is oversold and we buy it by creating an `Entity` with a  [`Purchase`](@ref) component.
 
 ## BackTesting
 
@@ -139,3 +142,10 @@ plot(ta[:value])
 We can see that this strategy is not particularly succesful.
 
 See [`Slow Fast Strategy`](@ref slow_fast_id) for a full runnable version of this strategy.
+
+## References
+```@docs
+Trading.new_entities
+Trading.start
+Trading.reset!
+```

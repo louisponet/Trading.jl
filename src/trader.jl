@@ -57,8 +57,7 @@ function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[
     for ledger in values(ticker_ledgers)
         ensure_systems!(ledger)
     end
-    
-    Entity(l, Clock(start, Minute(0)))
+     Entity(l, Clock(start, Minute(0)))
     
     ensure_systems!(l)
     
@@ -69,6 +68,9 @@ function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[
     return trader
 end
 
+"""
+    BackTester(broker)
+"""
 function BackTester(broker::HistoricalBroker; dt       = Minute(1),
                                               start    = current_time() - dt*1000,
                                               stop     = current_time(),
@@ -223,6 +225,11 @@ function ensure_systems!(l::AbstractLedger)
     end
 end
 
+"""
+    reset!(trader)
+
+Resets a [`Trader`](@ref) to the starting point. Usually only used on a [`BackTester`](@ref).
+"""
 function reset!(trader::Trader)
     
     for l in values(trader.ticker_ledgers)

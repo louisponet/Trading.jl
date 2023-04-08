@@ -32,6 +32,10 @@ ENV["PLOTS_TEST"] = "true"
 using Trading
 using Documenter
 using Literate
+using Trading.Strategies
+using Trading.Basic
+using Trading.Indicators
+using Trading.Portfolio
 
 usings = quote
     using Trading

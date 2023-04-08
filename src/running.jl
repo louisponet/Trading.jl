@@ -1,3 +1,8 @@
+"""
+    start(trader)
+
+Starts the loop of a [`Trader`](@ref) or [`BackTester`](@ref).
+"""
 function start(trader::Trader; kwargs...)
     if trader.main_task !== nothing && !istaskdone(trader.main_task)
         error("Trader already started")

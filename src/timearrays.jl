@@ -117,9 +117,19 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols=keys(components(l)))
             
             colnames(ta) .= Symbol.((ticker * "_",) .* string.(colnames(ta)))
             
-            out = merge(out, ta, method=:outer)
+            out = out === nothing ? ta : merge(out, ta, method=:outer)
         end
     end
     
+    return out
+end
+
+function relative(ta::TimeArray)
+    out = nothing
+    for c in colnames(ta)
+        vals = values(ta[c])
+        rel_col = ta[c]./vals[findfirst(!isnan, vals)]
+        out = out === nothing ? rel_col : merge(out, rel_col, method=:outer)
+    end
     return out
 end

@@ -1,5 +1,7 @@
 # Trading
-
+```@meta
+CurrentModule = Trading
+```
 ## Trader
 ```@docs
 Trading.Trader

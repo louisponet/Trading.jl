@@ -12,12 +12,23 @@ import Base: zero, +, -, /, *, sqrt, ^
 @implement Is{Indicator} by (sqrt)(_) 
 @implement Is{Indicator} by (^)(_, ::Int) 
 
+"""
+    Clock
+
+Represents the local time. It also stores `dt`, the timestamp interval when the `Clock` is updated manually, for example when
+being used with a [`HistoricalBroker`](@ref).
+"""
 @component Base.@kwdef mutable struct Clock
     time::TimeDate = TimeDate(now())
     dtime::Period  = Minute(1)
 end
 
-# All need to have a single field v
+"""
+    SingleValIndicator
+
+A Component with a single value (usually `v`) that can be used by [`Indicator Systems`](@ref Indicators) to calculate various `Indicators`.
+If the single value is not stored in the `v` field of the Component, overload [`Trading.value`](@ref).
+"""
 abstract type SingleValIndicator{T} end
 
 """
@@ -89,6 +100,12 @@ end
 Base.zero(::T) where {T<:SingleValIndicator} = T(0.0)
 @inline Base.sqrt(b::T) where {T <: SingleValIndicator} = T(sqrt(value(b)))
 @inline Base.isless(b::SingleValIndicator, i) = value(b) < i
+
+"""
+    value(b::SingleValIndicator)
+
+Returns the number that is stored in the [`SingleValIndicator`](@ref). This is by default the `v` field.
+"""
 @inline value(b::SingleValIndicator) = value(b.v)
 @inline value(b::Number) = b
 @inline Base.convert(::Type{T}, b::SingleValIndicator) where {T <: Number} = convert(T, value(b))

@@ -54,6 +54,9 @@ jobs:
     permissions:
       contents: write
       statuses: write
+    env:
+      ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID }}
+      ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
     steps:
       - uses: actions/checkout@v3
       - uses: julia-actions/setup-julia@v1

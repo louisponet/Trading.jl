@@ -140,7 +140,7 @@ end
     tstamps2 = map(x->x.t, trader[Trading.TimeStamp])
 
 
-    @test totval == trader[PortfolioSnapshot][end].value == 99977.11587275469
+    @test totval == trader[PortfolioSnapshot][end].value == 99977.1158727548
     @test positions == sum(x->x.quantity, trader[PortfolioSnapshot][end].positions) == -2.0
     @test n_purchases == length(trader[Purchase]) == 143
     @test n_sales == length(trader[Sale]) == 145

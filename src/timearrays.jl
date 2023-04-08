@@ -98,13 +98,12 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols=keys(components(l)))
     tcomp = l[TimeStamp]
     for T in cols
 
-        if T == TimeStamp
-            continue
-        end
+        T == TimeStamp && continue
         
-        if !hasmethod(value, (T,))
-            continue
-        end
+        !hasmethod(value, (T,)) && continue
+
+        comp = l[T]
+        isempty(comp) && continue
         
         t = TimeArray(l[T], tcomp)
         out = out === nothing ? t : merge(out, t, method=:outer)

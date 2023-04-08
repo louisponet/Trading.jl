@@ -23,9 +23,51 @@ Pkg.activate(@__DIR__)
 Pkg.develop(Pkg.PackageSpec(; path = ROOTPATH))
 Pkg.instantiate()
 
+# Setup environment for making plots
+ENV["GKS_ENCODING"] = "utf8"
+ENV["GKSwstype"] = "100"
+ENV["PLOTS_TEST"] = "true"
+
 # Import packages for docs generation
 using Trading
 using Documenter
+using Literate
+
+usings = quote
+    using Trading
+    using Trading.Strategies
+    using Trading.Basic
+    using Trading.Indicators
+    using Trading.Portfolio
+end 
+
+DocMeta.setdocmeta!(Trading, :DocTestSetup, usings; recursive=true)
+
+EXAMPLES = [String(m[1])
+            for m in match.(r"\"(examples/[^\"]+.md)\"", readlines(joinpath(SRCPATH, "index.md"))) if !isnothing(m)]
+
+literate_files = NamedTuple[(src  = joinpath(ROOTPATH, splitext(file)[1] * ".jl"),
+                   dest = joinpath(SRCPATH, "examples"),
+                   example = true) for file in EXAMPLES]
+                   
+for (dir, directories, files) in walkdir(SRCPATH)
+    for file in files
+        if endswith(file, ".jl")
+            push!(literate_files, (src = joinpath(dir, file), dest = dir, example = false))
+        end
+    end
+end
+
+for file in literate_files
+    # preprocess = file.example ? add_badges : identity
+    # Literate.markdown(file.src, file.dest; documenter=true, credit=false,
+    #                   preprocess=preprocess)
+    # Literate.notebook(file.src, file.dest; credit=false,
+    #                   execute=CONTINUOUS_INTEGRATION || DEBUG)
+    Literate.markdown(file.src, file.dest; documenter = true, credit = false)
+    Literate.notebook(file.src, file.dest; credit = false,
+                      execute = CONTINUOUS_INTEGRATION || DEBUG)
+end
 
 # Generate the docs in BUILDPATH
 makedocs(; modules = [Trading],
@@ -39,9 +81,11 @@ makedocs(; modules = [Trading],
                              # Ignore links that point to GitHub's edit pages, as they redirect to the
                              # login screen and cause a warning:
                              r"https://github.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/edit(.*)"],
-         pages = ["Home" => "index.md",
-                  "Strategies" => "strategies.md",
-                  "Data" => "data.md"])
+         pages = ["Home"       => "index.md",
+                  "Strategies" => ["strategies.md",
+                                   "Slow Fast" => "strategies/slow_fast.md",
+                                   "Cointegration" => "strategies/cointegration.md"],
+                  "Data"       => "data.md"])
 
 # Deploy docs to gh-pages branch
 deploydocs(; repo = "github.com/louisponet/Trading.jl.git", devbranch = "master")

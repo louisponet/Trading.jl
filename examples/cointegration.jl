@@ -137,27 +137,6 @@ function cointegration_timearray(account, ticker1, ticker2, start, stop; γ=0.78
     return df
 end
 
-
-@component struct Spread <: Trading.SingleValIndicator{Float64}
-    v::Float64
-end
-
-struct SpreadCalculator <: System
-    γ::NTuple{5,Float64}
-end
-
-Overseer.requested_components(::SpreadCalculator) = (LogVal{Close}, )
-
-struct PairStrat{horizon} <: System
-    γ::NTuple{5,Float64}
-    z_thr::Float64
-end
-Overseer.requested_components(::PairStrat{horizon}) where {horizon} = (Spread, SMA{horizon, Spread},MovingStdDev{horizon, Spread})
-
-@component struct ZScore{T} <: Trading.SingleValIndicator{Float64}
-    v::T
-end
-
 function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
 
     @assert length(ticker_ledgers) == 3 "Pairs Strategy only implemented for 2 tickers at a time"

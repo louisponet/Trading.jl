@@ -1,23 +1,98 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Strategies · Trading.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link rel="canonical" href="https://louisponet.github.io/Trading.jl/stable/strategies/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">Trading.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Strategies</a><ul class="internal"><li><a class="tocitem" href="#Example"><span>Example</span></a></li></ul></li><li><a class="tocitem" href="../data/">Data</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Strategies</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Strategies</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/louisponet/Trading.jl/blob/master/docs/src/strategies.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Strategies"><a class="docs-heading-anchor" href="#Strategies">Strategies</a><a id="Strategies-1"></a><a class="docs-heading-anchor-permalink" href="#Strategies" title="Permalink"></a></h1><p>As with any other functionality in <code>Trading</code>, <code>Strategies</code> are represented by <code>Systems</code> and thus are treated on completely equal footing with the core functionality. There are three main parts that need to be implemented for a <code>Strategy</code> to be used: the <code>struct</code>, the <code>Overseer.update</code> function, and the <code>Overseer.requested_components</code> function. This latter one will be used to determine which <a href="../data/#Indicators"><code>Indicator</code></a> systems need to be running on the <a href="@ref TickerLedger"><code>TickerLedgers</code></a> in order to produce the <a href="@ref"><code>Indicators</code></a> that are used by the <code>Strategy</code>. The <code>update</code> function of a <code>Strategy</code> <code>System</code> is ran periodically after the <code>update</code> functions for the other <code>Systems</code> that make the rest of the <a href="../#Trading.Trader"><code>Trader</code></a> tick.</p><h2 id="Example"><a class="docs-heading-anchor" href="#Example">Example</a><a id="Example-1"></a><a class="docs-heading-anchor-permalink" href="#Example" title="Permalink"></a></h2><p>As an example we will implement a very simple slow/fast moving average strategy, i.e. <code>SowFast</code>. The goal is that we can later use it in our <a href="../#Trading.Trader"><code>Trader</code></a> in to following way:</p><pre><code class="language-julia hljs">trader = Trader(broker; strategies = [Strategy(:slowfast, [SlowFast()]) =&gt; [&quot;stock1&quot;, &quot;stock2&quot;]),
-</code></pre><p>julia struct SlowFast &lt;: System end</p><p>Overseer.requested_components(::SlowFast) = (Trading.SMA{50, Trading.Close}, Trading.SMA{200, Trading.Close})</p><pre><code class="nohighlight hljs">
-These two lines define the `Strategy` type and signals that we want the `Trading.SMA{50, Trading.Close}, Trading.SMA{200, Trading.Close}` [`Indicators`](@ref) to be present in the [`TickerLedgers`](@ref).
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Strategies · Trading.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link rel="canonical" href="https://louisponet.github.io/Trading.jl/stable/strategies/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">Trading.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Strategies</a><ul class="internal"><li><a class="tocitem" href="#Strategy-Definition"><span>Strategy Definition</span></a></li><li><a class="tocitem" href="#BackTesting"><span>BackTesting</span></a></li><li><a class="tocitem" href="#Full-Example"><span>Full Example</span></a></li></ul></li><li><a class="tocitem" href="../data/">Data</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Strategies</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Strategies</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/louisponet/Trading.jl/blob/master/docs/src/strategies.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Strategies"><a class="docs-heading-anchor" href="#Strategies">Strategies</a><a id="Strategies-1"></a><a class="docs-heading-anchor-permalink" href="#Strategies" title="Permalink"></a></h1><p>As with any other functionality in <code>Trading</code>, <code>Strategies</code> are represented by <code>Systems</code> and thus are treated on completely equal footing with the core functionality. There are three main parts that need to be implemented for a <code>Strategy</code> to be used: the <code>struct</code>, the <code>Overseer.update</code> function, and the <code>Overseer.requested_components</code> function. This latter one will be used to determine which <a href="../data/#Indicators"><code>Indicator</code></a> systems need to be running on the <a href="@ref TickerLedger"><code>TickerLedgers</code></a> in order to produce the <a href="@ref"><code>Indicators</code></a> that are used by the <code>Strategy</code>. The <code>update</code> function of a <code>Strategy</code> <code>System</code> is ran periodically after the <code>update</code> functions for the other <code>Systems</code> that make the rest of the <a href="../#Trading.Trader"><code>Trader</code></a> tick.</p><h2 id="Strategy-Definition"><a class="docs-heading-anchor" href="#Strategy-Definition">Strategy Definition</a><a id="Strategy-Definition-1"></a><a class="docs-heading-anchor-permalink" href="#Strategy-Definition" title="Permalink"></a></h2><p>As an example we will implement a very simple slow/fast moving average strategy, i.e. <code>SlowFast</code>. The goal is that we can later use it in our <a href="../#Trading.Trader"><code>Trader</code></a> in to following way:</p><pre><code class="language-julia hljs">trader = Trader(broker; strategies = [Strategy(:slowfast, [SlowFast()], tickers=[&quot;stock1&quot;, &quot;stock2&quot;])])</code></pre><p>We begin by defining the <code>SlowFast</code> <code>System</code> and the components that it requests to be present in <a href="@ref TickerLedger"><code>TickerLedgers</code></a>. They will be automatically created as tick data arrives.</p><pre><code class="language-julia hljs">struct SlowFast &lt;: System end
 
-We then implement the following `update` function that will be executed periodically:</code></pre><p>julia function Overseer.update(s::SlowFast, t::Trader, ticker<em>ledgers::TickerLedger)     for ticker</em>ledger in ticker<em>ledgers         for e in new</em>entities(ticker<em>ledger, s)             lag</em>e = lag(e, 1)</p><pre><code class="nohighlight hljs">        if lag_e === nothing
-            continue
-        end
-        curpos = current_position(t, ticker)
+Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close})</code></pre><p>We here request the slow and fast sma components of the closing price (<a href="../data/#Indicators"><code>SMA{200, Trading.Close}</code></a>, <a href="../data/#Indicators"><code>SMA{50, Trading.Close}</code></a>).</p><p>We then implement the following <code>update</code> function that will be executed periodically:</p><pre><code class="language-julia hljs">function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
+    for ticker_ledger in ticker_ledgers
 
-        sma_50  = e[SMA{50, Close}].sma
-        sma_200 = e[SMA{200, Close}].sma
-        
-        lag_sma_50 = lag_e[SMA{50, Close}].sma
-        lag_sma_200 = lag_e[SMA{200, Close}].sma
+        ticker = ticker_ledger.ticker
 
-        if sma_50 &gt; sma_200 &amp;&amp; lag_sma_50 &lt; lag_sma_200
-            Entity(t, Sale(ticker, 1.0))
-        elseif sma_50 &lt; sma_200 &amp;&amp; lag_sma_50 &gt; lag_sma_200
-            Entity(t, Purchase(ticker, 1.0))
+        for e in new_entities(ticker_ledger, s)
+            lag_e = lag(e, 1)
+
+            if lag_e === nothing
+                continue
+            end
+
+            sma_50  = e[SMA{50, Close}].sma
+            sma_200 = e[SMA{200, Close}].sma
+            
+            lag_sma_50 = lag_e[SMA{50, Close}].sma
+            lag_sma_200 = lag_e[SMA{200, Close}].sma
+
+            if sma_50 &gt; sma_200 &amp;&amp; lag_sma_50 &lt; lag_sma_200
+                Entity(t, Sale(ticker, 1.0))
+            elseif sma_50 &lt; sma_200 &amp;&amp; lag_sma_50 &gt; lag_sma_200
+                Entity(t, Purchase(ticker, 1.0))
+            end
+
         end
     end
-end</code></pre><p>end ```</p><p>For each of the</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../data/">Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Saturday 8 April 2023 11:06">Saturday 8 April 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><p>Let&#39;s go this line by line:</p><pre><code class="language-julia hljs">for ticker_ledger in ticker_ledgers</code></pre><p>We loop through each of the ticker ledgers that this strategy was created for (i.e. <code>stock1</code>, <code>stock2</code>).</p><pre><code class="language-julia hljs">for e in new_entities(ticker_ledger, s)</code></pre><p>Then, we ask for the <a href="@ref"><code>new_entities</code></a> in the <a href="@ref"><code>TickerLedger</code></a> that have in this case both the <code>SMA{200, Close}</code> and <code>SMA{50,Close}</code> components. Each of these entities will be touched once and only once.</p><pre><code class="language-julia hljs">lag_e = lag(e, 1)</code></pre><p>Since we are looking for crossings between the two moving averages, we ask for the entity of the previous time. If there was none, i.e. <code>e</code> is the very first entity, <code>lag(e, 1)</code> will return <code>nothing</code> and so we don&#39;t do anything.</p><pre><code class="language-julia hljs">sma_50  = e[SMA{50, Close}].sma
+sma_200 = e[SMA{200, Close}].sma
+
+lag_sma_50 = lag_e[SMA{50, Close}].sma
+lag_sma_200 = lag_e[SMA{200, Close}].sma</code></pre><p>We retrieve the sma&#39;s for both the current and lagged <code>entity</code>.</p><pre><code class="language-julia hljs">if sma_50 &gt; sma_200 &amp;&amp; lag_sma_50 &lt; lag_sma_200
+    Entity(t, Sale(ticker, 1.0))
+elseif sma_50 &lt; sma_200 &amp;&amp; lag_sma_50 &gt; lag_sma_200
+    Entity(t, Purchase(ticker, 1.0))
+end</code></pre><p>If the fast sma crosses above the slow sma, we assume the stock is overbought and we sell it by creating an <code>Entity</code> with a  <a href="@ref"><code>Sale</code></a> component. Vice versa, If the fast sma crosses below the slow sma, we assume the stock is oversold and we buy it by creating an <code>Entity</code> with a  <a href="@ref"><code>Buy</code></a> component.</p><h2 id="BackTesting"><a class="docs-heading-anchor" href="#BackTesting">BackTesting</a><a id="BackTesting-1"></a><a class="docs-heading-anchor-permalink" href="#BackTesting" title="Permalink"></a></h2><p>The framework is set up to treat backtesting and realtime trading in completely identical ways. The whole system will behave identically, and we can therefore backtest our strategy on some historical data in the following way:</p><pre><code class="language-julia hljs">broker = HistoricalBroker(AlpacaBroker(&quot;&lt;key_id&gt;&quot;, &quot;&lt;secret&gt;&quot;))
+
+strategy = Strategy(:slowfast, [SlowFast()], tickers=[&quot;MSFT&quot;, &quot;AAPL&quot;])
+
+trader = BackTester(broker, start = DateTime(&quot;2015-01-01T00:00:00&quot;),
+                            stop = DateTime(&quot;2023-01-01T00:00:00&quot;),
+                            dt = Day(1),
+                            strategies = [strategy],
+                            cash = 1000)
+start(trader)</code></pre><p>This will pull in the historical data through the <a href="../#Trading.AlpacaBroker"><code>AlpacaBroker</code></a> and use it in the <a href="../#Trading.HistoricalBroker"><code>HistoricalBroker</code></a> which supplies data in the same way of a realtime broker. Then we will loop through all the days and execute the strategy, possible trades, and any other behavior as if it is realtime.</p><p>To perform further analysis we can transform the <code>trader</code> data into a standard <code>TimeArray</code> as:</p><pre><code class="nohighlight hljs">ta = TimeArray(trader)</code></pre><p>by using <a href="https://juliaplots.org"><code>Plots</code></a> we can then plot certain columns in the <code>TimeArray</code>, e.g. the portfolio value:</p><pre><code class="nohighlight hljs">plot(ta[:value])</code></pre><h2 id="Full-Example"><a class="docs-heading-anchor" href="#Full-Example">Full Example</a><a id="Full-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Full-Example" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Trading
+using Trading.Strategies
+using Trading.Basic
+using Trading.Indicators
+using Trading.Portfolio
+
+struct SlowFast &lt;: System end
+Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close})
+
+function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
+    for ticker_ledger in ticker_ledgers
+        ticker = ticker_ledger.ticker
+        for e in new_entities(ticker_ledger, s)
+            lag_e = lag(e, 1)
+            
+            if lag_e === nothing
+                continue
+            end
+
+            sma_50  = e[SMA{50, Close}].sma
+            sma_200 = e[SMA{200, Close}].sma
+            
+            lag_sma_50 = lag_e[SMA{50, Close}].sma
+            lag_sma_200 = lag_e[SMA{200, Close}].sma
+
+            if sma_50 &gt; sma_200 &amp;&amp; lag_sma_50 &lt; lag_sma_200
+                Entity(t, Sale(ticker, 1.0))
+            elseif sma_50 &lt; sma_200 &amp;&amp; lag_sma_50 &gt; lag_sma_200
+                Entity(t, Purchase(ticker, 1.0))
+            end
+        end
+    end
+end
+
+
+broker = HistoricalBroker(AlpacaBroker(ENV[&quot;ALPACA_KEY_ID&quot;], ENV[&quot;ALPACA_SECRET&quot;]))
+
+strategy = Strategy(:slowfast, [SlowFast()], tickers=[&quot;MSFT&quot;, &quot;AAPL&quot;])
+
+trader = BackTester(broker, start = DateTime(&quot;2015-01-01T00:00:00&quot;),
+                            stop = DateTime(&quot;2023-01-01T00:00:00&quot;),
+                            dt = Day(1),
+                            strategies = [strategy],
+                            cash = 1000,
+                            only_day=false)
+start(trader)
+
+using Plots
+
+ta = TimeArray(trader)
+
+plot(ta[:value])</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../data/">Data »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Saturday 8 April 2023 11:51">Saturday 8 April 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

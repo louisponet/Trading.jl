@@ -179,14 +179,104 @@ function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
     @assert length(new_bars1) == length(new_bars2) "New bars differ for tickers $tickers"
     
     γ = s.γ[dayofweek(curt)]
-    
     for (b1, b2) in zip(new_bars1, new_bars2)
-        Entity(combined_ledger, Spread(b1.v - γ * b2.v))
+        Entity(combined_ledger, Trading.TimeStamp(curt), Spread(b1.v - γ * b2.v))
     end
     update(combined_ledger)
 end
 
 function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
+
+    curt = current_time(m)
+    # if Trading.is_market_open(curt)
+    #     reset!(ticker_ledgers[end], s)
+    # end
+
+    cash = m[PurchasePower][1].cash
+    new_pos = false
+    pending_order = any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
+
+    pending_order || !in_trading(curt) && return
+    
+    z_comp = ticker_ledgers[end][ZScore{Spread}]
+
+    ticker1 = ticker_ledgers[1].ticker
+    ticker2 = ticker_ledgers[2].ticker
+    
+    γ = s.γ[dayofweek(curt)]
+    
+    for e in new_entities(ticker_ledgers[end], s)
+
+        # Even if an order is already pending we still need to "see" the remaining entities
+        v         = e.v
+        sma       = e.sma
+        σ         = e.σ 
+        z_score   = (v - sma) / σ
+        z_comp[e] = ZScore{Spread}(z_score)
+        
+        curpos1 = current_position(m, ticker1)
+        curpos2 = current_position(m, ticker2)
+
+        p1 = current_price(m, ticker1)
+        p2 = current_price(m, ticker2)
+
+        quantity2(n1) = round(Int, n1 * p1 * γ / p2)
+        # quantity2(n1) = round(Int, n1 * pair.γ)
+        in_bought_leg = curpos1 > 0
+        in_sold_leg = curpos1 < 0
+
+        new_pos && continue
+            
+        if z_score < -s.z_thr&& (in_sold_leg || curpos1 == 0)
+            new_pos = true
+            if in_sold_leg
+                q = -2*curpos1
+            else
+                q = cash/p1
+            end
+            Entity(m, Purchase(ticker1, q))
+            Entity(m, Sale(ticker2, quantity2(q)))
+                
+
+        elseif z_score > s.z_thr && (in_bought_leg || curpos1 == 0)
+            new_pos = true
+            if in_bought_leg 
+                q = 2*curpos1
+            else
+                q = cash / p1
+            end
+            Entity(m, Purchase(ticker2, quantity2(q)))
+            Entity(m, Sale(ticker1, q))
+        end
+
+        lag_e = lag(e, 1)
+        lag_e === nothing && continue
+        
+        if new_pos
+            continue
+        end
+
+        going_up = z_score - z_comp[lag_e].v > 0
+
+        if z_score > 0 && in_bought_leg && !going_up
+            Entity(m, Sale(ticker1, curpos1))
+            Entity(m, Purchase(ticker2, -curpos2))
+            new_pos = true
+        elseif z_score < 0 && in_sold_leg && going_up
+            Entity(m, Purchase(ticker1, -curpos1))
+            Entity(m, Sale(ticker2, curpos2))
+            new_pos = true
+        end
+    end
+end
+
+struct MomentumPairStrat{horizon} <: System
+    γ::NTuple{5,Float64}
+    z_thr::Float64
+end
+Overseer.requested_components(::MomentumPairStrat{horizon}) where {horizon} = (Spread, SMA{horizon, Spread},MovingStdDev{horizon, Spread})
+
+function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers)
 
     curt = current_time(m)
     # if Trading.is_market_open(curt)
@@ -272,11 +362,19 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
 end
 
 
-function plot_simulation(l::AbstractLedger, plot_day=nothing; kwargs...)
+function plot_simulation(l::AbstractLedger, start=l[TimeStamp][1].t, stop=l[TimeStamp][end].t; kwargs...)
     tstamps = map(x->DateTime(x.t), @entities_in(l, TimeStamp && PortfolioSnapshot))
     values = map(x->x.value, @entities_in(l, TimeStamp && PortfolioSnapshot))
+    values ./= values[1]
     p = plot(tstamps, values, label="total value"; kwargs...)
-
+    
+    msft_closes = to(from(bars(l.broker)[("MSFT", Minute(1))][:c], start), stop)
+    msft_closes = msft_closes ./ TimeSeries.values(msft_closes)[1]
+    aapl_closes = to(from(bars(l.broker)[("AAPL", Minute(1))][:c], start),stop)
+    aapl_closes  = aapl_closes ./ TimeSeries.values(aapl_closes)[1]
+    plot!(p, msft_closes, label = "MSFT")
+    plot!(p, aapl_closes, label = "AAPL")
+    
     purchase_es      = filter(x->x[Order].ticker == "MSFT", @entities_in(l, Purchase && Filled && Order))
     purchase_times   = map(x->DateTime(x.filled_at), purchase_es)
     purchase_tickers = map(x->x[Order].ticker, purchase_es)
@@ -295,18 +393,13 @@ function plot_simulation(l::AbstractLedger, plot_day=nothing; kwargs...)
     scatter!(p, purchase_times, purchase_total_values, marker = :utriangle, color=:green, label="purchases")
     scatter!(p, sale_times, sale_total_values, marker = :dtriangle, color=:red, label="sales")
 
-    p = plot_day === nothing ? p : plot!(p,xlims=(DateTime.(Trading.market_open_close(plot_day))...,))
-    return plot(p, plot_indicators(l,plot_day), layout=(2,1), size=(800,1200)) 
+    plot!(p, xlims=(start,stop))
+    return plot(p, plot_indicators(l,start,stop), layout=(2,1), size=(800,1200)) 
 end
 
-function plot_indicators(l::AbstractLedger, plot_day=nothing)
+function plot_indicators(l::AbstractLedger, start=l[TimeStamp][1].t, stop=l[TimeStamp][end].t)
     
-    ta = TimeArray(l["MSFT_AAPL"])
-    if plot_day !== nothing
-        to_ = DateTime(Date(plot_day)+Day(1))
-        from_ = DateTime(Date(plot_day))
-        ta = to(from(ta, from_), to_)
-    end
+    ta = to(from(TimeArray(l["MSFT_AAPL"]), start), stop)
     p = plot(ta["MovingStdDev{20, Spread}"])
     plot!(p,  ta["SMA{20, Spread}"])
 
@@ -318,46 +411,44 @@ function plot_indicators(l::AbstractLedger, plot_day=nothing)
     for i in 1:length(l[Position])
         tstamps = map(x->DateTime(x.t), @entities_in(l, PortfolioSnapshot && TimeStamp))
         vals = map(x->x.positions[i].quantity/100, l[PortfolioSnapshot])
-        if plot_day !== nothing
-            to_plot = findall(x -> from_ <= x <= to_, tstamps)
-            plot!(p, tstamps[to_plot], vals[to_plot], label=l[Position][i].ticker)
-        else
-            plot!(p, tstamps, vals, label=l[Position][i].ticker)
-        end
+        to_plot = findall(x -> start <= x <= stop, tstamps)
+        plot!(p, tstamps[to_plot], vals[to_plot], label=l[Position][i].ticker)
     end
     return p
 end
 
-function pair_trader(broker, ticker1::String, ticker2::String, γ; z_thr=1.5)
-    
-    t = Trader(broker; tickers=[ticker1, ticker2], strategies=[Strategy(Stage(:pair, [PairStrat()]), true)])
-    Entity(t, Pair(ticker1, ticker2, γ, z_thr))
+function pair_trader(broker, ticker1::String, ticker2::String, γ; z_thr=1.5, momentum = true)
+
+    stratsys = momentum ? [SpreadCalculator(γ), MomentumPairStrat{20}(γ, z_thr)] : [SpreadCalculator(γ), PairStrat{20}(γ, z_thr)]
+    t = Trader(broker; tickers=[ticker1, ticker2], strategies=[Strategy(:pair, stratsys, tickers=["MSFT", "AAPL"])])
    
     return t
 end
 
-function pair_trader(broker, ticker1::String, ticker2::String, start, stop, γ; z_thr=1.5)
+function pair_trader(broker, ticker1::String, ticker2::String, start, stop, γ; z_thr=1.5, momentum=true)
     
-    t = BackTester(broker; strategies=[Strategy(:pair, [SpreadCalculator(γ), PairStrat{20}(γ, z_thr)], tickers=["MSFT", "AAPL"])], start=start, stop=stop)
+    stratsys = momentum ? [SpreadCalculator(γ), MomentumPairStrat{20}(γ, z_thr)] : [SpreadCalculator(γ), PairStrat{20}(γ, z_thr)]
+    
+    t = BackTester(broker; strategies=[Strategy(:pair, stratsys, tickers=["MSFT", "AAPL"])], start=start, stop=stop)
     
     return t
 end
 
 
-# acc = HistoricalBroker(AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"]))
+acc = HistoricalBroker(AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"]))
 
-# acc.variable_transaction_fee = 0.0
-# acc.fee_per_share = 0.005
-# acc.fixed_transaction_fee = 0.0
+acc.variable_transaction_fee = 0.0
+acc.fee_per_share = 0.005
+acc.fixed_transaction_fee = 0.0
 
 
-# γ_2022 = (0.83971041721211, 0.7802162996942561, 0.8150936011572303, 0.8665354500999517, 0.8253480013737815)
-# γ_2021 = (0.4536879929628027, 0.6749271852655075, 0.6814251210894734, 0.44395679460564247, 0.5103055699026341)
+γ_2022 = (0.83971041721211, 0.7802162996942561, 0.8150936011572303, 0.8665354500999517, 0.8253480013737815)
+γ_2021 = (0.4536879929628027, 0.6749271852655075, 0.6814251210894734, 0.44395679460564247, 0.5103055699026341)
 
-# msft_aapl_γ = mean_daily_γ(acc, "MSFT", "AAPL", TimeDate("2023-03-01T00:00:00"), TimeDate("2023-03-31T23:59:59"))
+msft_aapl_γ = mean_daily_γ(acc, "MSFT", "AAPL", TimeDate("2023-03-01T00:00:00"), TimeDate("2023-03-31T23:59:59"))
 
-# msft_aapl_γ = γ_2021
+msft_aapl_γ = γ_2021
 
-# trader = pair_trader(acc, "MSFT", "AAPL", TimeDate("2022-01-01T00:00:00"), TimeDate("2022-12-30T23:59:59"), msft_aapl_γ, z_thr=3.0)
-# start(trader)
-# plot_simulation(trader)
+trader = pair_trader(acc, "MSFT", "AAPL", TimeDate("2022-01-01T00:00:00"), TimeDate("2022-12-30T23:59:59"), msft_aapl_γ, z_thr=3.0)
+start(trader)
+plot_simulation(trader)

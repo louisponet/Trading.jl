@@ -71,7 +71,7 @@ struct NewEntitiesIterator{S<:Seen, TT <: Tuple}
     components::TT
 end
 
-Base.length(it::NewEntitiesIterator) = length(it.shortest) - length(it.seen_comp) - 1 
+Base.length(it::NewEntitiesIterator) = length(it.shortest) - length(it.seen_comp)
 
 #TODO It's a bit slow on construction (150ns), Can't be generated due to worldage with user specified requested_components 
 """

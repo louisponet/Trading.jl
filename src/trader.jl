@@ -108,7 +108,7 @@ function BackTester(broker::HistoricalBroker; dt       = Minute(1),
     
     c = singleton(trader, Clock)
     c.dtime = dt
-    c.time -= dt
+    c.time = maxstart - dt
     broker.clock = c[Clock]
     
     return trader

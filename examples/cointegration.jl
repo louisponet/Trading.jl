@@ -166,11 +166,11 @@ function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
     curt = current_time(m)
 
     # We clear all data at market open
-    # if Trading.is_market_open(curt)
-    #     for l in ticker_ledgers[1:2]
-    #         reset!(l, s)
-    #     end
-    # end
+    if Trading.is_market_open(curt)
+        for l in ticker_ledgers[1:2]
+            reset!(l, s)
+        end
+    end
 
     new_bars1 = new_entities(ticker_ledgers[1], s)
     new_bars2 = new_entities(ticker_ledgers[2], s)
@@ -188,9 +188,9 @@ end
 function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
 
     curt = current_time(m)
-    # if Trading.is_market_open(curt)
-    #     reset!(ticker_ledgers[end], s)
-    # end
+    if Trading.is_market_open(curt)
+        reset!(ticker_ledgers[end], s)
+    end
 
     cash = m[PurchasePower][1].cash
     new_pos = false
@@ -207,7 +207,6 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
     
     for e in new_entities(ticker_ledgers[end], s)
 
-        # Even if an order is already pending we still need to "see" the remaining entities
         v         = e.v
         sma       = e.sma
         σ         = e.σ 
@@ -279,9 +278,9 @@ Overseer.requested_components(::MomentumPairStrat{horizon}) where {horizon} = (S
 function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers)
 
     curt = current_time(m)
-    # if Trading.is_market_open(curt)
-    #     reset!(ticker_ledgers[end], s)
-    # end
+    if Trading.is_market_open(curt)
+        reset!(ticker_ledgers[end], s)
+    end
 
     cash = m[PurchasePower][1].cash
     new_pos = false
@@ -298,7 +297,6 @@ function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers
     
     for e in new_entities(ticker_ledgers[end], s)
 
-        # Even if an order is already pending we still need to "see" the remaining entities
         v         = e.v
         sma       = e.sma
         σ         = e.σ 

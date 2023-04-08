@@ -72,6 +72,7 @@ end
 function BackTester(broker::HistoricalBroker; dt       = Minute(1),
                                               start    = current_time() - dt*1000,
                                               stop     = current_time(),
+                                              cash     = 1e6,
                                               only_day = true, kwargs...)
                                               
     trader = Trader(broker; start=start, kwargs...)
@@ -110,6 +111,7 @@ function BackTester(broker::HistoricalBroker; dt       = Minute(1),
     c.dtime = dt
     c.time = maxstart - dt
     broker.clock = c[Clock]
+    trader[Cash][1].cash = cash
     
     return trader
 end

@@ -65,24 +65,23 @@ function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
 end
 
 function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
-
     curt = current_time(m)
     if Trading.is_market_open(curt)
         reset!(ticker_ledgers[end], s)
     end
 
-    cash = m[PurchasePower][1].cash
+    cash = m[Trading.PurchasePower][1].cash
     new_pos = false
     pending_order = any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
 
-    pending_order || !in_trading(curt) && return
+    pending_order || !Trading.in_trading(curt) && return
     
     z_comp = ticker_ledgers[end][ZScore{Spread}]
 
     ticker1 = ticker_ledgers[1].ticker
     ticker2 = ticker_ledgers[2].ticker
     
-    γ = s.γ[dayofweek(curt)]
+    γ = s.γ[Trading.dayofweek(curt)]
     
     for e in new_entities(ticker_ledgers[end], s)
 
@@ -159,11 +158,9 @@ broker.fee_per_share = 0.005
 broker.fixed_transaction_fee = 0.0
 
 # Next we specify the daily cointegration parameters that were fit to 2022 data, and run the backtest on Minute data from the first 3 months of 2023.
-γ_2022 = (0.83971041721211, 0.7802162996942561, 0.8150936011572303, 0.8665354500999517, 0.8253480013737815)
+γ = (0.83971041721211, 0.7802162996942561, 0.8150936011572303, 0.8665354500999517, 0.8253480013737815)
 
-trader = pair_trader(acc, "MSFT", "AAPL", TimeDate("2022-01-01T00:00:00"), TimeDate("2022-12-30T23:59:59"), msft_aapl_γ, z_thr=3.0)
-
-stratsys = [SpreadCalculator(γ), PairStrat{20}(γ, z_thr)] 
+stratsys = [SpreadCalculator(γ), PairStrat{20}(γ, 2.5)] 
 trader = BackTester(broker; strategies=[Strategy(:pair, stratsys, tickers=["MSFT", "AAPL"])],
                             start=TimeDate("2023-03-01T00:00:00"),
                             stop=TimeDate("2023-03-31T23:59:59"))

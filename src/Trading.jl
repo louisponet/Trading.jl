@@ -69,9 +69,9 @@ module Basic
 end
 
 module Portfolio
-    using ..Trading: Purchase, Sale, Position, PortfolioSnapshot,
+    using ..Trading: Purchase, Sale, Position, PortfolioSnapshot, Filled,
                      current_position
-    export Purchase, Sale, Position, PortfolioSnapshot,
+    export Purchase, Sale, Position, PortfolioSnapshot, Filled,
            current_position
 end
 

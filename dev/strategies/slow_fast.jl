@@ -1,4 +1,4 @@
-# # Slow Fast Moving Average (@id slow_fast_id)
+# # [Slow Fast Moving Average](@id slow_fast_id)
 
 using Trading
 using Trading.Strategies

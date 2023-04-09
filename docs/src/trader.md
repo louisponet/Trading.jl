@@ -1,4 +1,8 @@
 # Trader
+```@meta
+CurrentModule=Trading
+```
+
 ```@docs
 Trading.Trader
 Trading.BackTester

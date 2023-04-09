@@ -1,4 +1,4 @@
-# [Introduction](@id Strategies)
+# [Tutorial](@id Strategies)
 ```@meta
 CurrentModule = Trading
 ```

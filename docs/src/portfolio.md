@@ -7,8 +7,7 @@ The functionality here can be pulled into the namespace by
 using Trading.Portfolio
 ```
 
-## State
-The state of a portfolio is represented by a combination of components:
+A portfolio is represented by a combination of components:
 - [`Cash`](@ref): the real cash balance of the portfolio, updated as [`Orders`](@ref Order) get filled, see [`current_cash`](@ref)
 - [`Position`](@ref): represents a held quantity of an asset. [`current_position`](@ref) can be used as an easy way to retrieve the position size.
 - [`PurchasePower`](@ref): can be used to determine whether certain orders can be made, see [`current_purchasepower`](@ref).
@@ -16,7 +15,7 @@ The state of a portfolio is represented by a combination of components:
   certain orders would get executed.
 - [`PortfolioSnapshot`](@ref): a periodical snapshot of the portfolio
 
-## Changing/Orders
+## Orders
 The state of the portfolio can be changed by using:
 - [`Purchase`](@ref): communicates to the system that a purchase order should be made. Will be executed by the [`Seller`](@ref) system.
 - [`Sale`](@ref): communicates that a sale order should be made. Will be executed by the [`Purchaser`](@ref) system.
@@ -38,22 +37,23 @@ Now we can interact with it and do some basic trades. First we ask for a `Market
 ```julia
 e = Entity(trader, Purchase("AAPL", 1))
 ```
-After a while `e` will have a [`Filled`](@ref) component, signalling that the order was executed succesfully, and by asking
+After a while `e` will have a [`Filled`](@ref) component, signalling that the order was executed succesfully, and
 ```julia
 current_position(trader, "AAPL")
 ```
 will return `1.0`.
 
 We can do the exact same to make a [`Sale`](@ref).
+```julia
+e = Entity(trader, Sale("AAPL", 1))
+current_position(trader, "AAPL") # now 0
+```
 
 !!! note
 
     Shorting is allowed
 
-A `LimitOrder` can be made as
-```julia
-Entity(trader, Purchase("AAPL", 1, type=OrderType.Limit, price = 156.0))
-```
+For different options and order types see [`OrderType`](@ref) and [`TimeInForce`](@ref)
 
 ## References
 

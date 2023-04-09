@@ -47,7 +47,7 @@ include("Systems/indicators.jl")
 include("Systems/portfolio.jl")
 
 
-export Trader, BackTester, start, stop_all, stop_main, stop_trading, stop_data
+export Trader, BackTester, start, stop, stop_main, stop_trading, stop_data
 export AlpacaBroker, HistoricalBroker
 export bars, quotes, trades
 

@@ -3,7 +3,7 @@
 CurrentModule=Trading
 ```
 
-## Historical
+## [Historical](@id historical_data)
 
 The current suggested method of historical data acquisition is through the [`AlpacaBroker`](@ref).
 There are three types of data that can be retrieved: [`bars`](@ref), [`quotes`](@ref) and [`trades`](@ref).

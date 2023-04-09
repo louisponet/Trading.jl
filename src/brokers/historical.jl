@@ -1,5 +1,5 @@
 """
-   HistoricalBroker
+   HistoricalBroker(broker)
 
 Stores and provides data from historical datasets. Data can be streamed fashion by assigning a
 [`Clock`](@ref) to the `clock` constructor kwarg, which will be used to determine the next bar to

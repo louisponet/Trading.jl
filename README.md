@@ -60,3 +60,10 @@ The package is designed to be flexible and customizable, and can be extended wit
 
 See [Documentation](https://louisponet.github.io/Trading.jl/dev) for more details.
 
+# Future Roadmap
+- Improved performance analysis, statistics
+- Implement standard plotting functionality
+- [`Trader`](@ref) loading and saving
+- Implement further signals and [`Indicators`](@ref)
+- Backtest comparisons
+- Support for different [`Brokers`](@ref)

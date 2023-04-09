@@ -1,7 +1,36 @@
 """
-    Trader(broker::AbstractBroker; strategies::Vector{Pair{String, Vector{Strategy}}}, start=current_time())
+    Trader(broker::AbstractBroker; strategies = Strategy[])
 
-Holds all data and tasks related to trading. 
+This is the heart of the entire framework. It holds all the data, systems and references to runtime tasks.
+It can be constructed with an [`AbstractBroker`](@ref) and potentially a set of [Strategies](@ref) and starting time.
+
+Upon construction with a realtime broker, the [Portfolio](@ref) will be filled out with the account information retrieved through the
+broker's API.
+
+# Default Systems
+There are a set of default systems that facilitate handling trade orders and other bookkeeping tasks.
+These are [`StrategyRunner`](@ref), [`Purchaser`](@ref), [`Seller`](@ref), [`Filler`](@ref), [`SnapShotter`](@ref), [`Timer`](@ref) and [`DayCloser`](@ref).
+
+# Runtime and Control
+After calling [`start`](@ref) on the [`Trader`](@ref), the systems will run in sequence periodically in the `main_task`, performing the tasks that make everything tick.
+Aside from this `main_task` there are two other tasks:
+- `trading_task`: streams in portfolio and order updates
+- `data_task`: streams in updates to the registered tickers and updates their [`TickerLedgers`](@ref TickerLedger)
+
+Aside from [`start`](@ref) there are some other functions to control the runtime:
+- [`stop_main`](@ref):     stops the `main_task`
+- [`stop_trading`](@ref):  stops the `trading_task`
+- [`stop_data`](@ref):     stops the `data_task`
+- [`stop`](@ref):          combines the previous 3
+- [`start_main`](@ref):    starts the `main_task`
+- [`start_trading`](@ref): starts the `trading_task`
+- [`start_data`](@ref):    stops the `data_task`
+
+# AbstractLedger interface
+[`Trader`](@ref) is a subtype of the `AbstractLedger` type defined in [Overseer.jl](https://github.com/louisponet/Overseer.jl), meaning that
+it can be extended by adding more `Systems` and `Components` to it.
+This lies at the heart of the extreme extensibility of this framework. You can think of the current implementation as one working
+example of an algorithmic trader implementation, but it can be tuned and tweaked with all the freedom. 
 """
 mutable struct Trader{B <: AbstractBroker} <: AbstractLedger
     l              ::Ledger
@@ -75,7 +104,26 @@ function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[
 end
 
 """
-    BackTester(broker)
+    BackTester(broker::HistoricalBroker;
+               dt = Minute(1),
+               start    = current_time() - dt*1000,
+               stop     = current_time(),
+               cash     = 1e6,
+               only_day = true)
+
+This creates a [`Trader`](@ref) and adds some additional functionality to perform a backtest. Since behind the scenes it really is just
+a tweaked [`Trader`](@ref), backtesting mimics the true behavior of the algorithm/strategy if it were running in realtime.
+By using a [`HistoricalBroker`](@ref), the main difference is that the datastreams are replaced with [`historical data`](@ref historical_data),
+as are the behavior of [`current_price`](@ref) and [`current_time`](@ref).
+
+See [`reset!`](@ref) to be able to rerun a [`BacktTester`](@ref)
+
+# Keyword arguments
+- `dt`: the timestep or granularity of the data. This will also be the tickrate of the `main_task` of the [`Trader`](@ref).
+- `start`: the starting time of the backtest 
+- `stop`: the stopping time of the backtest
+- `cash`: the starting cash
+- `only_day`: whether the backtest should only be ran during the day. This mainly improves performance.
 """
 function BackTester(broker::HistoricalBroker; dt       = Minute(1),
                                               start    = current_time() - dt*1000,

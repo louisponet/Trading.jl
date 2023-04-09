@@ -24,6 +24,13 @@ function parse_time(str)
     end
 end
 
+"""
+    current_time()
+    current_time(broker)
+    current_time(trader)
+
+Returns the current time either globally, or of an [broker](@ref Brokers) or [`Trader`](@ref) which is essentially the same as the trader's broker.
+"""
 function current_time()
     tv = Base.Libc.TimeVal()
     tm = Libc.TmStruct(tv.sec)

@@ -61,6 +61,14 @@ plot(ta[:value])
 
 Trading.jl is designed to be flexible and customizable, allowing you to extend it with new technical indicators, trading strategies, and data sources.
 
+# Future Roadmap
+- Improved performance analysis, statistics
+- Implement standard plotting functionality
+- [`Trader`](@ref) loading and saving
+- Implement further signals and [Indicators](@ref)
+- Backtest comparisons
+- Support for different [Brokers](@ref)
+
 # Other Packages
 - [TimeSeries](https://github.com/JuliaStats/TimeSeries.jl)
 - [MarketTechnicals](https://github.com/JuliaQuant/MarketTechnicals.jl)

@@ -1,7 +1,7 @@
 """
     start(trader)
 
-Starts the loop of a [`Trader`](@ref) or [`BackTester`](@ref).
+Starts all the tasks of a [`Trader`](@ref) or [`BackTester`](@ref).
 """
 function start(trader::Trader; kwargs...)
     if trader.main_task !== nothing && !istaskdone(trader.main_task)
@@ -36,13 +36,18 @@ function start(trader::Trader{<:HistoricalBroker})
         sleep(1)
     end
     
-    stop_all(trader)
+    stop(trader)
     
     ProgressMeter.finish!(p)
     
     return trader
 end
 
+"""
+    start_data(trader)
+
+Starts the data task. It opens a stream and registers the [`TickerLedgers`](@ref TickerLedger) to it, in order to [`receive`](@ref) bar updates.
+"""
 function start_data(trader::Trader;  kwargs...)
     trader.data_task = Threads.@spawn @stoppable trader.stop_data bar_stream(trader.broker) do stream
         for (ticker, q) in trader.ticker_ledgers
@@ -88,6 +93,11 @@ function start_data(trader::Trader;  kwargs...)
     end
 end
 
+"""
+    start_main(trader)
+
+Starts the main task. This periodically executes the core systems of the [`Trader`](@ref).
+"""
 function start_main(trader::Trader;sleep_time = 1, kwargs...)
     trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
         while true
@@ -105,6 +115,11 @@ function start_main(trader::Trader;sleep_time = 1, kwargs...)
     end
 end
     
+"""
+    start_trading(trader)
+
+Starts the trading task. This opens a stream that listens to portfolio and order updates.
+"""
 function start_trading(trader::Trader)
     order_comp = trader[Order]
     broker = trader.broker
@@ -146,6 +161,11 @@ function start_trading(trader::Trader)
     end
 end
 
+"""
+    stop_main(trader)
+
+Stops the main task.
+"""
 function stop_main(trader::Trader)
     trader.stop_main = true
     while !istaskdone(trader.main_task)
@@ -155,6 +175,11 @@ function stop_main(trader::Trader)
     return trader
 end
 
+"""
+    stop_data(trader)
+
+Stops the data task.
+"""
 function stop_data(trader::Trader)
     trader.stop_data = true
     while !istaskdone(trader.data_task)
@@ -164,6 +189,11 @@ function stop_data(trader::Trader)
     return trader
 end
 
+"""
+    stop_trading(trader)
+
+Stops the trading task.
+"""
 function stop_trading(trader::Trader)
     trader.stop_trading=true
     while !istaskdone(trader.trading_task)
@@ -173,7 +203,12 @@ function stop_trading(trader::Trader)
     return trader
 end
 
-function stop_all(trader::Trader)
+"""
+    stop(trader)
+
+Stops all tasks.
+"""
+function stop(trader::Trader)
     t1 = @async stop_data(trader)
     t2 = @async stop_trading(trader)
     t3 = @async stop_main(trader)

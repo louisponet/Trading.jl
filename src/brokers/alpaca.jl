@@ -122,7 +122,7 @@ const ALPACA_UQDF_CONDS = Dict(
 )
 
 """
-    AlpacaBroker
+    AlpacaBroker(key_id, secret_key)
 
 Broker to communicate with [Alpaca](https://app.alpaca.markets).
 Can be constructed with your `key_id` and `secret_key` (see [connect-to-alpaca-api](https://alpaca.markets/learn/connect-to-alpaca-api/)).

@@ -70,6 +70,11 @@ function price(broker::HistoricalBroker, price_t, ticker)
     return values(tdata[:o])[1]
 end
 
+"""
+    current_price(broker, ticker)
+
+Return the current price of an asset.
+"""
 current_price(broker::AbstractBroker, args...) = price(broker, current_time(broker), args...)
 
 function current_price(broker::AlpacaBroker, ticker)

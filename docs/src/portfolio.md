@@ -71,9 +71,4 @@ Trading.Filled
 Trading.PortfolioSnapshot
 Trading.OrderType
 Trading.TimeInForce
-Trading.Purchaser
-Trading.Seller
-Trading.Filler
-Trading.DayCloser
-Trading.SnapShotter
 ```

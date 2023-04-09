@@ -215,4 +215,3 @@ function Overseer.update(s::SnapShotter, l::AbstractLedger)
     
     new_e = Entity(l, TimeStamp(current_time(l)), PortfolioSnapshot(positions, cash.cash, totval))
 end
-

@@ -3,7 +3,8 @@
 CurrentModule = Trading
 ```
 Welcome to Trading.jl, a powerful algorithmic trading and backtesting package written in Julia.
-Our package provides an easy-to-use framework for defining and executing trading strategies based on technical indicators, as well as backtesting these strategies on historical data.
+
+It provides an easy-to-use framework for defining and executing trading strategies based on technical indicators, as well as backtesting these strategies on historical data.
 
 It builds on the ease of use, extensibility, inherent performance and elegance of the ECS (Entity-Component-System) paradigm, implemented through [Overseer.jl](https://github.com/louisponet/Overseer.jl), and keeps interoperability with the Julia ecosystem by interfacing with [TimeSeries.jl](https://github.com/JuliaStats/TimeSeries.jl).
 

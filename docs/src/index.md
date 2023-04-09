@@ -5,6 +5,7 @@ CurrentModule = Trading
 ## Trader
 ```@docs
 Trading.Trader
+Trading.BackTester
 ```
 
 ## Brokers
@@ -15,26 +16,3 @@ Trading.AlpacaBroker
 Trading.HistoricalBroker
 Trading.MockBroker
 ```
-
-## Portfolio
-
-### Data
-```@docs
-Trading.Cash
-Trading.PurchasePower
-Trading.Position
-Trading.Purchase
-Trading.Sale
-Trading.Order
-Trading.Filled
-Trading.PortfolioSnapshot
-```
-### Systems
-```@docs
-Trading.Purchaser
-Trading.Seller
-Trading.Filler
-Trading.DayCloser
-Trading.SnapShotter
-```
-

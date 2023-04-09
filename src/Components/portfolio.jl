@@ -1,3 +1,11 @@
+"""
+Enum representing the different kinds of orders that can be made.
+- Market
+- Limit
+- Stop
+- StopLimit
+- TrailinStop
+"""
 @enumx OrderType Market Limit Stop StopLimit TrailingStop
 
 function Base.string(t::OrderType.T)
@@ -14,6 +22,15 @@ function Base.string(t::OrderType.T)
     end
 end
 
+"""
+Enum representing the lifetime of an order.
+- Day: till the end of the trading day
+- GTC: good till canceled
+- OPG: executed on market open
+- CLS: executed at market close
+- IOC: immediate or canceled, any unfilled part of the order will be canceled
+- FOK: executed only when the full quantity can be filled, otherwise canceled.
+"""
 @enumx TimeInForce Day GTC OPG CLS IOC FOK
 function Base.string(t::TimeInForce.T)
     if t == TimeInForce.Day
@@ -41,6 +58,7 @@ end
 The local representation of a purchase order.
 This will be turned into an [`Order`](@ref) by the [`Purchaser`](@ref) `System` as soon as
 it's communicated to the [`broker`](@ref AbstractBroker).
+See [`OrderType`](@ref) and [`TimeInForce`](@ref) for more information on those `kwargs`.
 """
 @component Base.@kwdef mutable struct Purchase
     ticker::String
@@ -65,6 +83,7 @@ Purchase(ticker, quantity; kwargs...) =
 The local representation of a sell order.
 This will be turned into an [`Order`](@ref) by the [`Seller`](@ref) `System` as soon as
 it's communicated to the [`broker`](@ref AbstractBroker).
+See [`OrderType`](@ref) and [`TimeInForce`](@ref) for more information on those `kwargs`.
 """
 @component Base.@kwdef mutable struct Sale
     ticker::String
@@ -150,7 +169,7 @@ end
 """
     PortfolioSnapshot
 
-A snapshot of the current [`Positions`](@ref) and [`Cash`](@ref) value of the portfolio.
+A snapshot of the current [`Positions`](@ref Position) and [`Cash`](@ref) value of the portfolio.
 """
 @component struct PortfolioSnapshot
     positions::Vector{Position}

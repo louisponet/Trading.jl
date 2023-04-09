@@ -10,13 +10,11 @@ export TimeDate
 using Overseer: AbstractComponent, EntityState
 using Overseer: update
 
-using Statistics
 using LinearAlgebra
 using HTTP
 using HTTP.WebSockets
 using HTTP.WebSockets: isclosed
 using JSON3
-using JLD2
 using BinaryTraits
 using BinaryTraits.Prefix: Can, Cannot, Is, IsNot
 using Base.Threads
@@ -69,10 +67,10 @@ module Basic
 end
 
 module Portfolio
-    using ..Trading: Purchase, Sale, Position, PortfolioSnapshot, Filled,
-                     current_position
-    export Purchase, Sale, Position, PortfolioSnapshot, Filled,
-           current_position
+    using ..Trading: Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType, TimeInForce,
+                     current_position, current_cash, current_purchasepower
+    export Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType, TimeInForce,
+           current_position, current_cash, current_purchasepower
 end
 
 module Strategies

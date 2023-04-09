@@ -18,7 +18,13 @@ mutable struct Trader{B <: AbstractBroker} <: AbstractLedger
 end
 
 Overseer.ledger(t::Trader) = t.l
-Overseer.Entity(t::Trader, args...) = Entity(Overseer.ledger(t), TimeStamp(current_time(t)), args...)
+
+function Overseer.Entity(t::Trader, args...)
+    e = Entity(Overseer.ledger(t), TimeStamp(current_time(t)), args...)
+    notify(t.new_data_event)
+    return e
+end
+Overseer.Entity(t::Trader{<:HistoricalBroker}, args...) = Entity(Overseer.ledger(t), TimeStamp(current_time(t)), args...)
 
 Base.getindex(t::Trader, id::String) = t.ticker_ledgers[id]
 
@@ -43,7 +49,7 @@ function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[
             tl = get!(ticker_ledgers, ticker, TickerLedger(ticker))
             register_strategy!(tl, strat)
 
-            if !has_position(l, ticker)
+            if current_position(l, ticker) === nothing
                 Entity(l, Position(ticker, 0.0))
             end
             
@@ -117,13 +123,31 @@ function BackTester(broker::HistoricalBroker; dt       = Minute(1),
     return trader
 end
 
+"""
+    current_position(trader, ticker::String)
+
+Returns the current portfolio position for `ticker`.
+Returns `nothing` if `ticker` is not found in the portfolio.
+"""
 function current_position(t::AbstractLedger, ticker::String)
     pos_id = findfirst(x->x.ticker == ticker, t[Position])
     pos_id === nothing && return 0.0
     return t[Position][pos_id].quantity
 end
 
-has_position(t::AbstractLedger, ticker::String) = any(x -> x.ticker == ticker, t[Position])
+"""
+    current_cash(trader)
+
+Returns the current cash balance of the trader.
+"""
+current_cash(t::AbstractLedger) = singleton(t, Cash).cash
+
+"""
+    current_purchasepower(trader)
+
+Returns the current [`PurchasePower`](@ref).
+"""
+current_purchasepower(t::AbstractLedger) = singleton(t, PurchasePower).cash
 
 function Base.show(io::IO, ::MIME"text/plain", trader::Trader)
     

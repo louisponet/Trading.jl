@@ -1,5 +1,6 @@
 docs/build
 *.jld2
+*.ipynb
 
 bin/Manifest.toml
 Manifest.toml

@@ -60,21 +60,32 @@ TimeSeries.timestamp(l::AbstractLedger) =
 function TimeSeries.TimeArray(c::AbstractComponent{PortfolioSnapshot}, tcomp)
     es_to_store = filter(e -> e in tcomp, @entities_in(c))
     
-    tstamps = map(x->DateTime(tcomp[x].t), es_to_store)
-    
     pos_dict = Dict{String, Vector{Float64}}()
-
+    pos_timestamps = Dict{String, Vector{DateTime}}()
     pos_dict["value"] = Float64[]
+    pos_timestamps["value"] = DateTime[]
 
     for e in es_to_store
+        tstamp = tcomp[e].t
         for p in e.positions
             arr = get!(pos_dict, p.ticker * "_position", Float64[])
             push!(arr, p.quantity)
+
+            tstamp_arr = get!(pos_timestamps, p.ticker * "_position", DateTime[])
+            push!(tstamp_arr, tstamp)
         end
-        push!(pos_dict["value"], e.value) 
+        
+        push!(pos_dict["value"], e.value)
+        push!(pos_timestamps["value"], tstamp) 
     end
     
-    return TimeArray(tstamps, hcat(values(pos_dict)...), collect(keys(pos_dict)))
+    out = nothing
+    for (colname, positions) in pos_dict
+        ta = TimeArray(pos_timestamps[colname], positions, [colname])
+        out = out === nothing ? ta : merge(out, ta, method=:outer)
+    end
+        
+    return out
 end
 
 function TimeSeries.TimeArray(c::AbstractComponent{T}, tcomp) where {T}

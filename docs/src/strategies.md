@@ -1,4 +1,4 @@
-# Strategies
+# [Introduction](@id Strategies)
 ```@meta
 CurrentModule = Trading
 ```
@@ -6,7 +6,7 @@ CurrentModule = Trading
 As with any other functionality in `Trading`, `Strategies` are represented by `Systems` and thus are treated on completely equal footing with the core functionality.
 There are three main parts that need to be implemented for a `Strategy` to be used: the `struct`, the `Overseer.update` function, and the `Overseer.requested_components` function.
 This latter one will be used to determine which [`Indicator`](@ref Indicators) systems need to be running on the [`TickerLedgers`](@ref TickerLedger) in order to produce
-the [`Indicators`](@ref) that are used by the `Strategy`.
+the [`Indicators`](@ref Indicators) that are used by the `Strategy`.
 The `update` function of a `Strategy` `System` is ran periodically after the `update` functions for the other `Systems` that make the rest of the [`Trader`](@ref) tick.
 
 ## Strategy Definition

@@ -9,7 +9,10 @@ documentation for further reference.
 ```julia
 broker = AlpacaBroker(<key_id>, <secret_key>)
 
-bars(broker, "AAPL", DateTime("2022-01-01T00:00:00"), DateTime("2023-01-01T00:00:00")l timeframe = Minute(1))
+bars(broker, "AAPL",
+     DateTime("2022-01-01T00:00:00"),
+     DateTime("2023-01-01T00:00:00"),
+     timeframe = Minute(1))
 ```
 
 The above will retrieve 2022 bar data "AAPL" on a Minute resolution. 

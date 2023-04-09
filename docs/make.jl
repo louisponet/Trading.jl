@@ -86,10 +86,11 @@ makedocs(; modules = [Trading],
                              # login screen and cause a warning:
                              r"https://github.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/edit(.*)"],
          pages = ["Home"       => "index.md",
+                  "Portfolio"  => "portfolio.md",
+                  "Data"       => "data.md",
                   "Strategies" => ["strategies.md",
                                    "Slow Fast" => "strategies/slow_fast.md",
-                                   "Cointegration" => "strategies/cointegration.md"],
-                  "Data"       => "data.md"])
+                                   "Cointegration" => "strategies/cointegration.md"]])
 
 # Deploy docs to gh-pages branch
 deploydocs(; repo = "github.com/louisponet/Trading.jl.git", devbranch = "master")

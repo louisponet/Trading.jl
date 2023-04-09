@@ -197,10 +197,8 @@ function Overseer.update(trader::Trader{<:HistoricalBroker})
     
     notify(trader.broker.send_bars)
     
-    # lock(trader.new_data_event) do 
     wait(trader.new_data_event)
     reset(trader.new_data_event)
-    # end
     
     for s in stages(trader)
         update(s, trader)

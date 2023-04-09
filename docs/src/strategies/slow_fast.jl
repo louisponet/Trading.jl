@@ -26,9 +26,9 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
             lag_sma_200 = lag_e[SMA{200, Close}].sma
 
             if sma_50 > sma_200 && lag_sma_50 < lag_sma_200
-                Entity(t, Sale(ticker, Inf))
+                Entity(t, Sale(ticker, 1.0))
             elseif sma_50 < sma_200 && lag_sma_50 > lag_sma_200
-                Entity(t, Purchase(ticker, Inf))
+                Entity(t, Purchase(ticker, 1.0))
             end
         end
     end

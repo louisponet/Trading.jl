@@ -116,7 +116,7 @@ a tweaked [`Trader`](@ref), backtesting mimics the true behavior of the algorith
 By using a [`HistoricalBroker`](@ref), the main difference is that the datastreams are replaced with [`historical data`](@ref historical_data),
 as are the behavior of [`current_price`](@ref) and [`current_time`](@ref).
 
-See [`reset!`](@ref) to be able to rerun a [`BacktTester`](@ref)
+See [`reset!`](@ref) to be able to rerun a [`BackTester`](@ref)
 
 # Keyword arguments
 - `dt`: the timestep or granularity of the data. This will also be the tickrate of the `main_task` of the [`Trader`](@ref).

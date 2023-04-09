@@ -86,6 +86,7 @@ makedocs(; modules = [Trading],
                              # login screen and cause a warning:
                              r"https://github.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/edit(.*)"],
          pages = ["Home"       => "index.md",
+                  "Trader"     => "trader.md",
                   "Portfolio"  => "portfolio.md",
                   "Data"       => "data.md",
                   "Strategies" => ["strategies.md",

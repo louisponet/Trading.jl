@@ -42,7 +42,11 @@ start(trader)
 If one wants to backtest a trading strategy on historical data, users can instead use `BackTester` instead of `Trader` with the desired data range, interval, and strategies. The backtester will simulate the behavior of a realtime trader on the specified data. Afterwards a [`TimeArray`](https://github.com/JuliaStats/TimeSeries.jl) can be created with the data from the `trader`, and used for performance analysis.
 
 ```julia
-trader = BackTester(HistoricalBroker(broker), strategies=[strategy], start=<start date>, stop = <stop date>, dt = <data timeframe>)
+trader = BackTester(HistoricalBroker(broker), 
+                    strategies=[strategy], 
+                    start = <start date>, 
+                    stop  = <stop date>, 
+                    dt    = <data timeframe>)
 
 start(trader)
 

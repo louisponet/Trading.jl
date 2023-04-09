@@ -5,4 +5,54 @@
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://louisponet.github.io/Trading.jl/dev/)
 
 
-My trading playground.
+This is an algorithmic trading and backtesting package written in Julia. It provides a framework for defining and executing trading strategies based on technical indicators, as well as backtesting these strategies on historical data.
+Behind the scenes it relies on an ECS paradigm as implemented by [Overseer.jl](https://github.com/louisponet/Overseer.jl), making it extremely easy to extend.
+
+# Simple Example
+To define a trading strategy, users need to implement a Julia struct with an update function that defines the trading logic. The update function is called periodically by the framework, and has access to tick data for the specified tickers, as well as any technical indicators requested by the strategy.
+
+```julia
+struct StratSys <: System end
+
+Overseer.requested_components(::StratSys) = (Open, Close, SMA{20, Close}, SMA{200, Close})
+
+function Overseer.update(s::StratSys, trader, ticker_ledgers)
+   for ledger in ticker_ledgers
+        for e in new_entities(ledger, s)
+            #Trading logic goes here
+        end
+    end
+end
+```
+
+The package includes several built-in technical indicators, such as simple moving averages, relative strength index, and exponential moving averages, but users can also define their own custom indicators.
+
+To execute a trading strategy in real-time, users can create a Trader object with the desired strategies and tickers, and connect it to a real-time data source through the different broker APIs.
+
+```julia
+broker = AlpacaBroker("<key_id>", "<secret>")
+
+strategy = Strategy(:strat, [StratSys()], tickers=["AAPL"])
+
+trader = Trader(broker, strategies=[strategy])
+
+start(trader)
+```
+
+If one wants to backtest a trading strategy on historical data, users can instead use `BackTester` instead of `Trader` with the desired data range, interval, and strategies. The backtester will simulate the behavior of a realtime trader on the specified data. Afterwards a [`TimeArray`](https://github.com/JuliaStats/TimeSeries.jl) can be created with the data from the `trader`, and used for performance analysis.
+
+```julia
+trader = BackTester(HistoricalBroker(broker), strategies=[strategy], start=<start date>, stop = <stop date>, dt = <data timeframe>)
+
+start(trader)
+
+ta = TimeArray(trader)
+
+using Plots
+plot(ta[:value])
+```
+
+The package is designed to be flexible and customizable, and can be extended with new technical indicators, trading strategies, and data sources.
+
+See [Documentation](https://louisponet.github.io/Trading.jl/dev) for more details.
+

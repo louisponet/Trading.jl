@@ -10,7 +10,7 @@ using HypothesisTests
 using Statistics
 using ThreadPools
 
-using TimeSeries: rename
+# using TimeSeries: rename
 using Trading.Strategies: lag
 
 function fit_γμ(account, ticker1, ticker2, start, stop; timeframe=Minute(1), only_day=true)
@@ -406,20 +406,20 @@ function pair_trader(broker, ticker1::String, ticker2::String, start, stop, γ; 
 end
 
 
-acc = HistoricalBroker(AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"]))
+# acc = HistoricalBroker(AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"]))
 
-acc.variable_transaction_fee = 0.0
-acc.fee_per_share = 0.005
-acc.fixed_transaction_fee = 0.0
+# acc.variable_transaction_fee = 0.0
+# acc.fee_per_share = 0.005
+# acc.fixed_transaction_fee = 0.0
 
 
-γ_2022 = (0.83971041721211, 0.7802162996942561, 0.8150936011572303, 0.8665354500999517, 0.8253480013737815)
-γ_2021 = (0.4536879929628027, 0.6749271852655075, 0.6814251210894734, 0.44395679460564247, 0.5103055699026341)
+# γ_2022 = (0.83971041721211, 0.7802162996942561, 0.8150936011572303, 0.8665354500999517, 0.8253480013737815)
+# γ_2021 = (0.4536879929628027, 0.6749271852655075, 0.6814251210894734, 0.44395679460564247, 0.5103055699026341)
 
-msft_aapl_γ = mean_daily_γ(acc, "MSFT", "AAPL", TimeDate("2023-03-01T00:00:00"), TimeDate("2023-03-31T23:59:59"))
+# msft_aapl_γ = mean_daily_γ(acc, "MSFT", "AAPL", TimeDate("2023-03-01T00:00:00"), TimeDate("2023-03-31T23:59:59"))
 
-msft_aapl_γ = γ_2021
+# msft_aapl_γ = γ_2021
 
-trader = pair_trader(acc, "MSFT", "AAPL", TimeDate("2022-01-01T00:00:00"), TimeDate("2022-12-30T23:59:59"), msft_aapl_γ, z_thr=3.0)
-start(trader)
-plot_simulation(trader)
+# trader = pair_trader(acc, "MSFT", "AAPL", TimeDate("2022-01-01T00:00:00"), TimeDate("2022-12-30T23:59:59"), msft_aapl_γ, z_thr=3.0)
+# start(trader)
+# plot_simulation(trader)

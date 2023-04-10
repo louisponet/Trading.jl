@@ -126,8 +126,9 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols=keys(components(l)))
         try 
             t = TimeArray(l[T], tcomp)
             out = out === nothing ? t : merge(out, t, method=:outer)
-        catch
+        catch e
             @warn "Method to convert $T into TimeArray not implemented yet."
+            showerror(stdout, e)
         end
             
     end

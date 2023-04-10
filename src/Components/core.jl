@@ -87,9 +87,9 @@ The logarithm of a value.
 end
 
 for op in (:+, :-, :*, :/,  :^)
-    @eval @inline Base.$op(b1::T, b2::T) where {T <: SingleValIndicator} = T($op(value(b1),   value(b2)))
-    @eval @inline Base.$op(b1::T, b2::Number) where {T <: SingleValIndicator} = T($op(value(b1),   b2))
-    @eval @inline Base.$op(b1::Number, b2::T) where {T <: SingleValIndicator} = T($op(b1,   value(b2)))
+    @eval @inline Base.$op(b1::T, b2::T) where {T <: SingleValIndicator} = T(eltype(T)($op(value(b1),   value(b2))))
+    @eval @inline Base.$op(b1::T, b2::Number) where {T <: SingleValIndicator} = T(eltype(T)($op(value(b1),   b2)))
+    @eval @inline Base.$op(b1::Number, b2::T) where {T <: SingleValIndicator} = T(eltype(T)($op(b1,   value(b2))))
 end
 
 for op in (:(<), :(>), :(>=), :(<=), :(==))
@@ -111,6 +111,7 @@ Returns the number that is stored in the [`SingleValIndicator`](@ref). This is b
 @inline value(b::Number) = b
 @inline Base.convert(::Type{T}, b::SingleValIndicator) where {T <: Number} = convert(T, value(b))
 Base.eltype(::Type{<:SingleValIndicator{T}}) where {T} = T
+Base.zero(::Type{T}) where {T<:SingleValIndicator} = T(zero(eltype(T)))
 
 @assign SingleValIndicator with Is{Indicator}
 

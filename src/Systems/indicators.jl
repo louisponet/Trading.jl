@@ -85,11 +85,11 @@ function Overseer.update(s::EMACalculator, l::AbstractLedger)
     end
 end
 
-function ema(comp, ema_comp::AbstractComponent{ema_T},smoothing) where {ema_T <: EMA}
+function ema(comp::AbstractComponent{T}, ema_comp::AbstractComponent{ema_T},smoothing) where {T, ema_T <: EMA}
     
     horizon = ema_T.parameters[1]
     
-    m = zero(comp[1])
+    m = zero(T)
     
     fac = smoothing/(1 + horizon)
     for i in 1:length(comp)
@@ -155,10 +155,10 @@ function bollinger(comp::AbstractComponent{T}, sma_comp::AbstractComponent{sma_T
         s = sma_comp[e].sma
         
         for i = ie - horizon + 1:ie
-            stdev += (comp[ie] - s)^2
+            stdev += (comp[i] - s)^2
         end
         
-        stdev = sqrt(stdev/(horizon - 1))
+        stdev = sqrt(stdev/(horizon-1))
         t = stdev * fac
         up   = s + t
         down = s - t
@@ -167,12 +167,10 @@ function bollinger(comp::AbstractComponent{T}, sma_comp::AbstractComponent{sma_T
     end
 end
 
-function bollinger_stage(;
-                         name::Symbol = :bollinger,
-                         width::Float64 = 2.0)
+function bollinger_systems(width::Float64 = 2.0)
     sma_calc = SMACalculator()
     bol_calc = BollingerCalculator(width)
-    return Stage(name, [sma_calc, bol_calc])
+    return [sma_calc, bol_calc]
 end
 
 """
@@ -207,12 +205,13 @@ function Overseer.update(::UpDownSeparator, l::AbstractLedger)
     end
 end
 
-function updown(from_comp, to_comp::AbstractComponent{ud_T}) where {ud_T <: UpDown}
+function updown(from_comp::AbstractComponent{T}, to_comp::AbstractComponent{ud_T}) where {T, ud_T <: UpDown}
     for e in @entities_in(from_comp)
-        if e.d < 0
-            to_comp[e] = ud_T(zero(e.d), e.d)
+        val = e[T]
+        if val < 0
+            to_comp[e] = ud_T(zero(T), val)
         else
-            to_comp[e] = ud_T(e.d, zero(e.d))
+            to_comp[e] = ud_T(val, zero(T))
         end
     end
 end
@@ -231,7 +230,7 @@ function Overseer.update(s::RSICalculator, l::AbstractLedger)
             continue
         end
 
-        ema_T = EMA{T.parameters[1], UpDown{T.parameters[2]}}
+        ema_T = EMA{T.parameters[1], UpDown{Difference{T.parameters[2]}}}
         
         if ema_T ∈ l 
             rsi(l[ema_T], c)
@@ -249,13 +248,11 @@ function rsi(updown_ema, rsicomp::AbstractComponent{rsi_T}) where {rsi_T <: RSI}
     end
 end
 
-function rsi_stage(horizon::Int         = 14,
-                   smoothing::Int       = 2)
-
+function rsi_systems(smoothing::Int       = 2)
     ud     = UpDownSeparator()
-    ud_ema = EMACalculator(horizon, smoothing)
-    rsi    = RSICalculator(horizon) 
-    return Stage(:rsi, [DifferenceCalculator(),ud, ud_ema, rsi])
+    ud_ema = EMACalculator(smoothing)
+    rsi    = RSICalculator() 
+    return [DifferenceCalculator(),ud, ud_ema, rsi]
 end
 
 """
@@ -292,8 +289,7 @@ function sharpe(sharpe_comp::AbstractComponent{sharpe_T}, mean_comp, stddev_comp
     
 end
 
-sharpe_stage() =
-    Stage(:sharpe, [DifferenceCalculator(), SMACalculator(), MovingStdDevCalculator(), SharpeCalculator()])
+sharpe_systems() = [DifferenceCalculator(), SMACalculator(), MovingStdDevCalculator(), SharpeCalculator()]
 
 """
     LogValCalculator

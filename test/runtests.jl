@@ -1,6 +1,7 @@
 using Trading
+using Trading: update
 using Test
-
+using MarketTechnicals
 using Trading.Strategies
 using Trading.Basic
 using Trading.Indicators
@@ -8,7 +9,8 @@ using Trading.Portfolio
 
 struct SlowFast <: System end
     
-Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close}, Close, Volume)
+Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close}, Bollinger{20, Close}, RSI{14, Close}, Sharpe{20, Close}, LogVal{Close}, RelativeDifference{Volume})
+
 
 @testset "Ticker Ledger" begin
     l = Trading.TickerLedger("AAPL")
@@ -26,7 +28,6 @@ Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close}, Cl
         Trading._Entity(l, Close(rand()), Volume(rand(Int)))
     end
     update(l)
-
     @test length(l[Close]) == 3000
     @test length(l[SMA{200, Close}]) == 2801
     @test length(l[SMA{50, Close}])  == 2951
@@ -111,8 +112,24 @@ end
     end
 
     @test !isempty(trader["stock1"][SMA{50, Close}])
+
+    ta = TimeArray(trader)
+    close = dropnan(ta[:stock1_Close])
+
+    @test TimeSeries.values(all(isapprox.(dropnan(ta[Symbol("stock1_RSI{14, Close}")]), rsi(close), atol=1e-10)))[1]
+
+    bollinger_up = dropnan(ta[Symbol("stock1_Bollinger{20, Close}_up")])
+    bollinger_down = dropnan(ta[Symbol("stock1_Bollinger{20, Close}_down")])
+
+    bollinger_ta = bollingerbands(close)
+    bollinger_ta_up = bollinger_ta[:up]
+    bollinger_ta_down = bollinger_ta[:down]
+    
+    @test TimeSeries.values(all(isapprox.(bollinger_up, bollinger_ta_up, atol=1e-10)))[1]
+    @test TimeSeries.values(all(isapprox.(bollinger_down, bollinger_ta_down, atol=1e-10)))[1]
 end
 
+Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close}, Close, Volume)
 if haskey(ENV, "ALPACA_KEY_ID")
     @testset "Real Backtesting run" begin
         broker = HistoricalBroker(AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"]))
@@ -150,6 +167,18 @@ if haskey(ENV, "ALPACA_KEY_ID")
         @test n_sales == length(trader[Sale]) == 145
         @test sum(tsnap .- tsnap2) == 0
         @test tstamps == tstamps2
+
+        ta = TimeArray(trader)
+
+        @test :AAPL_position ∈ colnames(ta)
+        @test :MSFT_position ∈ colnames(ta)
+        @test Symbol("AAPL_SMA{50, Close}") ∈ colnames(ta)
+        @test Symbol("MSFT_SMA{50, Close}") ∈ colnames(ta)
+        @test :value ∈ colnames(ta)
+        @test values(ta[:value][end])[1] == trader[PortfolioSnapshot][end].value
+
+        @test length(Trading.split_days(ta)) == 30
+        @test values(Trading.relative(ta)[:value])[1] == 1
         
     end
 

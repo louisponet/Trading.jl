@@ -92,9 +92,7 @@ function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[
     for ledger in values(ticker_ledgers)
         ensure_systems!(ledger)
     end
-     Entity(l, Clock(start, Minute(0)))
-    
-    ensure_systems!(l)
+    Entity(l, Clock(start, Minute(0)))
     
     trader = Trader(l, broker, ticker_ledgers, nothing, nothing, nothing, false, false,false, false, Base.Event())
     
@@ -262,28 +260,60 @@ function ensure_systems!(l::AbstractLedger)
         ind_stage = Stage(:indicators, System[])
     end
 
-    for T in keys(components(l))
-        if T <: SMA                    && SMACalculator()                ∉ ind_stage
-            push!(ind_stage,              SMACalculator())
-        elseif T <: MovingStdDev       && MovingStdDevCalculator()       ∉ ind_stage
-            push!(ind_stage,              MovingStdDevCalculator())
-        elseif T <: EMA                && EMACalculator()                ∉ ind_stage
-            push!(ind_stage,              EMACalculator())
-        elseif T <: UpDown             && UpDownSeparator()              ∉ ind_stage
-            push!(ind_stage,              UpDownSeparator())
-        elseif T <: Difference         && DifferenceCalculator()         ∉ ind_stage
-            push!(ind_stage,              DifferenceCalculator())
-        elseif T <: RelativeDifference && RelativeDifferenceCalculator() ∉ ind_stage
-            push!(ind_stage,              RelativeDifferenceCalculator())
-        elseif T <: Sharpe             && SharpeCalculator()             ∉ ind_stage
-            push!(ind_stage,              SharpeCalculator())
-        elseif T <: LogVal             && LogValCalculator()             ∉ ind_stage
-            push!(ind_stage,              LogValCalculator())
-        elseif T <: RSI                && RSICalculator()                ∉ ind_stage
-            push!(ind_stage,              RSICalculator())
-        elseif T <: Bollinger          && BollingerCalculator()          ∉ ind_stage
-            push!(ind_stage,              BollingerCalculator())
+    n_steps = 0
+    n_components = 0 
+    while length(ind_stage.steps) != n_steps || n_components != length(keys(components(l)))
+        n_steps      = length(ind_stage.steps)
+        n_components = length(keys(components(l)))
+        
+        for T in keys(components(l))
+            eT = eltype(T)
+            if !(eT <: Number) 
+                Overseer.ensure_component!(l, eltype(T))
+            end
+            
+            if T <: SMA                    && SMACalculator()                ∉ ind_stage
+                push!(ind_stage,              SMACalculator())
+            elseif T <: MovingStdDev       && MovingStdDevCalculator()       ∉ ind_stage
+                push!(ind_stage,              MovingStdDevCalculator())
+            elseif T <: EMA                && EMACalculator()                ∉ ind_stage
+                push!(ind_stage,              EMACalculator())
+            elseif T <: UpDown             && UpDownSeparator()              ∉ ind_stage
+                push!(ind_stage,              UpDownSeparator())
+            elseif T <: Difference         && DifferenceCalculator()         ∉ ind_stage
+                push!(ind_stage,              DifferenceCalculator())
+            elseif T <: RelativeDifference && RelativeDifferenceCalculator() ∉ ind_stage
+                push!(ind_stage,              RelativeDifferenceCalculator())
+                
+            elseif T <: Sharpe             && SharpeCalculator()             ∉ ind_stage
+                horizon = T.parameters[1]
+                comp_T  = T.parameters[2]
+                
+                sma_T = SMA{horizon, comp_T}
+                std_T = MovingStdDev{horizon, comp_T}
+                Overseer.ensure_component!(l, sma_T)
+                Overseer.ensure_component!(l, std_T)
+                
+                push!(ind_stage, sharpe_systems()...)
+                
+            elseif T <: LogVal             && LogValCalculator()             ∉ ind_stage
+                push!(ind_stage,              LogValCalculator())
+                
+            elseif T <: RSI                && RSICalculator()                ∉ ind_stage
+                ema_T = EMA{T.parameters[1], UpDown{Difference{T.parameters[2]}}}
+                Overseer.ensure_component!(l, ema_T)
+                push!(ind_stage, rsi_systems()...)
+                
+            elseif T <: Bollinger          && BollingerCalculator()          ∉ ind_stage
+                sma_T = SMA{T.parameters...}
+                ind_T = T.parameters[2]
+                Overseer.ensure_component!(l, sma_T)
+                Overseer.ensure_component!(l, ind_T)
+                
+                push!(ind_stage, bollinger_systems()...)
+            end
         end
+        unique!(ind_stage.steps)
     end
 
     # Now insert the indicators stage in the most appropriate spot

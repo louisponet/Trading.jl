@@ -88,6 +88,14 @@ function TimeSeries.TimeArray(c::AbstractComponent{PortfolioSnapshot}, tcomp)
     return out
 end
 
+function TimeSeries.TimeArray(c::AbstractComponent{T}, tcomp) where {T<:Union{UpDown, Bollinger}}
+    es_to_store = filter(e -> e in tcomp, @entities_in(c))
+    up = map(x->value(x[T])[1], es_to_store)
+    down = map(x->value(x[T])[2], es_to_store)
+    tstamps = map(x->tcomp[x].t, es_to_store)
+    return TimeArray(tstamps, hcat(up, down), [Symbol(replace("$(T)_up", "Trading." => "")), Symbol(replace("$(T)_down", "Trading." => ""))])
+end
+
 function TimeSeries.TimeArray(c::AbstractComponent{T}, tcomp) where {T}
     
     es_to_store = filter(e -> e in tcomp, @entities_in(c))
@@ -115,9 +123,13 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols=keys(components(l)))
 
         comp = l[T]
         isempty(comp) && continue
-        
-        t = TimeArray(l[T], tcomp)
-        out = out === nothing ? t : merge(out, t, method=:outer)
+        try 
+            t = TimeArray(l[T], tcomp)
+            out = out === nothing ? t : merge(out, t, method=:outer)
+        catch
+            @warn "Method to convert $T into TimeArray not implemented yet."
+        end
+            
     end
 
     if l isa Trader

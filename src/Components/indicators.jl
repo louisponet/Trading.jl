@@ -92,6 +92,7 @@ end
 @inline Base.:(>=)(b::UpDown, i::Number) = b.up >= i && b.down >= i
 @inline Base.:(<=)(i::Number, b::UpDown) = i <= b.up && i <= b.down
 @inline Base.:(<=)(b::UpDown, i::Number) = b.up <= i && b.down <= i
+Base.zero(::Type{UpDown{T}}) where {T} = UpDown(zero(T), zero(T))
 
 @assign UpDown with Is{Indicator}
 value(ud::UpDown) = (value(ud.up), value(ud.down))

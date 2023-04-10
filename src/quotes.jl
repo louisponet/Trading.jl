@@ -72,6 +72,7 @@ end
 
 """
     current_price(broker, ticker)
+    current_price(trader, ticker)
 
 Return the current price of an asset.
 """

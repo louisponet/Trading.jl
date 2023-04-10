@@ -20,6 +20,35 @@ end
 # Overseer.Entity(tl::TickerLedger, args...) = error("You, my friend, are not allowed to add entities to a TickerLedger.")
 _Entity(tl::TickerLedger, args...) = Entity(tl.l, args...)
 
+function new_bar!(tl::TickerLedger, time::TimeStamp, open::Open, high::High, low::Low, close::Close, volume::Volume; interval=Minute(1))
+    tcomp = tl[TimeStamp]
+    intval = Millisecond(interval) 
+    if length(tcomp) > 1
+        
+        last_t = tcomp[end].t
+        cur_dt =  time.t - last_t
+        if abs(intval - cur_dt) > Millisecond(50)
+            nsteps = div(cur_dt, interval)
+
+            last_open = tl[Open][end]
+            last_high = tl[High][end]
+            last_low = tl[Low][end]
+            last_close = tl[Close][end]
+
+            for i = 1:nsteps-1
+                Entity(tl.l,
+                       TimeStamp(last_t + intval),
+                       last_open + (open - last_open)/nsteps * i,
+                       last_high + (high - last_high)/nsteps * i,
+                       last_low + (low - last_low)/nsteps * i,
+                       last_close + (close - last_close)/nsteps * i,
+                       Volume(0))
+            end
+        end
+    end
+    Entity(tl.l, time, open, high, low, close, volume)
+end
+
 Overseer.ledger(d::TickerLedger) = d.l
 
 function register_strategy!(tl::TickerLedger, strategy::S) where {S<:System} 

@@ -136,7 +136,7 @@ ta = TimeArray(trader)
 by using [`Plots`](https://juliaplots.org) we can then plot certain columns in the `TimeArray`, e.g. the portfolio value:
 ```@example strategy
 using Plots
-plot(ta[:value])
+plot(ta[:portfolio_value])
 ```
 
 We can see that this strategy is not particularly succesful.

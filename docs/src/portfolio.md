@@ -16,11 +16,11 @@ A portfolio is represented by a combination of components:
 - [`PortfolioSnapshot`](@ref): a periodical snapshot of the portfolio
 
 ## Orders
-The state of the portfolio can be changed by using:
+The state of the portfolio can be changed by two types of order:
 - [`Purchase`](@ref): communicates to the system that a purchase order should be made. Will be executed by the [`Seller`](@ref) system.
 - [`Sale`](@ref): communicates that a sale order should be made. Will be executed by the [`Purchaser`](@ref) system.
 
-Each order can have an [`OrderType`](@ref), which defaults to `OrderType.Market` and a [`TimeInForce`](@ref) which defaults to `TimeInForce.GTC` (good till canceled).
+Each order can have an [`OrderType`](@ref) which defaults to `OrderType.Market`, and a [`TimeInForce`](@ref) which defaults to `TimeInForce.GTC` (good till canceled).
 A price can be specified for orders that are not a `Market` order.
 
 ## Example

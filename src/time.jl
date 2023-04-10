@@ -55,6 +55,7 @@ It assumes opening at 9:30am and closing at 4pm.
 ```jldoctest
 julia> Trading.market_open_close(DateTime("2023-04-05"))
 (DateTime("2023-04-05T15:30:00"), DateTime("2023-04-05T22:00:00"))
+```
 """
 function market_open_close(date, timezone=tz"EST")
     y = round(date, Year, RoundDown)
@@ -131,6 +132,7 @@ true
 
 julia> Trading.is_market_open(DateTime("2023-04-04T15:28:00"))
 false
+```
 """
 is_market_open(t, interval::T=Minute(1)) where {T} = 
     T(0) <= market_open_close(t)[1] - t <= interval
@@ -153,6 +155,7 @@ true
 
 julia> Trading.is_market_close(DateTime("2023-04-04T21:58:00"))
 false
+```
 """
 is_market_close(t, interval::T=Minute(1)) where {T} = 
     T(0) <= market_open_close(t)[2] - t <= interval

@@ -55,11 +55,9 @@ trader = BackTester(HistoricalBroker(broker),
                     dt = <data timeframe>)
 start(trader)
 ta = TimeArray(trader)
-using Plots
-plot(ta[:value])
 ```
-
-Trading.jl is designed to be flexible and customizable, allowing you to extend it with new technical indicators, trading strategies, and data sources.
+For example, the [slow fast](@ref slow_fast_id) tutorial eventually leads to
+![](strategies/slow_fast.svg)
 
 # Future Roadmap
 - Improved performance analysis, statistics

@@ -16,9 +16,11 @@ trades(b::AbstractBroker) = broker(b).cache.trades_data
 trades(broker::AbstractBroker, ticker, args...; kwargs...) = 
     retrieve_data(broker, trades(broker), ticker, args...; section="trades", kwargs...)
 
-function failed_order(broker, order)
+function failed_order(broker, order, exc)
     t = current_time(broker)
-    return Order(order.ticker, uuid1(), uuid1(), t, t, t, nothing, nothing, nothing, t, 0.0, 0.0, "failed", order.quantity, 0.0)
+    b = IOBuffer()
+    showerror(b, exc)
+    return Order(order.ticker, uuid1(), uuid1(), t, t, t, nothing, nothing, nothing, t, 0.0, 0.0, "failed\n$(String(take!(b)))", order.quantity, 0.0)
 end
 
 side(::AlpacaBroker, ::EntityState{Tuple{Component{Purchase}}}) = "buy"
@@ -86,7 +88,13 @@ function submit_order(broker::AlpacaBroker, order)
         return parse_order(broker, resp)
     catch e
         if e isa HTTP.Exceptions.StatusError
-            return failed_order(broker, order)
+            msg = JSON3.read(e.response.body)
+            if msg[:message] == "insufficient day trading buying power"
+                order.quantity *= 0.9
+                return submit_order(broker, order)
+            end
+                
+            return failed_order(broker, order, e)
         else
             rethrow()
         end

@@ -1,6 +1,4 @@
 """
-    Purchaser
-
 Handles [`Purchases`](@ref Purchase). Mainly verifies prices and quantities to be purchased.
 """
 struct Purchaser <: System end
@@ -47,8 +45,6 @@ end
 
 
 """
-    Seller
-
 Handles [`Sales`](@ref Sale).
 """
 struct Seller <: System end
@@ -91,8 +87,6 @@ function Overseer.update(::Seller, l::AbstractLedger)
 end
 
 """
-    Filler
-
 When the status of an [`Order`](@ref) changes to `"filled"`, the filled quantity and average fill price is 
 registered in a [`Filled`](@ref) `Component`.
 """

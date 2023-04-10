@@ -100,8 +100,6 @@ Sale(ticker, quantity; kwargs...) =
 
 
 """
-    Order
-
 Representation of a [`Purchase`](@ref) or [`Sale`](@ref) order that has been
 communicated to the [`broker`](@ref AbstractBroker).
 Once the status goes to "filled" the filling information will be
@@ -127,8 +125,6 @@ taken by the [`Filler`](@ref) `System` to create a [`Filled`](@ref) component.
 end
 
 """
-    Filled
-
 Represents the filled `avg_price` and `quantity` of an [`Order`](@ref).
 """
 @component struct Filled
@@ -138,8 +134,6 @@ end
 
 # Dollars
 """
-    Cash
-
 Represents the actual cash balance. Currently there is no particular currency tied to this.
 """
 @component mutable struct Cash
@@ -147,8 +141,6 @@ Represents the actual cash balance. Currently there is no particular currency ti
 end
 
 """
-    PurchasePower
-
 Represents the current purchasing power. This is updated at the start of each `update` cycle to the current value of the [`Cash`](@ref) singleton.
 It can thus be used to determine how many purchases/trades can be made during one cycle.  
 """
@@ -157,8 +149,6 @@ It can thus be used to determine how many purchases/trades can be made during on
 end
 
 """
-    Position
-
 Represents a position held in an equity represented by ticker.
 """
 @component mutable struct Position
@@ -167,8 +157,6 @@ Represents a position held in an equity represented by ticker.
 end
 
 """
-    PortfolioSnapshot
-
 A snapshot of the current [`Positions`](@ref Position) and [`Cash`](@ref) value of the portfolio.
 """
 @component struct PortfolioSnapshot

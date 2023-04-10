@@ -64,7 +64,7 @@ using Plots
 
 ta = TimeArray(trader)
 
-plot(ta[:value])
+plot(ta[:portfolio_value])
 ````
 
 We see that in this case the strategy didn't work particularly well. In fact it seems that
@@ -109,12 +109,14 @@ start(trader)
 and plot the results again, this time taking the relative performances of the portfolio vs the two stocks:
 
 ````@example slow_fast
-ta = TimeArray(trader)
+ta = Trading.relative(TimeArray(trader))
 
-portfolio_val = ta[:value]./values(ta[:value])[1]
-aapl_closes = ta[:AAPL_Close] ./ values(ta[:AAPL_Close])[1]
-msft_closes = ta[:MSFT_Close] ./ values(ta[:MSFT_Close])[1]
+portfolio_val = ta[:portfolio_value]
+aapl_closes = ta[:AAPL_Close]
+msft_closes = ta[:MSFT_Close]
 
-plot(merge(portfolio_val, aapl_closes, msft_closes))
+p = plot(merge(portfolio_val, aapl_closes, msft_closes))
+savefig("slow_fast.svg") # hide
+p # hide
 ````
 

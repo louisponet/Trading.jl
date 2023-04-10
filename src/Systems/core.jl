@@ -1,6 +1,4 @@
 """
-    Timer
-
 Updates the [`Clock`](@ref) of the [`Trader`](@ref).
 """
 struct Timer <: System end
@@ -16,8 +14,6 @@ function Overseer.update(::Timer, l::AbstractLedger)
 end
 
 """
-    StrategyRunner
-
 Runs all the [`Strategies`](@ref Strategy).
 """
 struct StrategyRunner <: System end
@@ -34,6 +30,9 @@ function Overseer.update(::StrategyRunner, t::Trader)
         end
         tickers = e.tickers
         combined = join(tickers, "_")
+
+        # Sometimes no new bars arrive for a given ticker,
+        # we insert the current price for all values
         update(e.stage, t, [map(ticker -> t[ticker], e.tickers); t[combined]])
     end
 end

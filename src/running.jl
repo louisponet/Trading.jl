@@ -48,7 +48,7 @@ end
 
 Starts the data task. It opens a stream and registers the [`TickerLedgers`](@ref TickerLedger) to it, in order to [`receive`](@ref) bar updates.
 """
-function start_data(trader::Trader;  kwargs...)
+function start_data(trader::Trader; interval=Minute(1), kwargs...)
     trader.data_task = Threads.@spawn @stoppable trader.stop_data bar_stream(trader.broker) do stream
         for (ticker, q) in trader.ticker_ledgers
             
@@ -64,13 +64,14 @@ function start_data(trader::Trader;  kwargs...)
                 updated_tickers = Set{String}()
                 for (ticker, tbar) in bars
                     time, bar  = tbar
-                    _Entity(trader.ticker_ledgers[ticker],
+                    new_bar!(trader.ticker_ledgers[ticker],
                             TimeStamp(time),
                             Open(bar[1]),
                             High(bar[2]),
                             Low(bar[3]),
                             Close(bar[4]),
-                            Volume(round(Int,bar[5])))
+                            Volume(round(Int,bar[5]));
+                            interval=interval)
                     push!(updated_tickers, ticker)
                 end
                 

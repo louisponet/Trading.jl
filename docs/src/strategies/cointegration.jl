@@ -172,7 +172,7 @@ start(trader)
 
 # We then can analyse our portfolio value
 using Plots
-plot(TimeArray(trader)[:value])
+plot(TimeArray(trader)[:portfolio_value])
 
 
 

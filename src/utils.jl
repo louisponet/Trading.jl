@@ -45,7 +45,7 @@ macro timeout(seconds, expr, err_expr=:(nothing))
         try
             fetch($tsk)
         catch $err
-            if $err.task.exception isa InterruptException
+            if $err isa CompositeException && $err.task.exception isa InterruptException
                 RemoteHPC.log_error(RemoteHPC.StallException($err))
                 $err_expr
             else

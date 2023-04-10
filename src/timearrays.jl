@@ -62,8 +62,8 @@ function TimeSeries.TimeArray(c::AbstractComponent{PortfolioSnapshot}, tcomp)
     
     pos_dict = Dict{String, Vector{Float64}}()
     pos_timestamps = Dict{String, Vector{DateTime}}()
-    pos_dict["value"] = Float64[]
-    pos_timestamps["value"] = DateTime[]
+    pos_dict["portfolio_value"] = Float64[]
+    pos_timestamps["portfolio_value"] = DateTime[]
 
     for e in es_to_store
         tstamp = tcomp[e].t
@@ -75,8 +75,8 @@ function TimeSeries.TimeArray(c::AbstractComponent{PortfolioSnapshot}, tcomp)
             push!(tstamp_arr, tstamp)
         end
         
-        push!(pos_dict["value"], e.value)
-        push!(pos_timestamps["value"], tstamp) 
+        push!(pos_dict["portfolio_value"], e.value)
+        push!(pos_timestamps["portfolio_value"], tstamp) 
     end
     
     out = nothing

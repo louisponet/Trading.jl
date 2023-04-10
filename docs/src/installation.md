@@ -14,4 +14,4 @@ API work, you'll need to [generate a set of api keys](https://alpaca.markets/doc
 
 Then you can create an [`AlpacaBroker`](@ref) and you're good to go.
 
-See [`the strategies tutorial`](@ref Strategies) to continue with creating and backtesting a strategy.
+See the [Tutorial](@ref Strategies) on creating a full strategy, or start with reading about the [`Trader`](@ref), the heart of this framework.

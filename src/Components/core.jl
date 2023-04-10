@@ -116,19 +116,15 @@ Base.zero(::Type{T}) where {T<:SingleValIndicator} = T(zero(eltype(T)))
 @assign SingleValIndicator with Is{Indicator}
 
 """
-    TimeStamp
-
 Associates a time to an `Entity`.
 """
 @component struct TimeStamp
     t::TimeDate
 end
 
-TimeStamp() = TimeStamp(TimeDate(now()))
+TimeStamp(args...) = TimeStamp(current_time(args...))
 
 """
-    Strategy
-
 A `Stage` with a set of `Systems` that execute a strategy.
 """
 @component Base.@kwdef struct Strategy

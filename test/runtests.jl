@@ -24,8 +24,9 @@ Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close}, Bo
     @test any(x->x.name == :indicators, ss)
     @test Trading.SMACalculator() in ss[1].steps
 
+    start_t = DateTime("2023-01-01T00:00:00")
     for i = 1:3000
-        Trading._Entity(l, Close(rand()), Volume(rand(Int)))
+        Trading.new_bar!(l, TimeStamp(start_t + Minute(1) * i), Open(rand()), High(rand()), Low(rand()), Close(rand()), Volume(rand(Int)))
     end
     update(l)
     @test length(l[Close]) == 3000
@@ -37,6 +38,16 @@ Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close}, Bo
         c += 1
     end
     @test c == 2801
+
+    new_v = rand()
+    old_v = l[Open][end].v
+    Trading.new_bar!(l, TimeStamp(start_t + Minute(1) * 3002), Open(new_v), High(rand()), Low(rand()), Close(rand()), Volume(rand(Int)))
+
+    @test length(l[Close]) == 3002
+    @test l[Open][end].v == new_v
+    @test l[Open][end-1].v == (new_v + old_v)/2
+    @test l[TimeStamp][end-1].t == start_t + Minute(1) * 3001
+    
 end
 
 if haskey(ENV, "ALPACA_KEY_ID")
@@ -174,11 +185,11 @@ if haskey(ENV, "ALPACA_KEY_ID")
         @test :MSFT_position ∈ colnames(ta)
         @test Symbol("AAPL_SMA{50, Close}") ∈ colnames(ta)
         @test Symbol("MSFT_SMA{50, Close}") ∈ colnames(ta)
-        @test :value ∈ colnames(ta)
-        @test values(ta[:value][end])[1] == trader[PortfolioSnapshot][end].value
+        @test :portfolio_value ∈ colnames(ta)
+        @test values(ta[:portfolio_value][end])[1] == trader[PortfolioSnapshot][end].value
 
         @test length(Trading.split_days(ta)) == 30
-        @test values(Trading.relative(ta)[:value])[1] == 1
+        @test TimeSeries.values(Trading.relative(ta)[:portfolio_value])[1] == 1
         
     end
 

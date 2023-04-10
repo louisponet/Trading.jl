@@ -193,6 +193,6 @@ We then can analyse our portfolio value
 
 ````@example cointegration
 using Plots
-plot(TimeArray(trader)[:value])
+plot(TimeArray(trader)[:portfolio_value])
 ````
 

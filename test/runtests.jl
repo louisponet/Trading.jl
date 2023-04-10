@@ -170,7 +170,7 @@ if haskey(ENV, "ALPACA_KEY_ID")
 
         Trading.delete_all_orders!(trader)
         tries = 0
-        while trader[Trading.Order][e].status == "accepted" && tries <= 300
+        while trader[Trading.Order][e].status ∈ ("accepted", "new") && tries <= 300
             sleep(0.1)
             tries += 1
         end
@@ -187,3 +187,15 @@ if haskey(ENV, "ALPACA_KEY_ID")
         
     end
 end
+
+using Documenter
+usings = quote
+    using Trading
+    using Trading.Strategies
+    using Trading.Basic
+    using Trading.Indicators
+    using Trading.Portfolio
+end 
+
+DocMeta.setdocmeta!(Trading, :DocTestSetup, usings; recursive=true)
+doctest(Trading)

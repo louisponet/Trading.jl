@@ -1,3 +1,8 @@
+"""
+    Timer
+
+Updates the [`Clock`](@ref) of the [`Trader`](@ref).
+"""
 struct Timer <: System end
 
 Overseer.requested_components(::Timer) = (Clock,)
@@ -10,6 +15,11 @@ function Overseer.update(::Timer, l::AbstractLedger)
     end
 end
 
+"""
+    StrategyRunner
+
+Runs all the [`Strategies`](@ref Strategy).
+"""
 struct StrategyRunner <: System end
     
 Overseer.requested_components(::Type{StrategyRunner}) = (Strategy,)

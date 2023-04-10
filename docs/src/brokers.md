@@ -12,5 +12,4 @@ Trading.MockBroker
 
 ```@docs
 Trading.current_price
-Trading.current_time
 ```

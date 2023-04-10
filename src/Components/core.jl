@@ -15,8 +15,9 @@ import Base: zero, +, -, /, *, sqrt, ^
 """
     Clock
 
-Represents the local time. It also stores `dt`, the timestamp interval when the `Clock` is updated manually, for example when
-being used with a [`HistoricalBroker`](@ref).
+Represents the internal time of a [`Trader`](@ref) or [`AbstractBroker`](@ref).
+Its `time` is updated by [`Timer`](@ref) and returned by [`current_time`](@ref) if it is called on the [`Trader`](@ref) or [`AbstractBroker`](@ref). 
+It also stores `dt`, the timestamp interval when the `Clock` is updated manually, for example when being used with a [`HistoricalBroker`](@ref).
 """
 @component Base.@kwdef mutable struct Clock
     time::TimeDate = TimeDate(now())

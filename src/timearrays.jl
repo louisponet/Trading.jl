@@ -41,7 +41,7 @@ function interpolate_timearray(tf::TimeArray{T}; timeframe::Period = Minute(1), 
 end
 
 only_trading(bars::TimeArray) =
-    bars[findall(x->in_trading(x), timestamp(bars))]
+    bars[findall(x->in_day(x), timestamp(bars))]
 
 function split_days(ta::T) where {T <: TimeArray}
     tstamps = timestamp(ta)

@@ -6,6 +6,7 @@ using Trading.Strategies
 using Trading.Basic
 using Trading.Indicators
 using Trading.Portfolio
+using Trading.Time
 
 # First we define our strategy `Systems` and the additional `components` that we need.
 @component struct Spread <: Trading.SingleValIndicator{Float64}
@@ -76,7 +77,7 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
     new_pos = false
     pending_order = any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
 
-    pending_order || !Trading.in_trading(curt) && return
+    pending_order || !Trading.in_day(curt) && return
     
     z_comp = ticker_ledgers[end][ZScore{Spread}]
 

@@ -145,5 +145,7 @@ See [`Slow Fast Strategy`](@ref slow_fast_id) for a full runnable version of thi
 
 ## References
 ```@docs
+Trading.Strategy
 Trading.new_entities
+NewEntitiesIterator
 ```

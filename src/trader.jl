@@ -2,7 +2,7 @@
     Trader(broker::AbstractBroker; strategies = Strategy[])
 
 This is the heart of the entire framework. It holds all the data, systems and references to runtime tasks.
-It can be constructed with an [`AbstractBroker`](@ref) and potentially a set of [Strategies](@ref) and starting time.
+It can be constructed with an [`AbstractBroker`](@ref) and potentially a set of [Strategies](@ref Strategies) and starting time.
 
 Upon construction with a realtime broker, the [Portfolio](@ref) will be filled out with the account information retrieved through the
 broker's API.

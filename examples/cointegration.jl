@@ -13,19 +13,13 @@ using ThreadPools
 using TimeSeries: rename
 using Trading.Strategies: lag
 
-using Trading: Purchase, Sale, Close, LogVal, Filled, Order, TimeStamp, PortfolioSnapshot,
-               OrderType, TimeInForce, PurchasePower, Strategy, Trader,
-               AlpacaBroker, HistoricalBroker, Position, BackTester
-               
-using Trading: bars, in_trading, only_trading, current_position, current_time, current_price, start
-
 function fit_γμ(account, ticker1, ticker2, start, stop; timeframe=Minute(1), only_day=true)
     df1 = bars(account, ticker1, start, stop, timeframe=Minute(1))
     df2 = bars(account, ticker2, start, stop, timeframe=Minute(1))
 
     if only_day
-        df1 = df1[findall(x->in_trading(x), timestamp(df1))]
-        df2 = df2[findall(x->in_trading(x), timestamp(df2))]
+        df1 = df1[findall(x->in_day(x), timestamp(df1))]
+        df2 = df2[findall(x->in_day(x), timestamp(df2))]
     end
     fit_γμ(df1, df2)
 end
@@ -74,8 +68,8 @@ function cointegration_timearray(account, ticker1, ticker2, start, stop; γ=0.78
     df2 = bars(account, ticker2, start, stop, timeframe=timeframe)
 
     if only_day
-        df1 = df1[findall(x->in_trading(x), timestamp(df1))]
-        df2 = df2[findall(x->in_trading(x), timestamp(df2))]
+        df1 = df1[findall(x->in_day(x), timestamp(df1))]
+        df2 = df2[findall(x->in_day(x), timestamp(df2))]
     end
     ticksym1 = Symbol(ticker1)
     ticksym2 = Symbol(ticker2)
@@ -106,7 +100,7 @@ function cointegration_timearray(account, ticker1, ticker2, start, stop; γ=0.78
     
     df = map(df) do timestamp, row
     
-        if !in_trading(timestamp)
+        if !in_day(timestamp)
             return timestamp, row
         end
         
@@ -175,7 +169,7 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
     new_pos = false
     pending_order = any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
 
-    pending_order || !in_trading(curt) && return
+    pending_order || !in_day(curt) && return
     
     z_comp = ticker_ledgers[end][ZScore{Spread}]
 
@@ -265,7 +259,7 @@ function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers
     new_pos = false
     pending_order = any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
 
-    pending_order || !in_trading(curt) && return
+    pending_order || !in_day(curt) && return
     
     z_comp = ticker_ledgers[end][ZScore{Spread}]
 

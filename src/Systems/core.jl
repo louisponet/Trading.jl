@@ -17,14 +17,13 @@ end
 Runs all the [`Strategies`](@ref Strategy).
 """
 struct StrategyRunner <: System end
-    
+
 Overseer.requested_components(::Type{StrategyRunner}) = (Strategy,)
 
 function Overseer.update(::StrategyRunner, t::Trader)
     inday = in_day(current_time(t))
-    
+
     for e in t[Strategy]
-        
         if e.only_day && !inday
             continue
         end

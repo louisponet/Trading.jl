@@ -9,7 +9,7 @@ function Overseer.update(::Purchaser, l::AbstractLedger)
     cash = singleton(l, PurchasePower)
     purchase_comp = l[Purchase]
     order_comp = l[Order]
-    
+
     for ie in length(purchase_comp):-1:1
         e = @inbounds entity(purchase_comp, ie)
 
@@ -26,7 +26,7 @@ function Overseer.update(::Purchaser, l::AbstractLedger)
 
         if e.quantity === Inf
             tot_cost = cash.cash
-            quantity = round(cash.cash/cur_price)
+            quantity = round(cash.cash / cur_price)
         else
             tot_cost = cur_price * e.quantity
             if cash.cash - tot_cost < 0
@@ -36,13 +36,12 @@ function Overseer.update(::Purchaser, l::AbstractLedger)
         end
 
         e.quantity = round(quantity)
-        
+
         cash.cash -= tot_cost
-    
+
         submit_order(l, e)
     end
 end
-
 
 """
 Handles [`Sales`](@ref Sale).
@@ -54,29 +53,29 @@ Overseer.requested_components(::Seller) = (Sale, Position, Order)
 function Overseer.update(::Seller, l::AbstractLedger)
     sale_comp = l[Sale]
     order_comp = l[Order]
-    
+
     for ie in length(sale_comp):-1:1
         e = @inbounds entity(sale_comp, ie)
 
         if e in order_comp
             return
         end
-        
+
         if e.quantity === Inf
             posid = findfirst(x -> x.ticker == e.ticker, l[Position])
-            
+
             if posid === nothing
                 pop!(l[Sale], e)
                 continue
             end
 
             position = l[Position][posid]
-            
+
             if position.quantity == 0.0
                 pop!(l[Sale], e)
                 continue
             end
-        
+
             if position.quantity < e.quantity
                 e.quantity = position.quantity
             end
@@ -92,18 +91,16 @@ registered in a [`Filled`](@ref) `Component`.
 """
 struct Filler <: System end
 
-Overseer.requested_components(::Filler) = (Filled,Cash, Position)
+Overseer.requested_components(::Filler) = (Filled, Cash, Position)
 
 function Overseer.update(::Filler, l::AbstractLedger)
-    
     if length(l[Order]) == length(l[Filled])
         return
     end
-    
+
     cash = singleton(l, Cash)
-    
+
     for e in @entities_in(l, Order && !Filled)
-        
         if e.status == "filled"
             l[e] = Filled(e.filled_avg_price, e.filled_qty)
 
@@ -114,18 +111,17 @@ function Overseer.update(::Filler, l::AbstractLedger)
                 ticker = l[Sale][e].ticker
                 quantity_filled = -e.filled_qty
             end
-            
+
             cash.cash -= e.filled_avg_price * quantity_filled
             cash.cash -= e.fee
-            
-            id = findfirst(x->x.ticker == ticker, l[Position])
-            
+
+            id = findfirst(x -> x.ticker == ticker, l[Position])
+
             if id === nothing
                 Entity(l, Position(ticker, quantity_filled))
             else
                 l[Position][id].quantity += quantity_filled
             end
-            
         end
     end
 end
@@ -137,10 +133,10 @@ Closes the day. Will run during the time interval `[market_close - interval, mar
 Currently it just removes pending trades.
 """
 Base.@kwdef struct DayCloser <: System
-    interval::Period=Minute(1)
+    interval::Period = Minute(1)
 end
 
-Overseer.requested_components(::DayCloser) = (Sale, Position,Strategy)
+Overseer.requested_components(::DayCloser) = (Sale, Position, Strategy)
 
 function Overseer.update(::DayCloser, l::AbstractLedger)
     cur_t   = current_time(l)
@@ -157,7 +153,7 @@ function Overseer.update(::DayCloser, l::AbstractLedger)
         delete!(l, e)
     end
     # TODO cancel orders
-    
+
     # for e in @entities_in(l, Position)
     #     if e.quantity > 0
     #         Entity(l, Sale(e.ticker, Inf, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
@@ -190,14 +186,14 @@ function Overseer.update(s::SnapShotter, l::AbstractLedger)
         last_snapshot_e = last_entity(l[PortfolioSnapshot])
 
         prev_t = l[TimeStamp][last_snapshot_e].t
-        
+
         curt - prev_t < s.interval && return
     end
-        
-    cash  = singleton(l, Cash)[Cash]
+
+    cash = singleton(l, Cash)[Cash]
     totval = cash.cash
     positions = Position[]
-    
+
     for e in @entities_in(l, Position)
         push!(positions, deepcopy(e[Position]))
         price = current_price(l, e.ticker)
@@ -206,6 +202,7 @@ function Overseer.update(s::SnapShotter, l::AbstractLedger)
         end
         totval += price * e.quantity
     end
-    
-    new_e = Entity(l, TimeStamp(current_time(l)), PortfolioSnapshot(positions, cash.cash, totval))
+
+    return new_e = Entity(l, TimeStamp(current_time(l)),
+                          PortfolioSnapshot(positions, cash.cash, totval))
 end

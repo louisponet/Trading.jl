@@ -34,6 +34,7 @@ include("datacache.jl")
 include("brokers.jl")
 include("ticker_ledger.jl")
 include("trader.jl")
+include("backtesting.jl")
 
 include("account.jl")
 include("running.jl")
@@ -46,44 +47,46 @@ include("Systems/core.jl")
 include("Systems/indicators.jl")
 include("Systems/portfolio.jl")
 
-
 export Trader, BackTester, start, stop, stop_main, stop_trading, stop_data
 export AlpacaBroker, HistoricalBroker
 export bars, quotes, trades
 
-
 function __init__()
-    init_traits(@__MODULE__)
+    return init_traits(@__MODULE__)
 end
 
 module Indicators
-    using ..Trading: SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
-    export SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
+using ..Trading: SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
+export SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
 end
 
 module Basic
-    using ..Trading: Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference, RelativeDifference
-    export Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference, RelativeDifference
+using ..Trading: Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference,
+                 RelativeDifference
+export Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference, RelativeDifference
 end
 
 module Portfolio
-    using ..Trading: Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType, TimeInForce,
-                     current_position, current_cash, current_purchasepower
-    export Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType, TimeInForce,
-           current_position, current_cash, current_purchasepower
+using ..Trading: Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType,
+                 TimeInForce,
+                 current_position, current_cash, current_purchasepower
+export Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType, TimeInForce,
+       current_position, current_cash, current_purchasepower
 end
 
 module Strategies
-    using ..Trading: Strategy, new_entities,  reset!, current_price
-    export Strategy,  new_entities, reset!, current_price
-    
-    using TimeSeries: lag
-    export lag
+using ..Trading: Strategy, new_entities, reset!, current_price
+export Strategy, new_entities, reset!, current_price
+
+using TimeSeries: lag
+export lag
 end
 
 module Time
-    using ..Trading: current_time, market_open_close, in_day, previous_trading_day, is_market_open, is_market_close
-    export current_time, market_open_close, in_day, previous_trading_day, is_market_open, is_market_close
+using ..Trading: current_time, market_open_close, in_day, previous_trading_day,
+                 is_market_open, is_market_close
+export current_time, market_open_close, in_day, previous_trading_day, is_market_open,
+       is_market_close
 end
 
 end

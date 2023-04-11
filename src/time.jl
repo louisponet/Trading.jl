@@ -11,8 +11,9 @@ function parse_time(str)
         else
             tz = LOCAL_TZ
         end
-        
-        return DateTime(astimezone(ZonedDateTime(DateTime(date*"T"*time[1:12]), tz), LOCAL_TZ))
+
+        return DateTime(astimezone(ZonedDateTime(DateTime(date * "T" * time[1:12]), tz),
+                                   LOCAL_TZ))
     else
         TZ = match(r"(.*:\d\d)([^\d:]*.*)", str)
         if !isempty(TZ.captures[2])
@@ -34,14 +35,15 @@ Returns the current time either globally, or of an [broker](@ref Brokers) or [`T
 function current_time()
     tv = Base.Libc.TimeVal()
     tm = Libc.TmStruct(tv.sec)
-    return TimeDate(tm.year + 1900, tm.month + 1, Int64(tm.mday), Int64(tm.hour), Int64(tm.min), Int64(tm.sec)) + Microsecond(tv.usec)
+    return TimeDate(tm.year + 1900, tm.month + 1, Int64(tm.mday), Int64(tm.hour),
+                    Int64(tm.min), Int64(tm.sec)) + Microsecond(tv.usec)
 end
 
 current_time(broker::HistoricalBroker) = broker.clock.time
 current_time(::AlpacaBroker) = current_time()
 
 current_time(trader::Trader{<:HistoricalBroker}) = trader[Clock][1].time
-current_time(::Trader) = current_time() 
+current_time(::Trader) = current_time()
 
 # TODO maybe use everywhere a way to supply what the local
 # timezone is
@@ -57,7 +59,7 @@ julia> Trading.market_open_close(DateTime("2023-04-05"))
 (DateTime("2023-04-05T15:30:00"), DateTime("2023-04-05T22:00:00"))
 ```
 """
-function market_open_close(date, timezone=tz"EST")
+function market_open_close(date, timezone = tz"EST")
     y = round(date, Year, RoundDown)
     d = round(date, Day, RoundDown)
 
@@ -67,8 +69,7 @@ function market_open_close(date, timezone=tz"EST")
     return TimeDate(DateTime(open)), TimeDate(DateTime(close))
 end
 
-yesterday() = 
-    TimeDate(round(now() - Day(1), Dates.Day))
+yesterday() = TimeDate(round(now() - Day(1), Dates.Day))
 
 """
     in_day(time, args...)
@@ -106,7 +107,7 @@ julia> Trading.previous_trading_day(DateTime("2023-04-03"))
 2023-03-30T00:00:00
 ```
 """
-function previous_trading_day(t=current_time())
+function previous_trading_day(t = current_time())
     prev_day = t - Day(1)
     while dayofweek(prev_day) >= 5
         prev_day -= Day(1)
@@ -134,9 +135,10 @@ julia> Trading.is_market_open(DateTime("2023-04-04T15:28:00"))
 false
 ```
 """
-is_market_open(t, interval::T=Minute(1)) where {T} = 
-    T(0) <= market_open_close(t)[1] - t <= interval
-    
+function is_market_open(t, interval::T = Minute(1)) where {T}
+    return T(0) <= market_open_close(t)[1] - t <= interval
+end
+
 """
     is_market_close(time, interval=Minute(1))
 
@@ -157,5 +159,6 @@ julia> Trading.is_market_close(DateTime("2023-04-04T21:58:00"))
 false
 ```
 """
-is_market_close(t, interval::T=Minute(1)) where {T} = 
-    T(0) <= market_open_close(t)[2] - t <= interval
+function is_market_close(t, interval::T = Minute(1)) where {T}
+    return T(0) <= market_open_close(t)[2] - t <= interval
+end

@@ -1,7 +1,8 @@
 function authenticate_data(b::AlpacaBroker, ws::WebSocket)
-    send(ws, JSON3.write(Dict("action" => "auth",
-                              "key"    => b.key_id,
-                              "secret" => b.secret_key)))
+    send(ws,
+         JSON3.write(Dict("action" => "auth",
+                          "key"    => b.key_id,
+                          "secret" => b.secret_key)))
     reply = receive(ws)
     try
         return JSON3.read(reply)[1][:T] == "success"
@@ -11,9 +12,10 @@ function authenticate_data(b::AlpacaBroker, ws::WebSocket)
 end
 
 function authenticate_trading(b::AlpacaBroker, ws::WebSocket)
-    send(ws, JSON3.write(Dict("action" => "auth",
-                              "key"    => b.key_id,
-                              "secret" => b.secret_key)))
+    send(ws,
+         JSON3.write(Dict("action" => "auth",
+                          "key"    => b.key_id,
+                          "secret" => b.secret_key)))
     reply = receive(ws)
     try
         return JSON3.read(reply)["data"]["status"] == "authorized"
@@ -23,7 +25,7 @@ function authenticate_trading(b::AlpacaBroker, ws::WebSocket)
 end
 
 function account_details(b::AlpacaBroker)
-    resp = HTTP.get(URI(trading_url(b), path="/v2/account"), header(b))
+    resp = HTTP.get(URI(trading_url(b); path = "/v2/account"), header(b))
 
     if resp.status != 200
         return error("Couldn't get Account details")
@@ -32,14 +34,15 @@ function account_details(b::AlpacaBroker)
     acc_parse = JSON3.read(resp.body)
     cash = parse(Float64, acc_parse[:cash])
 
-    resp = HTTP.get(URI(trading_url(b), path="/v2/positions"), header(b))
+    resp = HTTP.get(URI(trading_url(b); path = "/v2/positions"), header(b))
     if resp.status != 200
         return error("Couldn't get position details")
     end
 
     pos_parse = JSON3.read(resp.body)
-    positions = map(position -> (string(position[:symbol]), parse(Float64, position[:qty])), pos_parse)
-    return (;cash, positions)
+    positions = map(position -> (string(position[:symbol]), parse(Float64, position[:qty])),
+                    pos_parse)
+    return (; cash, positions)
 end
 
 account_details(b::HistoricalBroker) = (b.cash, ())
@@ -49,15 +52,14 @@ function fill_account!(trader::Trader)
 
     empty!(trader[Cash])
     empty!(trader[PurchasePower])
-    
+
     Entity(trader.l, Cash(cash), PurchasePower(cash))
     for p in positions
-        id = findfirst(x->x.ticker == p[1], trader[Position])
-        if id === nothing 
+        id = findfirst(x -> x.ticker == p[1], trader[Position])
+        if id === nothing
             Entity(trader.l, Position(p...))
         else
             trader[Position][id].quantity = p[2]
         end
     end
 end
-

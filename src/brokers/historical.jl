@@ -5,7 +5,7 @@ Stores and provides data from historical datasets. Data can be streamed fashion 
 [`Clock`](@ref) to the `clock` constructor kwarg, which will be used to determine the next bar to
 stream when calling `receive` on this broker.
 """
-Base.@kwdef mutable struct HistoricalBroker{B <: AbstractBroker} <: AbstractBroker
+Base.@kwdef mutable struct HistoricalBroker{B<:AbstractBroker} <: AbstractBroker
     broker::B
     clock::Clock = Clock(current_time(), Millisecond(1))
     last::TimeDate = TimeDate(0)
@@ -16,5 +16,5 @@ Base.@kwdef mutable struct HistoricalBroker{B <: AbstractBroker} <: AbstractBrok
     fixed_transaction_fee::Float64 = 0.0
 end
 
-HistoricalBroker(b::AbstractBroker; kwargs...)  = HistoricalBroker(; broker=b, kwargs...)
+HistoricalBroker(b::AbstractBroker; kwargs...) = HistoricalBroker(; broker = b, kwargs...)
 broker(b::HistoricalBroker) = b.broker

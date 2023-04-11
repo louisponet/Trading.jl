@@ -12,47 +12,51 @@ broker = AlpacaBroker(<key_id>, <secret_key>)
 quotes(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:31:00"))
 ```
 """
-quotes(b::AbstractBroker) = broker(b).cache.quotes_data 
-quotes(broker::AbstractBroker, ticker, args...; kwargs...) =
-    retrieve_data(broker, broker.quote_data, ticker, args...; section="quotes", kwargs...)
-    
+quotes(b::AbstractBroker) = broker(b).cache.quotes_data
+function quotes(broker::AbstractBroker, ticker, args...; kwargs...)
+    return retrieve_data(broker, broker.quote_data, ticker, args...; section = "quotes",
+                         kwargs...)
+end
+
 function parse_quote(b::AlpacaBroker, q)
-    (ask_price = q[:ap], bid_price=q[:bp])
+    return (ask_price = q[:ap], bid_price = q[:bp])
 end
 
 function latest_quote(b::AlpacaBroker, ticker::String)
     resp = HTTP.get(quote_url(b, ticker), header(b))
-    
+
     if resp.status != 200
         error("something went wrong while asking latest quote")
     end
-    
+
     return parse_quote(b, JSON3.read(resp.body)[:quote])
 end
 
 function latest_quote(broker::HistoricalBroker, ticker)
-    qs = retrieve_data(broker, quotes(broker), ticker, broker.clock.time, broker.clock.time+Second(1); section="quotes")
+    qs = retrieve_data(broker, quotes(broker), ticker, broker.clock.time,
+                       broker.clock.time + Second(1); section = "quotes")
     if isempty(qs)
         return nothing
     end
     q = qs[1]
-    return parse_quote(broker.broker, NamedTuple([s => v for (s,v) in zip(colnames(q), values(q))]))
+    return parse_quote(broker.broker,
+                       NamedTuple([s => v for (s, v) in zip(colnames(q), values(q))]))
 end
 
 # TODO requires :c , :o etc
 function price(broker::HistoricalBroker, price_t, ticker)
     @assert haskey(bars(broker), (ticker, broker.clock.dtime)) "Ticker $ticker not in historical bar data"
-    
+
     bars_ = bars(broker)[(ticker, broker.clock.dtime)]
-    
+
     if isempty(bars_)
         return nothing
     end
-    
+
     first_t = timestamp(bars_)[1]
 
     price_t = broker.clock.time
-    
+
     if price_t < first_t
         return values(bars_[1][:o])[1]
     end
@@ -76,11 +80,13 @@ end
 
 Return the current price of an asset.
 """
-current_price(broker::AbstractBroker, args...) = price(broker, current_time(broker), args...)
+function current_price(broker::AbstractBroker, args...)
+    return price(broker, current_time(broker), args...)
+end
 
 function current_price(broker::AlpacaBroker, ticker)
     dat = latest_quote(broker, ticker)
-    return dat === nothing ? nothing : (dat[1] + dat[2])/2
+    return dat === nothing ? nothing : (dat[1] + dat[2]) / 2
 end
 
 current_price(t::Trader, ticker) = current_price(t.broker, ticker)

@@ -43,17 +43,19 @@ usings = quote
     using Trading.Basic
     using Trading.Indicators
     using Trading.Portfolio
-end 
+end
 
-DocMeta.setdocmeta!(Trading, :DocTestSetup, usings; recursive=true)
+DocMeta.setdocmeta!(Trading, :DocTestSetup, usings; recursive = true)
 
 EXAMPLES = [String(m[1])
-            for m in match.(r"\"(examples/[^\"]+.md)\"", readlines(joinpath(SRCPATH, "index.md"))) if !isnothing(m)]
+            for m in
+                match.(r"\"(examples/[^\"]+.md)\"",
+                       readlines(joinpath(SRCPATH, "index.md"))) if !isnothing(m)]
 
-literate_files = NamedTuple[(src  = joinpath(ROOTPATH, splitext(file)[1] * ".jl"),
-                   dest = joinpath(SRCPATH, "examples"),
-                   example = true) for file in EXAMPLES]
-                   
+literate_files = NamedTuple[(src = joinpath(ROOTPATH, splitext(file)[1] * ".jl"),
+                             dest = joinpath(SRCPATH, "examples"),
+                             example = true) for file in EXAMPLES]
+
 for (dir, directories, files) in walkdir(SRCPATH)
     for file in files
         if endswith(file, ".jl")
@@ -85,13 +87,13 @@ makedocs(; modules = [Trading],
                              # Ignore links that point to GitHub's edit pages, as they redirect to the
                              # login screen and cause a warning:
                              r"https://github.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/edit(.*)"],
-         pages = ["Home"       => "index.md",
+         pages = ["Home" => "index.md",
                   "Getting Started" => "installation.md",
-                  "Topics"     => ["Trader" => "trader.md",
-                                   "Brokers" => "brokers.md",
-                                   "Portfolio"  => "portfolio.md",
-                                   "Time" => "time.md"],
-                  "Data"       => "data.md",
+                  "Topics" => ["Trader" => "trader.md",
+                               "Brokers" => "brokers.md",
+                               "Portfolio" => "portfolio.md",
+                               "Time" => "time.md"],
+                  "Data" => "data.md",
                   "Strategies" => ["strategies.md",
                                    "Slow Fast" => "strategies/slow_fast.md",
                                    "Cointegration" => "strategies/cointegration.md"]])

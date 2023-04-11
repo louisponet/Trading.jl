@@ -1,16 +1,16 @@
 import Base: zero, +, -, /, *, sqrt, ^
 @trait Indicator
 
-@implement Is{Indicator} by zero(_) 
-@implement Is{Indicator} by (+)(_, _) 
-@implement Is{Indicator} by (-)(_, _) 
-@implement Is{Indicator} by (*)(_, _) 
-@implement Is{Indicator} by (/)(_, ::Int) 
-@implement Is{Indicator} by (*)(_, ::AbstractFloat) 
-@implement Is{Indicator} by (*)(::AbstractFloat, _) 
-@implement Is{Indicator} by (*)(::Integer, _) 
-@implement Is{Indicator} by (sqrt)(_) 
-@implement Is{Indicator} by (^)(_, ::Int) 
+@implement Is{Indicator} by zero(_)
+@implement Is{Indicator} by (+)(_, _)
+@implement Is{Indicator} by (-)(_, _)
+@implement Is{Indicator} by (*)(_, _)
+@implement Is{Indicator} by (/)(_, ::Int)
+@implement Is{Indicator} by (*)(_, ::AbstractFloat)
+@implement Is{Indicator} by (*)(::AbstractFloat, _)
+@implement Is{Indicator} by (*)(::Integer, _)
+@implement Is{Indicator} by (sqrt)(_)
+@implement Is{Indicator} by (^)(_, ::Int)
 
 """
     Clock
@@ -86,20 +86,20 @@ The logarithm of a value.
     v::T
 end
 
-for op in (:+, :-, :*, :/,  :^)
-    @eval @inline Base.$op(b1::T, b2::T) where {T <: SingleValIndicator} = T(eltype(T)($op(value(b1),   value(b2))))
-    @eval @inline Base.$op(b1::T, b2::Number) where {T <: SingleValIndicator} = T(eltype(T)($op(value(b1),   b2)))
-    @eval @inline Base.$op(b1::Number, b2::T) where {T <: SingleValIndicator} = T(eltype(T)($op(b1,   value(b2))))
+for op in (:+, :-, :*, :/, :^)
+    @eval @inline Base.$op(b1::T, b2::T) where {T<:SingleValIndicator}      = T(eltype(T)($op(value(b1), value(b2))))
+    @eval @inline Base.$op(b1::T, b2::Number) where {T<:SingleValIndicator} = T(eltype(T)($op(value(b1), b2)))
+    @eval @inline Base.$op(b1::Number, b2::T) where {T<:SingleValIndicator} = T(eltype(T)($op(b1, value(b2))))
 end
 
 for op in (:(<), :(>), :(>=), :(<=), :(==))
-    @eval @inline Base.$op(b1::SingleValIndicator, b2::SingleValIndicator) = $op(value(b1),   value(b2))
-    @eval @inline Base.$op(b1::SingleValIndicator, b2::Number)             = $op(value(b1),   b2)
-    @eval @inline Base.$op(b1::Number, b2::SingleValIndicator)             = $op(b1,   value(b2))
+    @eval @inline Base.$op(b1::SingleValIndicator, b2::SingleValIndicator) = $op(value(b1), value(b2))
+    @eval @inline Base.$op(b1::SingleValIndicator, b2::Number)             = $op(value(b1), b2)
+    @eval @inline Base.$op(b1::Number, b2::SingleValIndicator)             = $op(b1, value(b2))
 end
 
 Base.zero(::T) where {T<:SingleValIndicator} = T(0.0)
-@inline Base.sqrt(b::T) where {T <: SingleValIndicator} = T(sqrt(value(b)))
+@inline Base.sqrt(b::T) where {T<:SingleValIndicator} = T(sqrt(value(b)))
 @inline Base.isless(b::SingleValIndicator, i) = value(b) < i
 
 """
@@ -109,7 +109,9 @@ Returns the number that is stored in the [`SingleValIndicator`](@ref). This is b
 """
 @inline value(b::SingleValIndicator) = value(b.v)
 @inline value(b::Number) = b
-@inline Base.convert(::Type{T}, b::SingleValIndicator) where {T <: Number} = convert(T, value(b))
+@inline function Base.convert(::Type{T}, b::SingleValIndicator) where {T<:Number}
+    return convert(T, value(b))
+end
 Base.eltype(::Type{<:SingleValIndicator{T}}) where {T} = T
 Base.zero(::Type{T}) where {T<:SingleValIndicator} = T(zero(eltype(T)))
 
@@ -133,4 +135,4 @@ A `Stage` with a set of `Systems` that execute a strategy.
     tickers::Vector{String} = String[]
 end
 
-Strategy(name::Symbol, steps; kwargs...) = Strategy(stage=Stage(name, steps); kwargs...)
+Strategy(name::Symbol, steps; kwargs...) = Strategy(; stage = Stage(name, steps), kwargs...)

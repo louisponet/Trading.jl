@@ -9,7 +9,7 @@ function start(trader::Trader; kwargs...)
     end
 
     fill_account!(trader)
-    
+
     start_trading(trader)
     start_data(trader; kwargs...)
     start_main(trader; kwargs...)
@@ -17,29 +17,29 @@ function start(trader::Trader; kwargs...)
 end
 
 function start(trader::Trader{<:HistoricalBroker})
-
     last = trader[Clock][1].time
     for (ticker, data) in bars(trader.broker)
         tstop = timestamp(data)[end]
         last = max(tstop, last)
     end
 
-    start(trader; sleep_time=0.0)
+    start(trader; sleep_time = 0.0)
     p = ProgressMeter.ProgressUnknown("Simulating..."; spinner = true)
-    
+
     while current_time(trader) < last
         showvalues = isempty(trader[PortfolioSnapshot]) ?
                      [(:t, trader[Clock][1].time), (:value, trader[Cash][1].cash)] :
-                     [(:t, trader[Clock][1].time), (:value, trader[PortfolioSnapshot][end].value)]
-                     
+                     [(:t, trader[Clock][1].time),
+                      (:value, trader[PortfolioSnapshot][end].value)]
+
         ProgressMeter.next!(p; spinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏", showvalues = showvalues)
         sleep(1)
     end
-    
+
     stop(trader)
-    
+
     ProgressMeter.finish!(p)
-    
+
     return trader
 end
 
@@ -48,14 +48,13 @@ end
 
 Starts the data task. It opens a stream and registers the [`TickerLedgers`](@ref TickerLedger) to it, in order to [`receive`](@ref) bar updates.
 """
-function start_data(trader::Trader; interval=Minute(1), kwargs...)
-    trader.data_task = Threads.@spawn @stoppable trader.stop_data bar_stream(trader.broker) do stream
+function start_data(trader::Trader; interval = Minute(1), kwargs...)
+    return trader.data_task = Threads.@spawn @stoppable trader.stop_data bar_stream(trader.broker) do stream
         for (ticker, q) in trader.ticker_ledgers
-            
             if occursin("_", ticker)
                 continue
             end
-            
+
             register!(stream, ticker)
         end
         while !trader.stop_data && !isclosed(stream)
@@ -63,18 +62,18 @@ function start_data(trader::Trader; interval=Minute(1), kwargs...)
                 bars = receive(stream)
                 updated_tickers = Set{String}()
                 for (ticker, tbar) in bars
-                    time, bar  = tbar
+                    time, bar = tbar
                     new_bar!(trader.ticker_ledgers[ticker],
-                            TimeStamp(time),
-                            Open(bar[1]),
-                            High(bar[2]),
-                            Low(bar[3]),
-                            Close(bar[4]),
-                            Volume(round(Int,bar[5]));
-                            interval=interval)
+                             TimeStamp(time),
+                             Open(bar[1]),
+                             High(bar[2]),
+                             Low(bar[3]),
+                             Close(bar[4]),
+                             Volume(round(Int, bar[5]));
+                             interval = interval)
                     push!(updated_tickers, ticker)
                 end
-                
+
                 @sync for ticker in updated_tickers
                     Threads.@spawn begin
                         Overseer.update(trader.ticker_ledgers[ticker])
@@ -83,9 +82,10 @@ function start_data(trader::Trader; interval=Minute(1), kwargs...)
                 # lock(trader.new_data_event) do 
                 notify(trader.new_data_event)
                 # end
-                    
+
             catch e
-                if !(e isa InvalidStateException) && !(e isa EOFError) && !(e isa InterruptException)
+                if !(e isa InvalidStateException) && !(e isa EOFError) &&
+                   !(e isa InterruptException)
                     showerror(stdout, e, catch_backtrace())
                 end
             end
@@ -99,8 +99,8 @@ end
 
 Starts the main task. This periodically executes the core systems of the [`Trader`](@ref).
 """
-function start_main(trader::Trader;sleep_time = 1, kwargs...)
-    trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
+function start_main(trader::Trader; sleep_time = 1, kwargs...)
+    return trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
         while true
             try
                 update(trader)
@@ -115,7 +115,7 @@ function start_main(trader::Trader;sleep_time = 1, kwargs...)
         end
     end
 end
-    
+
 """
     start_trading(trader)
 
@@ -124,7 +124,7 @@ Starts the trading task. This opens a stream that listens to portfolio and order
 function start_trading(trader::Trader)
     order_comp = trader[Order]
     broker = trader.broker
-    trader.trading_task = Threads.@spawn @stoppable trader.stop_trading order_stream(broker) do stream
+    return trader.trading_task = Threads.@spawn @stoppable trader.stop_trading order_stream(broker) do stream
         trader.is_trading = true
         while true
             try
@@ -132,30 +132,30 @@ function start_trading(trader::Trader)
                 if received === nothing
                     continue
                 end
-                
+
                 uid = received.id
 
                 tries = 0
                 id = nothing
                 #TODO dangerous when an order would come from somewhere else
                 while id === nothing && tries < 100
-                    id = findlast(x->x.id == uid, order_comp.data)
+                    id = findlast(x -> x.id == uid, order_comp.data)
                     tries += 1
                 end
-                
+
                 if id === nothing
                     Entity(trader, received)
                 else
                     order_comp[id] = received
                 end
             catch e
-                if !(e isa InvalidStateException) && !(e isa EOFError) && !(e isa InterruptException)
+                if !(e isa InvalidStateException) && !(e isa EOFError) &&
+                   !(e isa InterruptException)
                     showerror(stdout, e, catch_backtrace())
                 else
                     break
                 end
             end
-                    
         end
         trader.is_trading = false
         @info "Closed Trading Stream"
@@ -196,11 +196,11 @@ end
 Stops the trading task.
 """
 function stop_trading(trader::Trader)
-    trader.stop_trading=true
+    trader.stop_trading = true
     while !istaskdone(trader.trading_task)
         sleep(1)
     end
-    trader.stop_trading=false
+    trader.stop_trading = false
     return trader
 end
 
@@ -219,25 +219,24 @@ end
 
 function Overseer.update(trader::Trader)
     singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash
-    
+
     wait(trader.new_data_event)
     reset(trader.new_data_event)
 
     for s in stages(trader)
         update(s, trader)
     end
-end 
+end
 
 function Overseer.update(trader::Trader{<:HistoricalBroker})
     singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash
-    
+
     notify(trader.broker.send_bars)
-    
+
     wait(trader.new_data_event)
     reset(trader.new_data_event)
-    
+
     for s in stages(trader)
         update(s, trader)
     end
-end 
-
+end

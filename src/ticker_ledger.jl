@@ -1,5 +1,5 @@
-@component struct Seen{S <: System} end
-    
+@component struct Seen{S<:System} end
+
 """
     TickerLedger
 
@@ -10,23 +10,23 @@ If certain derived [`Indicator`](@ref Indicators) data is requested, it also hol
 mutable struct TickerLedger <: AbstractLedger
     ticker::String
     l::Ledger
-end 
+end
 
 function TickerLedger(ticker::String)
     l = Ledger(Open, High, Low, Close, Volume, TimeStamp)
-    TickerLedger(ticker, l)
+    return TickerLedger(ticker, l)
 end
 
 # Overseer.Entity(tl::TickerLedger, args...) = error("You, my friend, are not allowed to add entities to a TickerLedger.")
 _Entity(tl::TickerLedger, args...) = Entity(tl.l, args...)
 
-function new_bar!(tl::TickerLedger, time::TimeStamp, open::Open, high::High, low::Low, close::Close, volume::Volume; interval=Minute(1))
+function new_bar!(tl::TickerLedger, time::TimeStamp, open::Open, high::High, low::Low,
+                  close::Close, volume::Volume; interval = Minute(1))
     tcomp = tl[TimeStamp]
-    intval = Millisecond(interval) 
+    intval = Millisecond(interval)
     if length(tcomp) > 1
-        
         last_t = tcomp[end].t
-        cur_dt =  time.t - last_t
+        cur_dt = time.t - last_t
         if abs(intval - cur_dt) > Millisecond(50)
             nsteps = div(cur_dt, interval)
 
@@ -35,66 +35,64 @@ function new_bar!(tl::TickerLedger, time::TimeStamp, open::Open, high::High, low
             last_low = tl[Low][end]
             last_close = tl[Close][end]
 
-            for i = 1:nsteps-1
+            for i in 1:nsteps-1
                 Entity(tl.l,
                        TimeStamp(last_t + intval),
-                       last_open + (open - last_open)/nsteps * i,
-                       last_high + (high - last_high)/nsteps * i,
-                       last_low + (low - last_low)/nsteps * i,
-                       last_close + (close - last_close)/nsteps * i,
+                       last_open + (open - last_open) / nsteps * i,
+                       last_high + (high - last_high) / nsteps * i,
+                       last_low + (low - last_low) / nsteps * i,
+                       last_close + (close - last_close) / nsteps * i,
                        Volume(0))
             end
         end
     end
-    Entity(tl.l, time, open, high, low, close, volume)
+    return Entity(tl.l, time, open, high, low, close, volume)
 end
 
 Overseer.ledger(d::TickerLedger) = d.l
 
-function register_strategy!(tl::TickerLedger, strategy::S) where {S<:System} 
+function register_strategy!(tl::TickerLedger, strategy::S) where {S<:System}
     Overseer.ensure_component!(tl, Seen{S})
     for c in Overseer.requested_components(strategy)
         Overseer.ensure_component!(tl, c)
     end
     Overseer.prepare(tl)
-    ensure_systems!(tl)
+    return ensure_systems!(tl)
 end
 
-function register_strategy!(tl::TickerLedger, strategy::S) where {S<:Stage} 
+function register_strategy!(tl::TickerLedger, strategy::S) where {S<:Stage}
     for s in strategy.steps
         register_strategy!(tl, s)
     end
 end
-register_strategy!(tl::TickerLedger, strategy::Strategy) = register_strategy!(tl, strategy.stage)
+function register_strategy!(tl::TickerLedger, strategy::Strategy)
+    return register_strategy!(tl, strategy.stage)
+end
 
 function reset!(tl::TickerLedger, strat::S) where {S}
-    
     for CT in Overseer.requested_components(strat)
-        
         CT in tl && empty!(tl[CT])
         etype = CT
-        
+
         while eltype(etype) != etype
             etype = eltype(etype)
-            
+
             if etype <: Number
                 break
             end
-            
+
             etype in tl && empty!(tl[etype])
         end
-        
     end
-    empty!(tl[Seen{S}])
+    return empty!(tl[Seen{S}])
 end
-
 
 """
     NewEntitiesIterator
 
 Iterates through all the entities in the requested components of a [`Strategy`](@ref Strategies) that were not yet seen.
 """
-struct NewEntitiesIterator{S<:Seen, TT <: Tuple}
+struct NewEntitiesIterator{S<:Seen,TT<:Tuple}
     shortest::Overseer.Indices
     seen_comp::Component{S}
     components::TT
@@ -117,17 +115,17 @@ function new_entities(tl::TickerLedger, strategy::S) where {S}
     return NewEntitiesIterator(shortest, seen_comp, comps)
 end
 
-function Base.iterate(it::NewEntitiesIterator{S}, state=length(it.seen_comp)+1) where {S<:Seen}
-
+function Base.iterate(it::NewEntitiesIterator{S},
+                      state = length(it.seen_comp) + 1) where {S<:Seen}
     t = iterate(it.shortest, state)
     t === nothing && return nothing
 
     @inbounds e = Entity(t[1])
-    
+
     it.seen_comp[e] = S()
-    
+
     return EntityState(e, it.components), t[2]
-end 
+end
 
 """
     lag(entity, i)

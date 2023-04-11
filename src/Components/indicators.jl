@@ -3,45 +3,45 @@
 
 The moving standard deviation of a value over timeframe of `horizon`.
 """
-@component struct MovingStdDev{horizon, T}
+@component struct MovingStdDev{horizon,T}
     σ::T
 end
 value(m::MovingStdDev) = value(m.σ)
-Base.eltype(::Type{MovingStdDev{x, T}}) where {x, T} = T
+Base.eltype(::Type{MovingStdDev{x,T}}) where {x,T} = T
 
 """
     SMA{horizon, T}
 
 The simple moving average of a value over a timeframe of `horizon`.
 """
-@component struct SMA{horizon, T}
+@component struct SMA{horizon,T}
     sma::T
 end
 value(sma::SMA) = value(sma.sma)
-Base.eltype(::Type{SMA{x, T}}) where {x, T} = T
+Base.eltype(::Type{SMA{x,T}}) where {x,T} = T
 
 """
     EMA{horizon, T}
 
 The exponential moving average of a value over timeframe of `horizon`.
 """
-@component struct EMA{horizon, T}
+@component struct EMA{horizon,T}
     ema::T
 end
 value(ema::EMA) = value(ema.ema)
-Base.eltype(::Type{EMA{x, T}}) where {x, T} = T
+Base.eltype(::Type{EMA{x,T}}) where {x,T} = T
 
 """
     Bollinger{horizon, T}
 
 The up and down Bollinger bands for a value, over a timeframe of `horizon`.
 """
-@component struct Bollinger{horizon, T}
+@component struct Bollinger{horizon,T}
     up::T
     down::T
 end
 value(b::Bollinger) = (value(b.up), value(b.down))
-Base.eltype(::Type{Bollinger{x, T}}) where {x, T} = T
+Base.eltype(::Type{Bollinger{x,T}}) where {x,T} = T
 
 for diff_T in (:Difference, :RelativeDifference)
     @eval begin
@@ -76,18 +76,20 @@ Base.zero(d::UpDown) = UpDown(zero(d.up), zero(d.down))
 Base.eltype(::Type{UpDown{T}}) where {T} = T
 
 for op in (:+, :-, :*)
-    @eval @inline Base.$op(b1::UpDown, b2::UpDown) = UpDown($op(b1.up, b2.up), $op(b1.down, b2.down))
+    @eval @inline function Base.$op(b1::UpDown, b2::UpDown)
+        return UpDown($op(b1.up, b2.up), $op(b1.down, b2.down))
+    end
 end
-@inline Base.:(/)(b::UpDown, i::Int) = UpDown(b.up/i, b.down/i)
+@inline Base.:(/)(b::UpDown, i::Int) = UpDown(b.up / i, b.down / i)
 @inline Base.:(^)(b::UpDown, i::Int) = UpDown(b.up^i, b.down^i)
 
-@inline Base.:(*)(b::UpDown, i::AbstractFloat) = UpDown(b.up*i, b.down*i)
+@inline Base.:(*)(b::UpDown, i::AbstractFloat) = UpDown(b.up * i, b.down * i)
 @inline Base.:(*)(i::Integer, b::UpDown) = b * i
 @inline Base.sqrt(b::UpDown) = UpDown(sqrt(b.up), sqrt(b.down))
-@inline Base.:(<)(i::Number, b::UpDown) = i < b.up &&  i < b.down
-@inline Base.:(<)(b::UpDown, i::Number) = b.up < i &&  b.down < i
-@inline Base.:(>)(i::Number, b::UpDown) = i > b.up &&  i > b.down
-@inline Base.:(>)(b::UpDown, i::Number) = b.up > i &&  b.down > i
+@inline Base.:(<)(i::Number, b::UpDown) = i < b.up && i < b.down
+@inline Base.:(<)(b::UpDown, i::Number) = b.up < i && b.down < i
+@inline Base.:(>)(i::Number, b::UpDown) = i > b.up && i > b.down
+@inline Base.:(>)(b::UpDown, i::Number) = b.up > i && b.down > i
 @inline Base.:(>=)(i::Number, b::UpDown) = i >= b.up && i >= b.down
 @inline Base.:(>=)(b::UpDown, i::Number) = b.up >= i && b.down >= i
 @inline Base.:(<=)(i::Number, b::UpDown) = i <= b.up && i <= b.down
@@ -102,18 +104,18 @@ value(ud::UpDown) = (value(ud.up), value(ud.down))
 
 The relative strength index of a value over timeframe of `horizon`.
 """
-@component struct RSI{horizon, T}
+@component struct RSI{horizon,T}
     rsi::T
 end
 value(rsi::RSI) = value(rsi.rsi)
-Base.eltype(::Type{RSI{horizon, T}}) where {horizon, T} = T
+Base.eltype(::Type{RSI{horizon,T}}) where {horizon,T} = T
 
 """
     Sharpe{horizon, T}
 
 The sharpe ratio of a value over a timeframe `horizon`.
 """
-@component struct Sharpe{horizon, T}
+@component struct Sharpe{horizon,T}
     sharpe::T
 end
-Base.eltype(::Type{Sharpe{horizon, T}}) where {horizon, T} = T
+Base.eltype(::Type{Sharpe{horizon,T}}) where {horizon,T} = T

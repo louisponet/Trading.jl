@@ -396,3 +396,41 @@ function returns(t::Trader, period::Function=day)
     out = merge(rename(ret, [:absolute]), TimeArray(tstamps, relret, [:relative]), method=:outer) 
     return out[findall(out[:relative] .!= 0 .&& out[:absolute] .!= 0)]
 end
+
+function sharpe(t::Trader, args...; risk_free = 0.0)
+    relrets = returns(t, args...)[:relative]
+    return values(mean(relrets .- risk_free)./std(relrets))[1]
+end
+
+function downside_risk(t::Trader, args...; required_return=0.0)
+    adjusted_returns = returns(t, args...)[:relative].-required_return
+    map(adjusted_returns) do t, x
+        return t, x > 0 ? 0 : x
+    end
+    return values(sqrt.(mean(adjusted_returns.^2)))[1]
+end
+    
+function value_at_risk(t::Trader, args...; cutoff = 0.05)
+    rets = returns(t)[:relative]
+    quantile(values(rets), cutoff)
+end
+
+function maximum_drawdown(t::Trader)
+    portfolio = t[PortfolioSnapshot]
+    
+    curmax = curmin = portfolio[1].value
+    curdrawdown = 0
+    
+    for i = 2:length(portfolio)
+        v = portfolio[i].value
+        if v > curmax
+            curmax = v
+            curmin = v
+        elseif v < curmin
+            curmin = v
+            curdrawdown = max(curdrawdown, (curmax - v)/curmax)
+        end
+    end
+    return curdrawdown
+end
+    

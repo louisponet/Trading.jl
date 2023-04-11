@@ -130,11 +130,11 @@ function Base.iterate(it::NewEntitiesIterator{S}, state=length(it.seen_comp)+1) 
 end 
 
 """
-    lag(entity, i)
+    prev(entity, i)
 
 Returns the entity that is `i` steps in the past.
 """
-Base.@propagate_inbounds function TimeSeries.lag(e::EntityState, i::Int)
+Base.@propagate_inbounds function prev(e::EntityState, i::Int)
     te = Entity(Entity(e).id - i)
     @boundscheck for c in e.components
         if te ∉ c

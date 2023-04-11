@@ -7,27 +7,27 @@ using Trading.Indicators
 using Trading.Portfolio
 
 struct SlowFast <: System end
-Overseer.requested_components(::SlowFast) = (SMA{50,Close}, SMA{200,Close})
+Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close})
 
 function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
     for ticker_ledger in ticker_ledgers
         ticker = ticker_ledger.ticker
         for e in new_entities(ticker_ledger, s)
-            lag_e = lag(e, 1)
-
-            if lag_e === nothing
+            prev_e = prev(e, 1)
+            
+            if prev_e === nothing
                 continue
             end
 
-            sma_50  = e[SMA{50,Close}].sma
-            sma_200 = e[SMA{200,Close}].sma
+            sma_50  = e[SMA{50, Close}].sma
+            sma_200 = e[SMA{200, Close}].sma
+            
+            prev_sma_50 = prev_e[SMA{50, Close}].sma
+            prev_sma_200 = prev_e[SMA{200, Close}].sma
 
-            lag_sma_50 = lag_e[SMA{50,Close}].sma
-            lag_sma_200 = lag_e[SMA{200,Close}].sma
-
-            if sma_50 > sma_200 && lag_sma_50 < lag_sma_200
+            if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
                 Entity(t, Sale(ticker, 1.0))
-            elseif sma_50 < sma_200 && lag_sma_50 > lag_sma_200
+            elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
                 Entity(t, Purchase(ticker, 1.0))
             end
         end
@@ -37,14 +37,14 @@ end
 
 broker = HistoricalBroker(AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"]))
 
-strategy = Strategy(:slowfast, [SlowFast()]; tickers = ["MSFT", "AAPL"])
+strategy = Strategy(:slowfast, [SlowFast()], tickers=["MSFT", "AAPL"])
 
-trader = BackTester(broker; start = DateTime("2015-01-01T00:00:00"),
-                    stop = DateTime("2020-01-01T00:00:00"),
-                    dt = Day(1),
-                    strategies = [strategy],
-                    cash = 1000,
-                    only_day = false)
+trader = BackTester(broker, start = DateTime("2015-01-01T00:00:00"),
+                            stop = DateTime("2020-01-01T00:00:00"),
+                            dt = Day(1),
+                            strategies = [strategy],
+                            cash = 1000,
+                            only_day=false)
 start(trader)
 # After having executed the strategy, we can see some quick overview from the output, but
 # by converting it to a `TimeArray` we can more easily analyse how the strategy performed
@@ -62,21 +62,21 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
     for ticker_ledger in ticker_ledgers
         ticker = ticker_ledger.ticker
         for e in new_entities(ticker_ledger, s)
-            lag_e = lag(e, 1)
-
-            if lag_e === nothing
+            prev_e = prev(e, 1)
+            
+            if prev_e === nothing
                 continue
             end
 
-            sma_50  = e[SMA{50,Close}].sma
-            sma_200 = e[SMA{200,Close}].sma
+            sma_50  = e[SMA{50, Close}].sma
+            sma_200 = e[SMA{200, Close}].sma
+            
+            prev_sma_50 = prev_e[SMA{50, Close}].sma
+            prev_sma_200 = prev_e[SMA{200, Close}].sma
 
-            lag_sma_50 = lag_e[SMA{50,Close}].sma
-            lag_sma_200 = lag_e[SMA{200,Close}].sma
-
-            if sma_50 > sma_200 && lag_sma_50 < lag_sma_200
+            if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
                 Entity(t, Purchase(ticker, Inf))
-            elseif sma_50 < sma_200 && lag_sma_50 > lag_sma_200
+            elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
                 Entity(t, Sale(ticker, Inf))
             end
         end

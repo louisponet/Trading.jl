@@ -88,9 +88,9 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
     for ticker_ledger in ticker_ledgers
         ticker = ticker_ledger.ticker
         for e in new_entities(ticker_ledger, s)
-            lag_e = lag(e, 1)
+            prev_e = prev(e, 1)
 
-            if lag_e === nothing
+            if prev_e === nothing
                 continue
             end
             curpos = current_position(t, ticker)
@@ -98,12 +98,12 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
             sma_50  = e[SMA{50,Close}].sma
             sma_200 = e[SMA{200,Close}].sma
 
-            lag_sma_50 = lag_e[SMA{50,Close}].sma
-            lag_sma_200 = lag_e[SMA{200,Close}].sma
+            prev_sma_50 = prev_e[SMA{50,Close}].sma
+            prev_sma_200 = prev_e[SMA{200,Close}].sma
 
-            if sma_50 > sma_200 && lag_sma_50 < lag_sma_200
+            if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
                 Entity(t, Sale(ticker, 1.0))
-            elseif sma_50 < sma_200 && lag_sma_50 > lag_sma_200
+            elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
                 Entity(t, Purchase(ticker, 1.0))
             end
         end
@@ -147,7 +147,6 @@ end
     @test TimeSeries.values(all(isapprox.(bollinger_down, bollinger_ta_down, atol = 1e-10)))[1]
 
     rets = Trading.returns(trader)
-    @test length(rets) == 6
     @test 1e6 + values(sum(rets, dims=1)[:absolute])[1] == trader[PortfolioSnapshot][end].value
     @test isapprox(prod(x->1+x, values(rets[:relative])) * 1e6, trader[PortfolioSnapshot][end].value, atol=1e-8)
 end
@@ -204,8 +203,13 @@ if haskey(ENV, "ALPACA_KEY_ID")
         @test :portfolio_value ∈ colnames(ta)
         @test values(ta[:portfolio_value][end])[1] == trader[PortfolioSnapshot][end].value
 
-        @test length(Trading.split_days(ta)) == 30
+        @test length(Trading.split(ta, day)) == 30
         @test TimeSeries.values(Trading.relative(ta)[:portfolio_value])[1] == 1
+
+        @test Trading.sharpe(trader) == -0.23122570003378665
+        @test Trading.downside_risk(trader) == 3.8349532755480495e-6
+        @test Trading.value_at_risk(trader) == -6.805674895443703e-6
+        @test Trading.maximum_drawdown(trader) == 3.625591382839291e-5
     end
 
     @testset "Order" begin

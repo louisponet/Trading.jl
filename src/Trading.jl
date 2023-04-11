@@ -23,6 +23,7 @@ using EnumX
 using UUIDs
 using ProgressMeter
 using PrettyTables
+using Statistics
 
 include("utils.jl")
 
@@ -77,8 +78,8 @@ module Strategies
 using ..Trading: Strategy, new_entities, reset!, current_price
 export Strategy, new_entities, reset!, current_price
 
-using TimeSeries: lag
-export lag
+using Trading: prev
+export prev
 end
 
 module Time

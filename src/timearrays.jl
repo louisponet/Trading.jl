@@ -40,17 +40,17 @@ function interpolate_timearray(tf::TimeArray{T}; timeframe::Period = Minute(1),
     return TimeArray(out_times, hcat(out_vals...), colnames(tf))
 end
 
-only_trading(bars::TimeArray) = bars[findall(x -> in_day(x), timestamp(bars))]
+only_trading(ta::TimeArray) = ta[findall(x -> in_day(x), timestamp(ta))]
 
-function split_days(ta::T) where {T<:TimeArray}
+function split(ta::T, f=day) where {T<:TimeArray}
     tstamps = timestamp(ta)
-    day_change_ids = [1;
-                      findall(x -> day(tstamps[x-1]) != day(tstamps[x]), 2:length(ta)) .+ 1;
-                      length(ta) + 1]
+    change_ids = [1;
+                  findall(x -> f(tstamps[x-1]) != f(tstamps[x]), 2:length(ta)) .+ 1;
+                  length(ta) + 1]
 
-    out = Vector{T}(undef, length(day_change_ids) - 1)
-    Threads.@threads for i in 1:length(day_change_ids)-1
-        out[i] = ta[day_change_ids[i]:day_change_ids[i+1]-1]
+    out = Vector{T}(undef, length(change_ids) - 1)
+    Threads.@threads for i in 1:length(change_ids)-1
+        out[i] = ta[change_ids[i]:change_ids[i+1]-1]
     end
     return out
 end
@@ -93,9 +93,11 @@ end
 function TimeSeries.TimeArray(c::AbstractComponent{T},
                               tcomp) where {T<:Union{UpDown,Bollinger}}
     es_to_store = filter(e -> e in tcomp, @entities_in(c))
-    up = map(x -> value(x[T])[1], es_to_store)
-    down = map(x -> value(x[T])[2], es_to_store)
+    
+    up      = map(x -> value(x[T])[1], es_to_store)
+    down    = map(x -> value(x[T])[2], es_to_store)
     tstamps = map(x -> tcomp[x].t, es_to_store)
+    
     return TimeArray(tstamps, hcat(up, down),
                      [Symbol(replace("$(T)_up", "Trading." => "")),
                       Symbol(replace("$(T)_down", "Trading." => ""))])
@@ -103,6 +105,7 @@ end
 
 function TimeSeries.TimeArray(c::AbstractComponent{T}, tcomp) where {T}
     es_to_store = filter(e -> e in tcomp, @entities_in(c))
+    
     tstamps = map(x -> DateTime(tcomp[x].t), es_to_store)
 
     colname = replace("$(T)", "Trading." => "")

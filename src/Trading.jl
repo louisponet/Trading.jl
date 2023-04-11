@@ -8,7 +8,7 @@ export TimeDate
 
 @reexport using Overseer
 using Overseer: AbstractComponent, EntityState
-using Overseer: update
+using Overseer: update, ensure_component!
 
 using LinearAlgebra
 using HTTP
@@ -34,7 +34,6 @@ include("datacache.jl")
 include("brokers.jl")
 include("ticker_ledger.jl")
 include("trader.jl")
-include("backtesting.jl")
 
 include("account.jl")
 include("running.jl")

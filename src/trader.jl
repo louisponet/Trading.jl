@@ -379,8 +379,8 @@ function returns(t::Trader, period::Function=day)
     ensure_component!(t, Difference{PortfolioSnapshot})
     update(DifferenceCalculator(), t)
 
-    t_relret = split(only_trading(TimeArray(t[RelativeDifference{PortfolioSnapshot}], t[TimeStamp])), period)
-    t_ret    = split(only_trading(TimeArray(t[Difference{PortfolioSnapshot}], t[TimeStamp])), period)
+    t_relret = split(TimeArray(t[RelativeDifference{PortfolioSnapshot}], t[TimeStamp]), period)
+    t_ret    = split(TimeArray(t[Difference{PortfolioSnapshot}], t[TimeStamp]), period)
 
     ret = sum(t_ret[1])
     for r in t_ret[2:end]
@@ -393,6 +393,6 @@ function returns(t::Trader, period::Function=day)
         relret = vcat(relret, prod(x -> 1 + x, values(r)).-1)
         push!(tstamps, timestamp(r)[end])
     end
-    
-    return merge(rename(ret, [:absolute]), TimeArray(tstamps, relret, [:relative]), method=:outer)
+    out = merge(rename(ret, [:absolute]), TimeArray(tstamps, relret, [:relative]), method=:outer) 
+    return out[findall(out[:relative] .!= 0 .&& out[:absolute] .!= 0)]
 end

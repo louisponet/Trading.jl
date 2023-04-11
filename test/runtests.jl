@@ -145,6 +145,11 @@ end
 
     @test TimeSeries.values(all(isapprox.(bollinger_up, bollinger_ta_up, atol = 1e-10)))[1]
     @test TimeSeries.values(all(isapprox.(bollinger_down, bollinger_ta_down, atol = 1e-10)))[1]
+
+    rets = Trading.returns(trader)
+    @test length(rets) == 6
+    @test 1e6 + values(sum(rets, dims=1)[:absolute])[1] == trader[PortfolioSnapshot][end].value
+    @test isapprox(prod(x->1+x, values(rets[:relative])) * 1e6, trader[PortfolioSnapshot][end].value, atol=1e-8)
 end
 
 Overseer.requested_components(::SlowFast) = (SMA{50,Close}, SMA{200,Close}, Close, Volume)

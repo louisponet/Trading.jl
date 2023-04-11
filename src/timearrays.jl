@@ -42,7 +42,7 @@ end
 
 only_trading(ta::TimeArray) = ta[findall(x -> in_day(x), timestamp(ta))]
 
-function split(ta::T, f=day) where {T<:TimeArray}
+function Base.split(ta::T, f=day) where {T<:TimeArray}
     tstamps = timestamp(ta)
     change_ids = [1;
                   findall(x -> f(tstamps[x-1]) != f(tstamps[x]), 2:length(ta)) .+ 1;

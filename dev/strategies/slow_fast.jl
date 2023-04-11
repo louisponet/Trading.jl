@@ -13,21 +13,21 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
     for ticker_ledger in ticker_ledgers
         ticker = ticker_ledger.ticker
         for e in new_entities(ticker_ledger, s)
-            lag_e = lag(e, 1)
+            prev_e = prev(e, 1)
             
-            if lag_e === nothing
+            if prev_e === nothing
                 continue
             end
 
             sma_50  = e[SMA{50, Close}].sma
             sma_200 = e[SMA{200, Close}].sma
             
-            lag_sma_50 = lag_e[SMA{50, Close}].sma
-            lag_sma_200 = lag_e[SMA{200, Close}].sma
+            prev_sma_50 = prev_e[SMA{50, Close}].sma
+            prev_sma_200 = prev_e[SMA{200, Close}].sma
 
-            if sma_50 > sma_200 && lag_sma_50 < lag_sma_200
+            if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
                 Entity(t, Sale(ticker, 1.0))
-            elseif sma_50 < sma_200 && lag_sma_50 > lag_sma_200
+            elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
                 Entity(t, Purchase(ticker, 1.0))
             end
         end
@@ -52,7 +52,7 @@ using Plots
 
 ta = TimeArray(trader)
 
-plot(ta[:value])
+plot(ta[:portfolio_value])
 
 # We see that in this case the strategy didn't work particularly well. In fact it seems that
 # inverting it, we might get a better result.
@@ -62,21 +62,21 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
     for ticker_ledger in ticker_ledgers
         ticker = ticker_ledger.ticker
         for e in new_entities(ticker_ledger, s)
-            lag_e = lag(e, 1)
+            prev_e = prev(e, 1)
             
-            if lag_e === nothing
+            if prev_e === nothing
                 continue
             end
 
             sma_50  = e[SMA{50, Close}].sma
             sma_200 = e[SMA{200, Close}].sma
             
-            lag_sma_50 = lag_e[SMA{50, Close}].sma
-            lag_sma_200 = lag_e[SMA{200, Close}].sma
+            prev_sma_50 = prev_e[SMA{50, Close}].sma
+            prev_sma_200 = prev_e[SMA{200, Close}].sma
 
-            if sma_50 > sma_200 && lag_sma_50 < lag_sma_200
+            if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
                 Entity(t, Purchase(ticker, Inf))
-            elseif sma_50 < sma_200 && lag_sma_50 > lag_sma_200
+            elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
                 Entity(t, Sale(ticker, Inf))
             end
         end
@@ -90,10 +90,12 @@ reset!(trader)
 start(trader)
 # and plot the results again, this time taking the relative performances of the portfolio vs the two stocks:
 
-ta = TimeArray(trader)
+ta = Trading.relative(TimeArray(trader))
 
-portfolio_val = ta[:value]./values(ta[:value])[1]
-aapl_closes = ta[:AAPL_Close] ./ values(ta[:AAPL_Close])[1]
-msft_closes = ta[:MSFT_Close] ./ values(ta[:MSFT_Close])[1]
+portfolio_val = ta[:portfolio_value]
+aapl_closes = ta[:AAPL_Close]
+msft_closes = ta[:MSFT_Close]
 
-plot(merge(portfolio_val, aapl_closes, msft_closes))
+p = plot(merge(portfolio_val, aapl_closes, msft_closes))
+savefig("slow_fast.svg") # hide
+p # hide

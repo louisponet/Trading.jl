@@ -129,14 +129,14 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
             Entity(m, Sale(ticker1, q))
         end
 
-        lag_e = lag(e, 1)
-        lag_e === nothing && continue
+        prev_e = prev(e, 1)
+        prev_e === nothing && continue
         
         if new_pos
             continue
         end
 
-        going_up = z_score - z_comp[lag_e].v > 0
+        going_up = z_score - z_comp[prev_e].v > 0
 
         if z_score > 0 && in_bought_leg && !going_up
             Entity(m, Sale(ticker1, curpos1))
@@ -172,7 +172,6 @@ start(trader)
 
 # We then can analyse our portfolio value
 using Plots
-plot(TimeArray(trader)[:value])
+plot(TimeArray(trader)[:portfolio_value])
 
-
-
+# Again we see that this strategy does not particularly work.

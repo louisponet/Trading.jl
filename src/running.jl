@@ -23,7 +23,7 @@ function start(trader::Trader{<:HistoricalBroker})
         last = max(tstop, last)
     end
 
-    start(trader; sleep_time = 0.0)
+    start(trader; sleep_time = 0.0, interval=trader[Clock][1].dtime)
     p = ProgressMeter.ProgressUnknown("Simulating..."; spinner = true)
 
     while current_time(trader) < last

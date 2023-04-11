@@ -75,11 +75,8 @@ export Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType, TimeInFor
 end
 
 module Strategies
-using ..Trading: Strategy, new_entities, reset!, current_price
-export Strategy, new_entities, reset!, current_price
-
-using Trading: prev
-export prev
+using ..Trading: Strategy, new_entities, reset!, current_price, prev
+export Strategy, new_entities, reset!, current_price, prev
 end
 
 module Time

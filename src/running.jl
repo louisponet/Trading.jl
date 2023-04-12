@@ -57,7 +57,8 @@ function start_data(trader::Trader; interval = Minute(1), kwargs...)
 
             register!(stream, ticker)
         end
-        while !trader.stop_data && !isclosed(stream)
+        while !trader.stop_data
+
             try
                 bars = receive(stream)
                 updated_tickers = Set{String}()
@@ -85,8 +86,12 @@ function start_data(trader::Trader; interval = Minute(1), kwargs...)
 
             catch e
                 if !(e isa InvalidStateException) && !(e isa EOFError) &&
-                   !(e isa InterruptException)
+                   !(e isa InterruptException) && !(e == HTTP.WebSockets.WebSocketError(HTTP.WebSockets.CloseFrameBody(1006, "WebSocket connection is closed")))
+                   # @show isclosed(stream)
                     showerror(stdout, e, catch_backtrace())
+                else
+                    @info "Issue with data stream, restarting"
+                    return
                 end
             end
         end
@@ -102,16 +107,27 @@ Starts the main task. This periodically executes the core systems of the [`Trade
 function start_main(trader::Trader; sleep_time = 1, kwargs...)
     return trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
         while true
+            if istaskdone(trader.trading_task)
+                start_trading(trader; kwargs...)
+            end
+
+            if istaskdone(trader.data_task)
+                start_data(trader; kwargs...)
+            end
+            
             try
                 update(trader)
             catch e
                 if !(e isa InterruptException)
-                    showerror(stdout, e, catch_backtrace())
+                    # showerror(stdout, e, catch_backtrace())
                 else
                     rethrow()
                 end
             end
-            # sleep(sleep_time)
+            
+            if !(trader.broker isa HistoricalBroker)
+                sleep(sleep_time)
+            end
         end
     end
 end
@@ -126,7 +142,14 @@ function start_trading(trader::Trader)
     broker = trader.broker
     return trader.trading_task = Threads.@spawn @stoppable trader.stop_trading order_stream(broker) do stream
         trader.is_trading = true
+        
         while true
+            
+            if isclosed(stream)
+                @info "Trading stream closed, restarting"
+                return 
+            end
+            
             try
                 received = receive(stream)
                 if received === nothing
@@ -148,10 +171,11 @@ function start_trading(trader::Trader)
                 else
                     order_comp[id] = received
                 end
+                
             catch e
                 if !(e isa InvalidStateException) && !(e isa EOFError) &&
                    !(e isa InterruptException)
-                    showerror(stdout, e, catch_backtrace())
+                    # showerror(stdout, e, catch_backtrace())
                 else
                     break
                 end
@@ -210,19 +234,19 @@ end
 Stops all tasks.
 """
 function stop(trader::Trader)
+    stop_main(trader)
     t1 = @async stop_data(trader)
     t2 = @async stop_trading(trader)
-    t3 = @async stop_main(trader)
-    fetch(t1), fetch(t2), fetch(t3)
+    fetch(t1), fetch(t2)
     return trader
 end
 
 function Overseer.update(trader::Trader)
     singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash
 
-    wait(trader.new_data_event)
-    reset(trader.new_data_event)
-
+    # wait(trader.new_data_event)
+    # reset(trader.new_data_event)
+    
     for s in stages(trader)
         update(s, trader)
     end

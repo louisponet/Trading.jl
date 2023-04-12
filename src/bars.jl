@@ -99,7 +99,7 @@ Blocking function which will return new bars as soon as they are available.
 """
 HTTP.receive(b::BarStream) = receive_bars(b.broker, b.ws)
 
-WebSockets.isclosed(b::BarStream) = WebSockets.isclosed(b.ws)
+WebSockets.isclosed(b::BarStream) = b.ws === nothing || b.ws.readclosed || b.ws.writeclosed
 function WebSockets.isclosed(b::BarStream{<:HistoricalBroker})
     return b.broker.clock.time > last_time(b.broker)
 end
@@ -130,7 +130,7 @@ function bar_stream(func::Function, broker::AlpacaBroker)
         catch e
             showerror(stdout, e, catch_backtrace())
             if !(e isa InterruptException)
-                rethrow(e)
+                rethrow()
             end
         end
     end
@@ -141,7 +141,7 @@ function bar_stream(func::Function, broker::HistoricalBroker)
         return func(BarStream(broker, nothing))
     catch e
         if !(e isa InterruptException)
-            rethrow(e)
+            rethrow()
         end
     end
 end

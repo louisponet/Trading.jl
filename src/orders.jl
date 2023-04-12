@@ -99,9 +99,19 @@ function submit_order(broker::AlpacaBroker, order)
     catch e
         if e isa HTTP.Exceptions.StatusError
             msg = JSON3.read(e.response.body)
+            
             if msg[:message] == "insufficient day trading buying power"
                 order.quantity *= 0.9
                 return submit_order(broker, order)
+                
+            elseif occursin("insufficient qty available for order", msg[:message])
+                m = match(r"available: (\d+)\)", msg[:message])
+                
+                if m !== nothing
+                    order.quantity = parse(Int, m.captures[1])
+                    return submit_order(broker, order)
+                end
+                
             end
 
             return failed_order(broker, order, e)
@@ -160,6 +170,7 @@ end
 OrderStream(b::AbstractBroker; kwargs...) = OrderStream(; broker = b, kwargs...)
 
 HTTP.receive(order_link::OrderStream) = receive_order(order_link.broker, order_link.ws)
+HTTP.WebSockets.isclosed(order_link::OrderStream) = order_link.ws === nothing || order_link.ws.readclosed || order_link.ws.writeclosed
 
 """
     order_stream(f::Function, broker::AbstractBroker)
@@ -190,7 +201,7 @@ function order_stream(f::Function, broker::AlpacaBroker)
         catch e
             showerror(stdout, e, catch_backtrace())
             if !(e isa InterruptException)
-                rethrow(e)
+                rethrow()
             end
         end
     end

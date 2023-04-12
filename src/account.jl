@@ -47,19 +47,34 @@ end
 
 account_details(b::HistoricalBroker) = (b.cash, ())
 
+# TODO dumb
 function fill_account!(trader::Trader)
     cash, positions = account_details(trader.broker)
-
     empty!(trader[Cash])
     empty!(trader[PurchasePower])
 
     Entity(trader.l, Cash(cash), PurchasePower(cash))
+    
+    current_positions = Set{String}(map(x->x.ticker, trader[Position]))
+
     for p in positions
+        
+        delete!(current_positions, p[1])
+        
         id = findfirst(x -> x.ticker == p[1], trader[Position])
         if id === nothing
             Entity(trader.l, Position(p...))
         else
             trader[Position][id].quantity = p[2]
         end
+    end
+    
+    for p in current_positions
+        id = findfirst(x -> x.ticker == p, trader[Position])
+        if id === nothing
+            continue
+        end
+
+        trader[Position][id].quantity = 0.0
     end
 end

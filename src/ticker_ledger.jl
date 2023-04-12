@@ -135,12 +135,21 @@ end
 Returns the entity that is `i` steps in the past.
 """
 Base.@propagate_inbounds function prev(e::EntityState, i::Int)
-    te = Entity(Entity(e).id - i)
-    @boundscheck for c in e.components
-        if te ∉ c
-            return nothing
+    curid = Entity(e).id
+    
+    found_entities = 0
+    while curid > 0
+        curid -= 1
+        
+        te = Entity(curid)
+        
+        if all(c -> te in c, e.components)
+            found_entities += 1
+            
+            if found_entities == i
+                return EntityState(te, e.components)
+            end
+            
         end
     end
-
-    return EntityState(te, e.components)
 end

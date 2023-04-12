@@ -131,6 +131,16 @@ function cointegration_timearray(account, ticker1, ticker2, start, stop; γ=0.78
     return df
 end
 
+@component struct Spread <: Trading.SingleValIndicator{Float64}
+    v::Float64
+end
+
+struct SpreadCalculator <: System
+    γ::NTuple{5, Float64}
+end
+
+Overseer.requested_components(::SpreadCalculator) = (LogVal{Close},)
+
 function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
 
     @assert length(ticker_ledgers) == 3 "Pairs Strategy only implemented for 2 tickers at a time"
@@ -149,7 +159,10 @@ function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
     new_bars2 = new_entities(ticker_ledgers[2], s)
 
     tickers = map(x->x.ticker, ticker_ledgers[1:2])
-    @assert length(new_bars1) == length(new_bars2) "New bars differ for tickers $tickers"
+    
+    if length(new_bars1) != length(new_bars2)
+        return
+    end
     
     γ = s.γ[dayofweek(curt)]
     for (b1, b2) in zip(new_bars1, new_bars2)
@@ -157,6 +170,7 @@ function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
     end
     update(combined_ledger)
 end
+
 
 function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
 
@@ -242,6 +256,10 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
     end
 end
 
+@component struct ZScore{T} <: Trading.SingleValIndicator{Float64}
+    v::T
+end
+
 struct MomentumPairStrat{horizon} <: System
     γ::NTuple{5,Float64}
     z_thr::Float64
@@ -254,27 +272,25 @@ function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers
     if Trading.is_market_open(curt)
         reset!(ticker_ledgers[end], s)
     end
-
-    cash = m[PurchasePower][1].cash
-    new_pos = false
-    pending_order = any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
-
-    pending_order || !in_day(curt) && return
     
-    z_comp = ticker_ledgers[end][ZScore{Spread}]
+    !in_day(curt) && return
 
+    cash = m[Trading.PurchasePower][1].cash
+    new_pos = any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
+    
     ticker1 = ticker_ledgers[1].ticker
     ticker2 = ticker_ledgers[2].ticker
     
     γ = s.γ[dayofweek(curt)]
-    
+     
     for e in new_entities(ticker_ledgers[end], s)
 
         v         = e.v
         sma       = e.sma
         σ         = e.σ 
         z_score   = (v - sma) / σ
-        z_comp[e] = ZScore{Spread}(z_score)
+        Entity(ticker_ledgers[end], ZScore{Spread}(z_score))
+        new_pos && continue
         
         curpos1 = current_position(m, ticker1)
         curpos2 = current_position(m, ticker2)
@@ -285,7 +301,6 @@ function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers
         quantity2(n1) = round(Int, n1 * p1 * γ / p2)
         # quantity2(n1) = round(Int, n1 * pair.γ)
 
-        new_pos && continue
         if curpos1 == curpos2 == 0
             
             if z_score < -s.z_thr
@@ -304,12 +319,13 @@ function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers
         end
 
         prev_e = prev(e, 1)
+        @info prev_e
         prev_e === nothing && continue
         
         if new_pos
             continue
         end
-        
+        @info prev_e
         if sign(v - sma.v) != sign(prev_e.v - prev_e.sma.v)
 
             if curpos1 < 0.0

@@ -159,10 +159,11 @@ function start_trading(trader::Trader)
                 uid = received.id
 
                 tries = 0
-                id = nothing
                 #TODO dangerous when an order would come from somewhere else
+                id = findlast(x -> x.id == uid, order_comp.data)
                 while id === nothing && tries < 100
                     id = findlast(x -> x.id == uid, order_comp.data)
+                    sleep(0.005)
                     tries += 1
                 end
 

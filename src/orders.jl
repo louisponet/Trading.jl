@@ -130,8 +130,10 @@ function submit_order(broker::HistoricalBroker, order::T) where {T}
               (p * broker.variable_transaction_fee + broker.fee_per_share) +
               broker.fixed_transaction_fee
         fee = min(fee, max_fee)
+
+        side = T == Purchase ? "buy" : "sell"
         return Order(order.ticker,
-                     "",
+                     side,
                      uuid1(),
                      uuid1(),
                      current_time(broker),

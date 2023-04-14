@@ -39,21 +39,21 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
         ticker = ticker_ledger.ticker
 
         for e in new_entities(ticker_ledger, s)
-            lag_e = lag(e, 1)
+            prev_e = prev(e, 1)
 
-            if lag_e === nothing
+            if prev_e === nothing
                 continue
             end
 
             sma_50  = e[SMA{50, Close}].sma
             sma_200 = e[SMA{200, Close}].sma
             
-            lag_sma_50 = lag_e[SMA{50, Close}].sma
-            lag_sma_200 = lag_e[SMA{200, Close}].sma
+            prev_sma_50 = prev_e[SMA{50, Close}].sma
+            prev_sma_200 = prev_e[SMA{200, Close}].sma
 
-            if sma_50 > sma_200 && lag_sma_50 < lag_sma_200
+            if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
                 Entity(t, Sale(ticker, 1.0))
-            elseif sma_50 < sma_200 && lag_sma_50 > lag_sma_200
+            elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
                 Entity(t, Purchase(ticker, 1.0))
             end
 
@@ -75,24 +75,24 @@ Then, we ask for the [`new_entities`](@ref) in the [`TickerLedger`](@ref) that h
 in this case both the `SMA{200, Close}` and `SMA{50,Close}` components. Each of these entities will be touched once and only once.
 
 ```julia
-lag_e = lag(e, 1)
+prev_e = prev(e, 1)
 ```
 Since we are looking for crossings between the two moving averages, we ask for the entity of the previous time. If there was none, i.e. `e` is the very
-first entity, `lag(e, 1)` will return `nothing` and so we don't do anything.
+first entity, `prev(e, 1)` will return `nothing` and so we don't do anything.
 
 ```julia
 sma_50  = e[SMA{50, Close}].sma
 sma_200 = e[SMA{200, Close}].sma
 
-lag_sma_50 = lag_e[SMA{50, Close}].sma
-lag_sma_200 = lag_e[SMA{200, Close}].sma
+prev_sma_50 = prev_e[SMA{50, Close}].sma
+prev_sma_200 = prev_e[SMA{200, Close}].sma
 ```
-We retrieve the sma's for both the current and lagged `entity`.
+We retrieve the sma's for both the current and previous `entity`.
 
 ```julia
-if sma_50 > sma_200 && lag_sma_50 < lag_sma_200
+if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
     Entity(t, Sale(ticker, 1.0))
-elseif sma_50 < sma_200 && lag_sma_50 > lag_sma_200
+elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
     Entity(t, Purchase(ticker, 1.0))
 end
 ```

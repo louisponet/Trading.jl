@@ -91,12 +91,14 @@ function retrieve_data(broker::AbstractBroker, set, key, start, stop, args...;
             return normalize ? interpolate_timearray(tout) : tout
         else
             next_start = timestamps[end] + dt
-
-            new_data = data_query(broker, ticker, next_start, stop, args...; kwargs...)
-            if new_data !== nothing
-                new_data = normalize ? interpolate_timearray(new_data; kwargs...) : new_data
-                out_data = vcat(out_data, new_data)
-                set[key] = vcat(set[key], new_data)
+            
+            if next_start < stop
+                new_data = data_query(broker, ticker, next_start, stop, args...; kwargs...)
+                if new_data !== nothing
+                    new_data = normalize ? interpolate_timearray(new_data; kwargs...) : new_data
+                    out_data = vcat(out_data, new_data)
+                    set[key] = vcat(set[key], new_data)
+                end
             end
 
             return normalize ? interpolate_timearray(out_data; kwargs...) : out_data

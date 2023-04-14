@@ -119,7 +119,7 @@ function start_main(trader::Trader; sleep_time = 1, kwargs...)
                 update(trader)
             catch e
                 if !(e isa InterruptException)
-                    # showerror(stdout, e, catch_backtrace())
+                    showerror(stdout, e, catch_backtrace())
                 else
                     rethrow()
                 end

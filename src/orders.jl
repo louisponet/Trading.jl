@@ -101,7 +101,7 @@ function submit_order(broker::AlpacaBroker, order)
             msg = JSON3.read(e.response.body)
             
             if msg[:message] == "insufficient day trading buying power"
-                order.quantity *= 0.9
+                order.quantity = round(0.9 * order.quantity)
                 return submit_order(broker, order)
                 
             elseif occursin("insufficient qty available for order", msg[:message])
@@ -170,7 +170,8 @@ end
 OrderStream(b::AbstractBroker; kwargs...) = OrderStream(; broker = b, kwargs...)
 
 HTTP.receive(order_link::OrderStream) = receive_order(order_link.broker, order_link.ws)
-HTTP.WebSockets.isclosed(order_link::OrderStream) = order_link.ws === nothing || order_link.ws.readclosed || order_link.ws.writeclosed
+WebSockets.isclosed(order_link::OrderStream) = order_link.ws === nothing || order_link.ws.readclosed || order_link.ws.writeclosed
+WebSockets.isclosed(order_link::OrderStream{<:HistoricalBroker}) = false
 
 """
     order_stream(f::Function, broker::AbstractBroker)

@@ -93,6 +93,7 @@ makedocs(; modules = [Trading],
                                    "Time" => "time.md"],
                   "Data"       => "data.md",
                   "Strategies" => ["strategies.md",
+                                   "idea_generation.md",
                                    "Slow Fast" => "strategies/slow_fast.md",
                                    "Cointegration" => "strategies/cointegration.md"]])
 

@@ -157,6 +157,11 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols = keys(components(l)))
     return out
 end
 
+"""
+    relative(ta::TimeArray)
+
+Rescales all values in the columns of `ta` with the first value.
+"""
 function relative(ta::TimeArray)
     out = nothing
     for c in colnames(ta)

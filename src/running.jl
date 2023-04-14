@@ -1,7 +1,8 @@
 """
-    start(trader)
-
+    start(trader::Trader; kwargs...)
+    
 Starts all the tasks of a [`Trader`](@ref) or [`BackTester`](@ref).
+The `kwargs` are passed to each of the [`start_main`](@ref), [`start_trading`](@ref) and [`start_data`](@ref) functions.
 """
 function start(trader::Trader; kwargs...)
     if trader.main_task !== nothing && !istaskdone(trader.main_task)
@@ -44,9 +45,13 @@ function start(trader::Trader{<:HistoricalBroker})
 end
 
 """
-    start_data(trader)
+    start_data(trader; interval = Minute(1))
 
-Starts the data task. It opens a stream and registers the [`TickerLedgers`](@ref TickerLedger) to it, in order to [`receive`](@ref) bar updates.
+Starts the `trader.data_task`.
+It opens a [`BarStream`](@ref) and registers the [`TickerLedgers`](@ref TickerLedger) to it, in order to [`receive`](@ref) bar updates.
+
+`interval`: signifies the desired interval of bar updates. If a bar for a given ticker arrives after more than `interval`,
+            bars will be interpolated between the last and new bar so the time interval between adjacent bars is always `interval`.
 """
 function start_data(trader::Trader; interval = Minute(1), kwargs...)
     return trader.data_task = Threads.@spawn @stoppable trader.stop_data bar_stream(trader.broker) do stream
@@ -100,13 +105,14 @@ function start_data(trader::Trader; interval = Minute(1), kwargs...)
 end
 
 """
-    start_main(trader)
+    start_main(trader::Trader; sleep_time = 1, kwargs...)
 
-Starts the main task. This periodically executes the core systems of the [`Trader`](@ref).
+Starts the `trader.main_task`. This periodically executes the core systems of the [`Trader`](@ref), with at least `sleep_time` between executions.
 """
 function start_main(trader::Trader; sleep_time = 1, kwargs...)
     return trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
         while true
+            curt = time()
             if istaskdone(trader.trading_task)
                 start_trading(trader; kwargs...)
             end
@@ -124,9 +130,9 @@ function start_main(trader::Trader; sleep_time = 1, kwargs...)
                     rethrow()
                 end
             end
-            
+            to_sleep = clamp(time() - curt, 0, sleep_time)
             if !(trader.broker isa HistoricalBroker)
-                sleep(sleep_time)
+                sleep(to_sleep)
             end
         end
     end
@@ -135,7 +141,7 @@ end
 """
     start_trading(trader)
 
-Starts the trading task. This opens a stream that listens to portfolio and order updates.
+Starts the trading task. This opens a [`OrderStream`](@ref) to `trader.broker` that listens to portfolio and order updates .
 """
 function start_trading(trader::Trader)
     order_comp = trader[Order]
@@ -190,7 +196,7 @@ end
 """
     stop_main(trader)
 
-Stops the main task.
+Stops `trader.main_task`.
 """
 function stop_main(trader::Trader)
     trader.stop_main = true
@@ -204,7 +210,7 @@ end
 """
     stop_data(trader)
 
-Stops the data task.
+Stops `trader.data_task`.
 """
 function stop_data(trader::Trader)
     trader.stop_data = true
@@ -218,7 +224,7 @@ end
 """
     stop_trading(trader)
 
-Stops the trading task.
+Stops `trader.trading_task`.
 """
 function stop_trading(trader::Trader)
     trader.stop_trading = true
@@ -244,9 +250,6 @@ end
 
 function Overseer.update(trader::Trader)
     singleton(trader, PurchasePower).cash = singleton(trader, Cash).cash
-
-    # wait(trader.new_data_event)
-    # reset(trader.new_data_event)
     
     for s in stages(trader)
         update(s, trader)

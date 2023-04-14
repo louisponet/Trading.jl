@@ -12,10 +12,11 @@ There are a set of default systems that facilitate handling trade orders and oth
 These are [`StrategyRunner`](@ref), [`Purchaser`](@ref), [`Seller`](@ref), [`Filler`](@ref), [`SnapShotter`](@ref), [`Timer`](@ref) and [`DayCloser`](@ref).
 
 # Runtime and Control
-After calling [`start`](@ref) on the [`Trader`](@ref), the systems will run in sequence periodically in the `main_task`, performing the tasks that make everything tick.
+After calling [`start`](@ref) on the [`Trader`](@ref), a couple of tasks will start (multithreaded):
 Aside from this `main_task` there are two other tasks:
+- `main_task`:    runs the [Core Systems](@ref) in sequence. This includes [`StrategyRunner`](@ref) which executes the [`Strategies`](@ref Strategy) 
 - `trading_task`: streams in portfolio and order updates
-- `data_task`: streams in updates to the registered tickers and updates their [`TickerLedgers`](@ref TickerLedger)
+- `data_task`:    streams in updates to the registered tickers and updates their [`TickerLedgers`](@ref TickerLedger)
 
 Aside from [`start`](@ref) there are some other functions to control the runtime:
 - [`stop_main`](@ref):     stops the `main_task`

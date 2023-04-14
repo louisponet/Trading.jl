@@ -40,6 +40,11 @@ function interpolate_timearray(tf::TimeArray{T}; timeframe::Period = Minute(1),
     return TimeArray(out_times, hcat(out_vals...), colnames(tf))
 end
 
+"""
+    only_trading(ta::TimeArray)
+
+Filters for data in `ta` during trading sessions. Uses [`in_day`](@ref).
+"""
 only_trading(ta::TimeArray) = ta[findall(x -> in_day(x), timestamp(ta))]
 
 function Base.split(ta::T, f=day) where {T<:TimeArray}

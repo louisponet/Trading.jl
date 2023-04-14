@@ -3,7 +3,7 @@
 [![codecov](https://codecov.io/gh/louisponet/Trading.jl/branch/master/graph/badge.svg?token=86X3QFJL5P)](https://codecov.io/gh/louisponet/Trading.jl)
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://louisponet.github.io/Trading.jl/dev/)
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://louisponet.github.io/Trading.jl/dev/)
-
+[![Package Downloads](https://shields.io/endpoint?url=https://pkgs.genieframework.com/api/v1/badge/Trading)](https://pkgs.genieframework.com?packages=Trading)
 
 This is an algorithmic trading and backtesting package written in Julia. It provides a framework for defining and executing trading strategies based on technical indicators, as well as backtesting these strategies on historical data.
 Behind the scenes it relies on an ECS paradigm as implemented by [Overseer.jl](https://github.com/louisponet/Overseer.jl), making it extremely easy to extend.

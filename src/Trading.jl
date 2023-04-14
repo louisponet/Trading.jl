@@ -81,9 +81,13 @@ end
 
 module Time
 using ..Trading: current_time, market_open_close, in_day, previous_trading_day,
-                 is_market_open, is_market_close
+                 is_market_open, is_market_close, only_trading
 export current_time, market_open_close, in_day, previous_trading_day, is_market_open,
-       is_market_close
+       is_market_close, only_trading
 end
 
+module Analysis
+    using ..Trading: returns, sharpe, downside_risk, value_at_risk, maximum_drawdown 
+    export returns, sharpe, downside_risk, value_at_risk, maximum_drawdown 
+end
 end

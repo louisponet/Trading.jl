@@ -183,7 +183,6 @@ function Base.show(io::IO, ::MIME"text/plain", trader::Trader)
     pretty_table(io, trades; header = header)
 
     println(io)
-    show(io, "text/plain", trader.l)
     return nothing
 end
 
@@ -397,11 +396,28 @@ function returns(t::Trader, period::Function=day)
     return out[findall(out[:relative] .!= 0 .&& out[:absolute] .!= 0)]
 end
 
+"""
+    sharpe(t::Trader, args...; risk_free = 0.0)
+    
+Calculates the Sharpe ratio of a [`Trader`](@ref).
+The Sharpe ratio is a measure of risk-adjusted return, and is defined as the average excess return earned over the risk-free
+rate per unit of volatility or total risk (i.e. the standard deviation of the returns).
+
+`risk_free`: the risk-free rate to use as a baseline for the Sharpe ratio calculation.
+             The risk-free rate represents the return an investor can earn from a risk-free investment, such as a Treasury bill.
+             The default value is 0.0, representing a risk-free rate of 0%.
+"""
 function sharpe(t::Trader, args...; risk_free = 0.0)
     relrets = returns(t, args...)[:relative]
     return values(mean(relrets .- risk_free)./std(relrets))[1]
 end
 
+"""
+    downside_risk(t::Trader, args...; required_return=0.0)
+    
+Calculates the downside risk of a [`Trader`](@ref). Downside risk is a measure of the potential loss of an investment,
+and is defined as the standard deviation of returns below a certain threshold: `required_return`.
+"""
 function downside_risk(t::Trader, args...; required_return=0.0)
     adjusted_returns = returns(t, args...)[:relative].-required_return
     map(adjusted_returns) do t, x
@@ -409,12 +425,28 @@ function downside_risk(t::Trader, args...; required_return=0.0)
     end
     return values(sqrt.(mean(adjusted_returns.^2)))[1]
 end
-    
+
+"""
+    value_at_risk(t::Trader, args...; cutoff = 0.05)
+
+Calculates the value at risk (VaR) of a [`Trader`](@ref).
+Value at risk is a measure of the potential loss of an investment over a certain time horizon,
+and is defined as the maximum loss expected at a given confidence level.
+
+`cutoff`: the confidence level at which to calculate value at risk. The confidence level represents
+          the probability of the maximum loss being less than or equal to the value at risk.
+          The default value is 0.05, representing a 5% confidence level.
+"""    
 function value_at_risk(t::Trader, args...; cutoff = 0.05)
     rets = returns(t)[:relative]
     quantile(values(rets), cutoff)
 end
 
+"""
+Calculates the maximum drawdown of a [`Trader`](@ref) object.
+Maximum drawdown is a measure of the largest loss experienced by an investment over a certain time period,
+and is defined as the peak-to-trough decline in portfolio value.
+"""
 function maximum_drawdown(t::Trader)
     portfolio = t[PortfolioSnapshot]
     

@@ -7,6 +7,15 @@ CurrentModule=Trading
 Trading.Trader
 Trading.BackTester
 ```
+# Performance Analysis
+
+```@docs
+Trading.sharpe
+Trading.downside_risk
+Trading.value_at_risk
+Trading.maximum_drawdown
+```
+
 # Core Systems
 ```@docs
 Trading.StrategyRunner

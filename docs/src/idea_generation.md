@@ -2,11 +2,12 @@
 
 Another, perhaps more standard, way to try and come up with new strategies before implementing them as a system is to manipulate data in `TimeArrays`.
 Due to the way that the [`BackTester`](@ref) tries to mimic a true trading situation, it sacrifices a bit of outright speed. This may be fine in most cases,
-but for true big data it is often faster to work with a `TimeArray`. Most of this functionality is straight `reexported` from the brilliant [TimeSeries](https://juliastats.org/TimeSeries.jl/latest/) and [MarketTechnicals](https://juliaquant.github.io/MarketTechnicals.jl/dev/) packages.
+but for true big data it is often faster to work with a `TimeArray`. Most of this functionality is present in the brilliant [TimeSeries](https://juliastats.org/TimeSeries.jl/latest/) and [MarketTechnicals](https://juliaquant.github.io/MarketTechnicals.jl/dev/) packages.
 
 We here discuss the [slow fast](@ref slow_fast_id) again from this point of view.
 
 ## Slow Fast with TimeArrays
+As usual, we define a [`Broker`](@ref Brokers), and proceed with acquiring the historical data with [`bars`](@ref).
 ```@example timearray_strategy
 using Trading#hide
 using Plots#hide
@@ -19,9 +20,6 @@ stop_day  = DateTime("2020-01-01T00:00:00")
 full_bars = bars(broker, "AAPL", start_day, stop_day, timeframe=Day(1))
 df        = rename(merge(full_bars[:c], full_bars[:o]), [:AAPL_Close, :AAPL_Open])
 ```
-
-As usual, we define a [`Broker`](@ref Brokers), and proceed with acquiring the historical data with [`bars`](@ref).
-
 Next, we calculate the two moving averages that we will use in our strategy:
 ```@example timearray_strategy
 sma_ta = merge(sma(df, 20), sma(df, 120))
@@ -43,6 +41,7 @@ diffs = map(diffs) do timestamp, vals
     end
     return timestamp, vals
 end
+diffs[diffs[:signal] .!= 0]
 ```
 Then we fill in our positions and cash balance, and calculate the total position value:
 ```@example timearray_strategy

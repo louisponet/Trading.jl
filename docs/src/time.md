@@ -17,6 +17,7 @@ in_day
 previous_trading_day
 is_market_open
 is_market_close
+only_trading
 ```
 
 ## Clock

@@ -103,12 +103,11 @@ function Overseer.update(::Filler, l::AbstractLedger)
     for e in @entities_in(l, Order && !Filled)
         if e.status == "filled"
             l[e] = Filled(e.filled_avg_price, e.filled_qty)
+            ticker = e.ticker
 
-            if e in l[Purchase]
-                ticker = l[Purchase][e].ticker
+            if e.side == "buy"
                 quantity_filled = e.filled_qty
             else
-                ticker = l[Sale][e].ticker
                 quantity_filled = -e.filled_qty
             end
 

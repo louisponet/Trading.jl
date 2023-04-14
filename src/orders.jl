@@ -22,7 +22,7 @@ function failed_order(broker, order, exc)
     t = current_time(broker)
     b = IOBuffer()
     showerror(b, exc)
-    return Order(order.ticker, uuid1(), uuid1(), t, t, t, nothing, nothing, nothing, t, 0.0,
+    return Order(order.ticker, "", uuid1(), uuid1(), t, t, t, nothing, nothing, nothing, t, 0.0,
                  0.0, "failed\n$(String(take!(b)))", order.quantity, 0.0)
 end
 
@@ -54,6 +54,7 @@ end
 
 function parse_order(::AlpacaBroker, parse_body)
     return Order(parse_body[:symbol],
+                 parse_body[:side],
                  UUID(parse_body[:id]),
                  UUID(parse_body[:client_order_id]),
                  parse_body[:created_at] !== nothing ? parse_time(parse_body[:created_at]) :
@@ -108,7 +109,7 @@ function submit_order(broker::AlpacaBroker, order)
                 m = match(r"available: (\d+)\)", msg[:message])
                 
                 if m !== nothing
-                    order.quantity = parse(Int, m.captures[1])
+                    order.quantity = parse(Float64, m.captures[1])
                     return submit_order(broker, order)
                 end
                 
@@ -130,6 +131,7 @@ function submit_order(broker::HistoricalBroker, order::T) where {T}
               broker.fixed_transaction_fee
         fee = min(fee, max_fee)
         return Order(order.ticker,
+                     "",
                      uuid1(),
                      uuid1(),
                      current_time(broker),

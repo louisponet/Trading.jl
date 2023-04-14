@@ -106,6 +106,7 @@ taken by the [`Filler`](@ref) `System` to create a [`Filled`](@ref) component.
 """
 @component Base.@kwdef mutable struct Order
     ticker           :: String
+    side             :: String
     id               :: UUID
     client_order_id  :: UUID
     created_at       :: Union{TimeDate,Nothing}

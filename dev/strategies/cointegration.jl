@@ -67,32 +67,30 @@ end
 
 function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
     curt = current_time(m)
-    
-    ## We clear all data from the previous day at market open
     if Trading.is_market_open(curt)
         reset!(ticker_ledgers[end], s)
     end
+    
+    !in_day(curt) && return
 
     cash = m[Trading.PurchasePower][1].cash
-    new_pos = false
-    pending_order = any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
-
-    pending_order || !Trading.in_day(curt) && return
+    new_pos = any(x -> x ∉ m[Trading.Order], @entities_in(m, Purchase || Sale))
     
-    z_comp = ticker_ledgers[end][ZScore{Spread}]
-
     ticker1 = ticker_ledgers[1].ticker
     ticker2 = ticker_ledgers[2].ticker
     
-    γ = s.γ[Trading.dayofweek(curt)]
-    
+    γ = s.γ[dayofweek(curt)]
+    z_comp = ticker_ledgers[end][ZScore{Spread}]
+     
     for e in new_entities(ticker_ledgers[end], s)
 
         v         = e.v
         sma       = e.sma
         σ         = e.σ 
         z_score   = (v - sma) / σ
-        z_comp[e] = ZScore{Spread}(z_score)
+        ticker_ledgers[end][e] = ZScore{Spread}(z_score)
+        new_pos && continue
+
         
         curpos1 = current_position(m, ticker1)
         curpos2 = current_position(m, ticker2)
@@ -101,12 +99,10 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
         p2 = current_price(m, ticker2)
 
         quantity2(n1) = round(Int, n1 * p1 * γ / p2)
-        
+
         in_bought_leg = curpos1 > 0
         in_sold_leg = curpos1 < 0
-
-        new_pos && continue
-            
+        
         if z_score < -s.z_thr&& (in_sold_leg || curpos1 == 0)
             new_pos = true
             if in_sold_leg
@@ -114,7 +110,7 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
             else
                 q = cash/p1
             end
-            Entity(m, Purchase(ticker1, q))
+            Entity(m, Purchase(ticker1, round(Int, q)))
             Entity(m, Sale(ticker2, quantity2(q)))
                 
 
@@ -126,18 +122,16 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
                 q = cash / p1
             end
             Entity(m, Purchase(ticker2, quantity2(q)))
-            Entity(m, Sale(ticker1, q))
+            Entity(m, Sale(ticker1, round(Int, q)))
         end
-
+        
         prev_e = prev(e, 1)
         prev_e === nothing && continue
         
-        if new_pos
+        if new_pos || prev_e ∉ z_comp
             continue
         end
-
         going_up = z_score - z_comp[prev_e].v > 0
-
         if z_score > 0 && in_bought_leg && !going_up
             Entity(m, Sale(ticker1, curpos1))
             Entity(m, Purchase(ticker2, -curpos2))
@@ -149,6 +143,7 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
         end
     end
 end
+
 
 # As usual we then specify our broker for the backtest.
 # We here show an advanced feature that allows one to specify transaction fees
@@ -170,8 +165,130 @@ trader = BackTester(broker; strategies=[Strategy(:pair, stratsys, tickers=["MSFT
 
 start(trader)
 
-# We then can analyse our portfolio value
+# We then can analyse our portfolio value. Here we use [`Trading.only_trading`](@ref) to only show the data during trading days.
 using Plots
-plot(TimeArray(trader)[:portfolio_value])
+plot(only_trading(TimeArray(trader)[:portfolio_value]))
 
 # Again we see that this strategy does not particularly work.
+
+# ## Invert  
+# The interesting part is that our strategy is not just bad, it's **consistently bad**. This means that again,
+# we can invert it and theoretically get a **consistently good** strategy (big grains of salt here).
+# This can be achieved by inserting one line in the above `PairStrat`: `ticker1, ticker2 = ticker2, ticker1`.
+
+function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
+    curt = current_time(m)
+    if Trading.is_market_open(curt)
+        reset!(ticker_ledgers[end], s)
+    end
+    
+    !in_day(curt) && return
+
+    cash = m[Trading.PurchasePower][1].cash
+    new_pos = any(x -> x ∉ m[Trading.Order], @entities_in(m, Purchase || Sale))
+    
+    ticker1 = ticker_ledgers[1].ticker
+    ticker2 = ticker_ledgers[2].ticker
+    
+    γ = s.γ[dayofweek(curt)]
+    z_comp = ticker_ledgers[end][ZScore{Spread}]
+     
+    for e in new_entities(ticker_ledgers[end], s)
+
+        v         = e.v
+        sma       = e.sma
+        σ         = e.σ 
+        z_score   = (v - sma) / σ
+        ticker_ledgers[end][e] = ZScore{Spread}(z_score)
+        new_pos && continue
+
+        ticker1, ticker2 = ticker2, ticker1
+        
+        curpos1 = current_position(m, ticker1)
+        curpos2 = current_position(m, ticker2)
+
+        p1 = current_price(m, ticker1)
+        p2 = current_price(m, ticker2)
+
+        quantity2(n1) = round(Int, n1 * p1 * γ / p2)
+
+        in_bought_leg = curpos1 > 0
+        in_sold_leg = curpos1 < 0
+        
+        if z_score < -s.z_thr&& (in_sold_leg || curpos1 == 0)
+            new_pos = true
+            if in_sold_leg
+                q = -2*curpos1
+            else
+                q = cash/p1
+            end
+            Entity(m, Purchase(ticker1, round(Int, q)))
+            Entity(m, Sale(ticker2, quantity2(q)))
+                
+
+        elseif z_score > s.z_thr && (in_bought_leg || curpos1 == 0)
+            new_pos = true
+            if in_bought_leg 
+                q = 2*curpos1
+            else
+                q = cash / p1
+            end
+            Entity(m, Purchase(ticker2, quantity2(q)))
+            Entity(m, Sale(ticker1, round(Int, q)))
+        end
+        
+        prev_e = prev(e, 1)
+        prev_e === nothing && continue
+        
+        if new_pos || prev_e ∉ z_comp
+            continue
+        end
+        going_up = z_score - z_comp[prev_e].v > 0
+        if z_score > 0 && in_bought_leg && !going_up
+            Entity(m, Sale(ticker1, curpos1))
+            Entity(m, Purchase(ticker2, -curpos2))
+            new_pos = true
+        elseif z_score < 0 && in_sold_leg && going_up
+            Entity(m, Purchase(ticker1, -curpos1))
+            Entity(m, Sale(ticker2, curpos2))
+            new_pos = true
+        end
+    end
+end
+
+# We reset the trader, and check our results:
+reset!(trader)
+start(trader)
+
+ta = only_trading(TimeArray(trader))
+
+plot([ta[:MSFT_Close] ta[:AAPL_Close] ta[:portfolio_value]])
+
+# Behold, a seemingly succesful strategy. We can even apply some penalties using the fees simulation
+# available by setting some fields in the [`HistoricalBroker`](@ref). We will put a transaction fee per share of 0.5 cent.
+
+trader.broker.variable_transaction_fee = 0.0
+trader.broker.fee_per_share = 0.005
+trader.broker.fixed_transaction_fee = 0.0
+
+reset!(trader)
+start(trader)
+
+ta = only_trading(TimeArray(trader))
+
+plot([ta[:MSFT_Close] ta[:AAPL_Close] ta[:portfolio_value]])
+
+# Not bad!
+
+## Performance analysis
+
+# See [Performance Analysis]
+using Trading.Analysis
+
+println("""
+sharpe:           $(sharpe(trader))
+downside_risk:    $(downside_risk(trader))
+value_at_risk:    $(value_at_risk(trader))
+maximum_drawdown: $(maximum_drawdown(trader))
+"""
+);

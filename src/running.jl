@@ -130,8 +130,8 @@ function start_main(trader::Trader; sleep_time = 1, kwargs...)
                     rethrow()
                 end
             end
-            to_sleep = clamp(time() - curt, 0, sleep_time)
             if !(trader.broker isa HistoricalBroker)
+                to_sleep = clamp(time() - curt, 0, sleep_time)
                 sleep(to_sleep)
             end
         end

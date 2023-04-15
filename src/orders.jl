@@ -122,7 +122,10 @@ function submit_order(broker::AlpacaBroker, order)
     end
 end
 
-function submit_order(broker::HistoricalBroker, order::T) where {T}
+order_side(order::EntityState{Tuple{Component{Purchase}}}) = "buy"
+order_side(order::EntityState{Tuple{Component{Sale}}})     = "sell"
+
+function submit_order(broker::HistoricalBroker, order)
     try
         p = price(broker, broker.clock.time + broker.clock.dtime, order.ticker)
         max_fee = 0.005 * abs(order.quantity) * p
@@ -130,10 +133,8 @@ function submit_order(broker::HistoricalBroker, order::T) where {T}
               (p * broker.variable_transaction_fee + broker.fee_per_share) +
               broker.fixed_transaction_fee
         fee = min(fee, max_fee)
-
-        side = T == Purchase ? "buy" : "sell"
         return Order(order.ticker,
-                     side,
+                     order_side(order),
                      uuid1(),
                      uuid1(),
                      current_time(broker),
@@ -148,8 +149,8 @@ function submit_order(broker::HistoricalBroker, order::T) where {T}
                      "filled",
                      order.quantity,
                      fee)
-    catch
-        return failed_order(broker, order)
+    catch e
+        return failed_order(broker, order, e)
     end
 end
 

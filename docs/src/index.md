@@ -2,7 +2,7 @@
 ```@meta
 CurrentModule = Trading
 ```
-Welcome to Trading.jl, a powerful algorithmic trading and backtesting package written in Julia.
+Welcome to Trading.jl, a powerful event-driven algorithmic trading and backtesting package written in Julia.
 
 It provides an easy-to-use framework for defining and executing trading strategies based on technical indicators, as well as backtesting these strategies on historical data.
 

@@ -3,18 +3,23 @@
 CurrentModule = Trading
 ```
 
-As with any other functionality in `Trading`, `Strategies` are represented by `Systems` and thus are treated on completely equal footing with the core functionality.
-There are three main parts that need to be implemented for a `Strategy` to be used: the `Systems`, the `Overseer.update` functions, and the `Overseer.requested_components` function.
-This latter one will be used to determine which [`Indicator`](@ref Indicators) systems need to be running on the [`TickerLedgers`](@ref TickerLedger) in order to produce
-the [`Indicators`](@ref Indicators) that are used by the `Strategy`.
-The `update` function of a `Strategy` `System` is ran periodically after the `update` functions for the other `Systems` that make the rest of the [`Trader`](@ref) tick.
+```@docs
+Strategy
+```
+There are three main parts that need to be implemented for a [`Strategy`](@ref) to be used:
+- a `System`
+- the `Overseer.update` function
+- the `Overseer.requested_components` function
+
+This latter one will be used to determine which [`Indicator`](@ref Indicators) systems need to be executed on the data inside each [`TickerLedger`](@ref) in order to produce
+the [`Indicators`](@ref Indicators) that are used by the [`Strategy`](@ref).
 
 ## Strategy Definition
 As an example we will implement a very simple slow/fast moving average strategy, i.e. `SlowFast`.
 The goal is that we can later use it in our [`Trader`](@ref) in to following way:
 
 ```julia
-trader = Trader(broker; strategies = [Strategy(:slowfast, [SlowFast()], tickers=["stock1", "stock2"])])
+trader = Trader(broker; strategies = [Strategy(:slowfast, [SlowFast()], tickers=["stock1"])])
 ```
 
 We begin by defining the `SlowFast` `System` and the components that it requests to be present in [`TickerLedgers`](@ref TickerLedger).
@@ -146,6 +151,5 @@ See [`Slow Fast Strategy`](@ref slow_fast_id) for a full runnable version of thi
 ## References
 ```@docs
 Trading.relative
-Trading.Strategy
 NewEntitiesIterator
 ```

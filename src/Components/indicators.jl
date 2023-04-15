@@ -1,7 +1,7 @@
 """
     MovingStdDev{horizon, T}
 
-The moving standard deviation of a value over timeframe of `horizon`.
+The moving standard deviation of a value over a sliding window of `horizon`.
 """
 @component struct MovingStdDev{horizon,T}
     σ::T
@@ -12,7 +12,7 @@ Base.eltype(::Type{MovingStdDev{x,T}}) where {x,T} = T
 """
     SMA{horizon, T}
 
-The simple moving average of a value over a timeframe of `horizon`.
+The simple moving average of a value over a sliding window of `horizon`.
 """
 @component struct SMA{horizon,T}
     sma::T
@@ -23,7 +23,7 @@ Base.eltype(::Type{SMA{x,T}}) where {x,T} = T
 """
     EMA{horizon, T}
 
-The exponential moving average of a value over timeframe of `horizon`.
+The exponential moving average of a value over a sliding window of `horizon`.
 """
 @component struct EMA{horizon,T}
     ema::T
@@ -34,7 +34,7 @@ Base.eltype(::Type{EMA{x,T}}) where {x,T} = T
 """
     Bollinger{horizon, T}
 
-The up and down Bollinger bands for a value, over a timeframe of `horizon`.
+The up and down Bollinger bands for a value, over a sliding window of `horizon`.
 """
 @component struct Bollinger{horizon,T}
     up::T

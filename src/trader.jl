@@ -398,7 +398,7 @@ function returns(t::Trader, period::Function=day)
 end
 
 """
-    sharpe(t::Trader, args...; risk_free = 0.0)
+    sharpe(t::Trader, period::Function=day; risk_free = 0.0)
     
 Calculates the Sharpe ratio of a [`Trader`](@ref).
 The Sharpe ratio is a measure of risk-adjusted return, and is defined as the average excess return earned over the risk-free
@@ -414,7 +414,7 @@ function sharpe(t::Trader, args...; risk_free = 0.0)
 end
 
 """
-    downside_risk(t::Trader, args...; required_return=0.0)
+    downside_risk(t::Trader, period::Function=day; required_return=0.0)
     
 Calculates the downside risk of a [`Trader`](@ref). Downside risk is a measure of the potential loss of an investment,
 and is defined as the standard deviation of returns below a certain threshold: `required_return`.
@@ -428,7 +428,7 @@ function downside_risk(t::Trader, args...; required_return=0.0)
 end
 
 """
-    value_at_risk(t::Trader, args...; cutoff = 0.05)
+    value_at_risk(t::Trader, period::Function=day; cutoff = 0.05)
 
 Calculates the value at risk (VaR) of a [`Trader`](@ref).
 Value at risk is a measure of the potential loss of an investment over a certain time horizon,
@@ -439,7 +439,7 @@ and is defined as the maximum loss expected at a given confidence level.
           The default value is 0.05, representing a 5% confidence level.
 """    
 function value_at_risk(t::Trader, args...; cutoff = 0.05)
-    rets = returns(t)[:relative]
+    rets = returns(t, args...)[:relative]
     quantile(values(rets), cutoff)
 end
 

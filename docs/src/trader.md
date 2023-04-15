@@ -37,5 +37,5 @@ Trading.stop
 Trading.stop_data
 Trading.stop_main
 Trading.stop_trading
-Trading.reset!
+Trading.reset!(::Trader)
 ```

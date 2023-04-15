@@ -142,6 +142,7 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
         if new_pos || prev_e ∉ z_comp
             continue
         end
+
         going_up = z_score - z_comp[prev_e].v > 0
         if z_score > 0 && in_bought_leg && !going_up
             Entity(m, Sale(ticker1, curpos1))
@@ -176,9 +177,11 @@ Next we specify the daily cointegration parameters that were fit to 2022 data, a
 γ = (0.83971041721211, 0.7802162996942561, 0.8150936011572303, 0.8665354500999517, 0.8253480013737815)
 
 stratsys = [SpreadCalculator(γ), PairStrat{20}(γ, 2.5)]
+sim_start =TimeDate("2023-01-01T00:00:00")
+sim_stop = TimeDate("2023-03-31T23:59:59")
 trader = BackTester(broker; strategies=[Strategy(:pair, stratsys, tickers=["MSFT", "AAPL"])],
-                            start=TimeDate("2023-03-01T00:00:00"),
-                            stop=TimeDate("2023-03-31T23:59:59"))
+                            start=sim_start,
+                            stop=sim_stop)
 
 start(trader)
 ````
@@ -279,40 +282,24 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
 end
 ````
 
-We reset the trader, and check our results:
+We reset the trader, and check our results (see [`Trading.relative`](@ref)):
 
 ````@example cointegration
 reset!(trader)
 start(trader)
 
-ta = only_trading(TimeArray(trader))
+ta = Trading.relative(only_trading(TimeArray(trader)))
+to_plot = merge(ta[:portfolio_value], Trading.relative(rename(bars(broker, "MSFT", sim_start, sim_stop, timeframe=Minute(1))[:c], :MSFT_Close)),
+                    Trading.relative(rename(bars(broker, "AAPL", sim_start, sim_stop, timeframe=Minute(1))[:c], :AAPL_Close)))
 
-plot([ta[:MSFT_Close] ta[:AAPL_Close] ta[:portfolio_value]])
+plot(to_plot)
 ````
 
-Behold, a seemingly succesful strategy. We can even apply some penalties using the fees simulation
-available by setting some fields in the [`HistoricalBroker`](@ref). We will put a transaction fee per share of 0.5 cent.
+Behold, a seemingly succesful strategy.
 
-````@example cointegration
-trader.broker.variable_transaction_fee = 0.0
-trader.broker.fee_per_share = 0.005
-trader.broker.fixed_transaction_fee = 0.0
+## Performance analysis
 
-reset!(trader)
-start(trader)
-
-ta = only_trading(TimeArray(trader))
-
-plot([ta[:MSFT_Close] ta[:AAPL_Close] ta[:portfolio_value]])
-````
-
-Not bad!
-
-````@example cointegration
-# Performance analysis
-````
-
-See [Performance Analysis]
+See [Performance Analysis](@ref)
 
 ````@example cointegration
 using Trading.Analysis

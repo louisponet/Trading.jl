@@ -111,7 +111,7 @@ Starts the `trader.main_task`. This periodically executes the core systems of th
 """
 function start_main(trader::Trader; sleep_time = 1, kwargs...)
     return trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
-        while true
+        while !trader.stop_main
             curt = time()
             if istaskdone(trader.trading_task)
                 start_trading(trader; kwargs...)
@@ -149,7 +149,7 @@ function start_trading(trader::Trader)
     return trader.trading_task = Threads.@spawn @stoppable trader.stop_trading order_stream(broker) do stream
         trader.is_trading = true
         
-        while true
+        while !trader.stop_trading
             
             if isclosed(stream)
                 @info "Trading stream closed, restarting"

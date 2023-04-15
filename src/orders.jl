@@ -91,6 +91,11 @@ function receive_order(broker::HistoricalBroker, args...)
     return nothing
 end
 
+"""
+    submit_order(broker, order::Union{Purchase,Sale})
+
+Submits the `order` to a `broker` for execution.
+"""
 function submit_order(broker::AlpacaBroker, order)
     uri = order_url(broker)
     h   = header(broker)

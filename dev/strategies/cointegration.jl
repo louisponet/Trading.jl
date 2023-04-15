@@ -256,11 +256,11 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
     end
 end
 
-# We reset the trader, and check our results:
+# We reset the trader, and check our results (see [`Trading.relative`](@ref)):
 reset!(trader)
 start(trader)
 
-ta = only_trading(TimeArray(trader))
+ta = Trading.relative(only_trading(TimeArray(trader)))
 
 plot([ta[:MSFT_Close] ta[:AAPL_Close] ta[:portfolio_value]])
 
@@ -274,15 +274,15 @@ trader.broker.fixed_transaction_fee = 0.0
 reset!(trader)
 start(trader)
 
-ta = only_trading(TimeArray(trader))
+ta = Trading.relative(only_trading(TimeArray(trader)))
 
 plot([ta[:MSFT_Close] ta[:AAPL_Close] ta[:portfolio_value]])
 
 # Not bad!
 
-## Performance analysis
+# ## Performance analysis
 
-# See [Performance Analysis]
+# See [Performance Analysis](@ref)
 using Trading.Analysis
 
 println("""

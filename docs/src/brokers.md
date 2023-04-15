@@ -9,7 +9,7 @@ The current brokers are:
 - [`HistoricalBroker`](@ref): wraps another broker to supply historical data when [`BackTesting`](@ref BackTester)
 
 ## Data
-### [Historical](@ref historical_data)
+### [Historical](@id historical_data)
 A slew of historical data can be requested through a broker e.g
 ```@example
 using Trading#hide

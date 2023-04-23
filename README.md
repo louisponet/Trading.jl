@@ -2,7 +2,7 @@
 [![Build Status](https://github.com/louisponet/Trading.jl/workflows/CI/badge.svg)](https://github.com/louisponet/Trading.jl/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/louisponet/Trading.jl/branch/master/graph/badge.svg?token=86X3QFJL5P)](https://codecov.io/gh/louisponet/Trading.jl)
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://louisponet.github.io/Trading.jl/dev/)
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://louisponet.github.io/Trading.jl/dev/)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://louisponet.github.io/Trading.jl/stable/)
 [![Package Downloads](https://shields.io/endpoint?url=https://pkgs.genieframework.com/api/v1/badge/Trading)](https://pkgs.genieframework.com?packages=Trading)
 
 This is an algorithmic trading and backtesting package written in Julia. It provides a framework for defining and executing trading strategies based on technical indicators, as well as backtesting these strategies on historical data.

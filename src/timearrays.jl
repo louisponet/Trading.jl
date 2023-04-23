@@ -121,7 +121,7 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols = keys(components(l)))
 
         comp = l[T]
         isempty(comp) && continue
-        eltype(T) <: Union{UpDown, Bollinger} && continue
+        eltype(T) <: Union{UpDown, Bollinger, Order} && continue
         
         try
             t = TimeArray(l[T], tcomp)

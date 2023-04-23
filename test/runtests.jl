@@ -133,11 +133,11 @@ end
     ta = TimeArray(trader)
     close = dropnan(ta[:stock1_Close])
 
-    @test TimeSeries.values(all(isapprox.(dropnan(ta[Symbol("stock1_RSI{14, Close}")]),
+    @test TimeSeries.values(all(isapprox.(dropnan(ta[Symbol("stock1_RSI_14_Close")]),
                                           rsi(close), atol = 1e-10)))[1]
 
-    bollinger_up = dropnan(ta[Symbol("stock1_Bollinger{20, Close}_up")])
-    bollinger_down = dropnan(ta[Symbol("stock1_Bollinger{20, Close}_down")])
+    bollinger_up = dropnan(ta[Symbol("stock1_Bollinger_20_up_Close")])
+    bollinger_down = dropnan(ta[Symbol("stock1_Bollinger_20_down_Close")])
 
     bollinger_ta = bollingerbands(close)
     bollinger_ta_up = bollinger_ta[:up]
@@ -198,8 +198,8 @@ if haskey(ENV, "ALPACA_KEY_ID")
 
         @test :AAPL_position ∈ colnames(ta)
         @test :MSFT_position ∈ colnames(ta)
-        @test Symbol("AAPL_SMA{50, Close}") ∈ colnames(ta)
-        @test Symbol("MSFT_SMA{50, Close}") ∈ colnames(ta)
+        @test Symbol("AAPL_SMA_50_Close") ∈ colnames(ta)
+        @test Symbol("MSFT_SMA_50_Close") ∈ colnames(ta)
         @test :portfolio_value ∈ colnames(ta)
         @test values(ta[:portfolio_value][end])[1] == trader[PortfolioSnapshot][end].value
 

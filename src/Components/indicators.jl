@@ -8,6 +8,7 @@ The moving standard deviation of a value over a sliding window of `horizon`.
 end
 value(m::MovingStdDev) = value(m.σ)
 Base.eltype(::Type{MovingStdDev{x,T}}) where {x,T} = T
+prefixes(::Type{<:MovingStdDev{horizon}}) where {horizon} = ("MovingStdDev_$(horizon)",)
 
 """
     SMA{horizon, T}
@@ -19,6 +20,7 @@ The simple moving average of a value over a sliding window of `horizon`.
 end
 value(sma::SMA) = value(sma.sma)
 Base.eltype(::Type{SMA{x,T}}) where {x,T} = T
+prefixes(::Type{<:SMA{horizon}}) where {horizon} = ("SMA_$(horizon)",)
 
 """
     EMA{horizon, T}
@@ -30,6 +32,7 @@ The exponential moving average of a value over a sliding window of `horizon`.
 end
 value(ema::EMA) = value(ema.ema)
 Base.eltype(::Type{EMA{x,T}}) where {x,T} = T
+prefixes(::Type{<:EMA{horizon}}) where {horizon} = ("EMA_$(horizon)",)
 
 """
     Bollinger{horizon, T}
@@ -42,6 +45,7 @@ The up and down Bollinger bands for a value, over a sliding window of `horizon`.
 end
 value(b::Bollinger) = (value(b.up), value(b.down))
 Base.eltype(::Type{Bollinger{x,T}}) where {x,T} = T
+prefixes(::Type{<:Bollinger{horizon}}) where {horizon} = ("Bollinger_$(horizon)_up","Bollinger_$(horizon)_down") 
 
 for diff_T in (:Difference, :RelativeDifference)
     @eval begin
@@ -49,11 +53,12 @@ for diff_T in (:Difference, :RelativeDifference)
             v::T
         end
         value(d::$diff_T) = value(d.v)
-
         Base.zero(d::$diff_T) = $diff_T(zero(value(d)))
     end
 end
 
+prefixes(::Type{<:Difference}) = ("Difference",) 
+prefixes(::Type{<:RelativeDifference}) = ("RelativeDifference",) 
 """
     Difference
 
@@ -74,6 +79,7 @@ RelativeDifference
 end
 Base.zero(d::UpDown) = UpDown(zero(d.up), zero(d.down))
 Base.eltype(::Type{UpDown{T}}) where {T} = T
+prefixes(::Type{UpDown}) = ("UpDown_up", "UpDown_down")
 
 for op in (:+, :-, :*)
     @eval @inline function Base.$op(b1::UpDown, b2::UpDown)
@@ -109,6 +115,7 @@ The relative strength index of a value over timeframe of `horizon`.
 end
 value(rsi::RSI) = value(rsi.rsi)
 Base.eltype(::Type{RSI{horizon,T}}) where {horizon,T} = T
+prefixes(::Type{<:RSI{horizon}}) where {horizon} = ("RSI_$(horizon)",)
 
 """
     Sharpe{horizon, T}
@@ -119,3 +126,16 @@ The sharpe ratio of a value over a timeframe `horizon`.
     sharpe::T
 end
 Base.eltype(::Type{Sharpe{horizon,T}}) where {horizon,T} = T
+prefixes(::Type{<:Sharpe{horizon}}) where {horizon} = ("Sharpe_$(horizon)",)
+
+function TimeSeries.colnames(::Type{T}) where {T<:Union{Difference, RelativeDifference, LogVal, MovingStdDev, SMA, EMA, RSI, Sharpe, Bollinger, UpDown}}
+    cnames = colnames(eltype(T))
+    out = String[]
+    for c in cnames
+        for prefix in prefixes(T)
+            push!(out, replace("$(prefix)_$c", "Trading." => ""))
+        end
+    end
+    return out
+end
+

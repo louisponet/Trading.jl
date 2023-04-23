@@ -171,15 +171,19 @@ function Base.show(io::IO, ::MIME"text/plain", trader::Trader)
     println(io, "Trades:")
 
     header = ["Time", "Ticker", "Side", "Quantity", "Avg Price", "Tot Price"]
-    trades = Matrix{Any}(undef, length(trader[Filled]), length(header))
+    
+    ntrades = length(trader[Filled])
 
+    trades = Matrix{Any}(undef, ntrades, length(header))
+    
     for (i, e) in enumerate(@entities_in(trader, TimeStamp && Filled && Order))
-        trades[i, 1] = e.filled_at
-        trades[i, 2] = e.ticker
-        trades[i, 3] = e in trader[Purchase] ? "buy" : "sell"
-        trades[i, 4] = e.quantity
-        trades[i, 5] = e.avg_price
-        trades[i, 6] = e.avg_price * e.quantity
+        id = ntrades - i + 1 # to reverse
+        trades[id, 1] = e.filled_at
+        trades[id, 2] = e.ticker
+        trades[id, 3] = e in trader[Purchase] ? "buy" : "sell"
+        trades[id, 4] = e.quantity
+        trades[id, 5] = e.avg_price
+        trades[id, 6] = e.avg_price * e.quantity
     end
     pretty_table(io, trades; header = header)
 

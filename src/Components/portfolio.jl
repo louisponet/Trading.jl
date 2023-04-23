@@ -123,6 +123,8 @@ taken by the [`Filler`](@ref) `System` to create a [`Filled`](@ref) component.
     requested_quantity::Float64
     fee::Float64
 end
+value(o::Order) = (o.ticker, o.side, o.created_at, o.filled_at, o.canceled_at, o.failed_at, o.filled_qty, o.filled_avg_price)
+TimeSeries.colnames(::Type{Order}) = ["ticker", "side", "created_at", "filled_at", "canceled_at", "failed_at","filled_qty", "filled_avg_price"]
 
 """
 Represents the filled `avg_price` and `quantity` of an [`Order`](@ref).
@@ -187,5 +189,6 @@ end
 @inline Base.:(<=)(i::Number, b::PortfolioSnapshot) = i <= b.value
 @inline Base.:(<=)(b::PortfolioSnapshot, i::Number) = b.value <= i
 value(p::PortfolioSnapshot) = p.value
+TimeSeries.colnames(::Type{PortfolioSnapshot}) = ["PortfolioSnapshot_value"]
 
 @assign PortfolioSnapshot with Is{Indicator}

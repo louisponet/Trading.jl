@@ -85,6 +85,7 @@ The logarithm of a value.
 @component struct LogVal{T} <: SingleValIndicator{T}
     v::T
 end
+prefixes(::Type{<:LogVal}) = ("LogVal",)
 
 for op in (:+, :-, :*, :/, :^)
     @eval @inline Base.$op(b1::T, b2::T) where {T<:SingleValIndicator}      = T(eltype(T)($op(value(b1), value(b2))))
@@ -108,6 +109,9 @@ Base.zero(::T) where {T<:SingleValIndicator} = T(0.0)
 Returns the number that is stored in the [`SingleValIndicator`](@ref). This is by default the `v` field.
 """
 @inline value(b::SingleValIndicator) = value(b.v)
+
+TimeSeries.colnames(::Type{T}) where {T <: SingleValIndicator} = [String(replace("$(T)", "Trading." => ""))]
+
 @inline value(b::Number) = b
 @inline function Base.convert(::Type{T}, b::SingleValIndicator) where {T<:Number}
     return convert(T, value(b))

@@ -95,27 +95,15 @@ function TimeSeries.TimeArray(c::AbstractComponent{PortfolioSnapshot}, tcomp)
     return out
 end
 
-function TimeSeries.TimeArray(c::AbstractComponent{T},
-                              tcomp) where {T<:Union{UpDown,Bollinger}}
-    es_to_store = filter(e -> e in tcomp, @entities_in(c))
-    
-    up      = map(x -> value(x[T])[1], es_to_store)
-    down    = map(x -> value(x[T])[2], es_to_store)
-    tstamps = map(x -> tcomp[x].t, es_to_store)
-    
-    return TimeArray(tstamps, hcat(up, down),
-                     [Symbol(replace("$(T)_up", "Trading." => "")),
-                      Symbol(replace("$(T)_down", "Trading." => ""))])
-end
-
 function TimeSeries.TimeArray(c::AbstractComponent{T}, tcomp) where {T}
     es_to_store = filter(e -> e in tcomp, @entities_in(c))
     
     tstamps = map(x -> DateTime(tcomp[x].t), es_to_store)
+    vals = map(x -> value(c[x]), es_to_store)
 
-    colname = replace("$(T)", "Trading." => "")
+    mat = reduce(hcat, getindex.(vals,i) for i in eachindex(vals[1]))
 
-    return TimeArray(tstamps, map(x -> value(c[x]), es_to_store), String[colname])
+    return TimeArray(tstamps, mat, colnames(T))
 end
 
 function TimeSeries.TimeArray(l::AbstractLedger, cols = keys(components(l)))

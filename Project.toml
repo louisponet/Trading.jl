@@ -1,7 +1,7 @@
 name = "Trading"
 uuid = "35d28339-5a58-4012-acd2-38f468f495ee"
 authors = ["louisponet <louisponet@gmail.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 BinaryTraits = "190e46ec-f771-4705-b939-984896f7be0e"

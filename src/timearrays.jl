@@ -125,6 +125,11 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols = keys(components(l)))
         
         try
             t = TimeArray(l[T], tcomp)
+
+            if eltype(eltype(t).parameters[2]) != Float64
+                continue
+            end
+            
             out = out === nothing ? t : merge(out, t; method = :outer)
         catch e
             @warn "Method to convert $T into TimeArray not implemented yet."

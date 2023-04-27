@@ -17,11 +17,14 @@ function authenticate_trading(b::AlpacaBroker, ws::WebSocket)
                           "key"    => b.key_id,
                           "secret" => b.secret_key)))
     reply = receive(ws)
-    try
-        return JSON3.read(reply)["data"]["status"] == "authorized"
-    catch
-        throw(AuthenticationException(e))
+    authenticated = JSON3.read(reply)["data"]["status"] == "authorized"
+    if !authenticated
+        throw(AuthenticationException(ErrorException("Couldn't authenticate trading")))
     end
+        
+    send(ws,
+         JSON3.write(Dict("action" => "listen",
+                          "data" => Dict("streams" => ["trade_updates"]))))
 end
 
 function account_details(b::AlpacaBroker)
@@ -47,7 +50,6 @@ end
 
 account_details(b::HistoricalBroker) = (b.cash, ())
 
-# TODO dumb
 function fill_account!(trader::Trader)
     cash, positions = account_details(trader.broker)
     empty!(trader[Cash])

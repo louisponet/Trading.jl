@@ -52,7 +52,7 @@ function subscribe_bars(dp::HistoricalBroker, ticker::String, start = nothing,
     return nothing
 end
 
-function receive_bars(b::AlpacaBroker, ws)
+function receive_bars(b::AbstractBroker, ws)
     return bars(b, JSON3.read(receive(ws)))
 end
 
@@ -119,7 +119,7 @@ Open a bar stream, calls function `f` with a [`BarStream`](@ref) object.
 Call [`receive`](@ref) on the [`BarStream`](@ref) to get new bars streamed in,
 and [`register!`](@ref) to register tickers for which to receive bar updates for.
 """
-function bar_stream(func::Function, broker::AlpacaBroker)
+function bar_stream(func::Function, broker::AbstractBroker)
     HTTP.open(data_stream_url(broker)) do ws
         if !authenticate_data(broker, ws)
             error("couldn't authenticate")

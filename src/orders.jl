@@ -26,71 +26,6 @@ function failed_order(broker, order, exc)
                  0.0, "failed\n$(String(take!(b)))", order.quantity, 0.0)
 end
 
-side(::AlpacaBroker, ::EntityState{Tuple{Component{Purchase}}}) = "buy"
-side(::AlpacaBroker, ::EntityState{Tuple{Component{Sale}}})     = "sell"
-
-function order_body(b::AlpacaBroker, order::EntityState)
-    body = Dict("symbol"        => string(order.ticker),
-                "qty"           => string(order.quantity),
-                "side"          => side(b, order),
-                "type"          => string(order.type),
-                "time_in_force" => string(order.time_in_force))
-
-    if order.type == OrderType.Limit
-        body["limit_price"] = string(order.price)
-    end
-
-    return JSON3.write(body)
-end
-
-function parse_order(b::AlpacaBroker, resp::HTTP.Response)
-    if resp.status != 200
-        error("something went wrong while submitting order")
-    end
-
-    parse_body = JSON3.read(resp.body)
-    return parse_order(b, parse_body)
-end
-
-function parse_order(::AlpacaBroker, parse_body)
-    return Order(parse_body[:symbol],
-                 parse_body[:side],
-                 UUID(parse_body[:id]),
-                 UUID(parse_body[:client_order_id]),
-                 parse_body[:created_at] !== nothing ? parse_time(parse_body[:created_at]) :
-                 nothing,
-                 parse_body[:updated_at] !== nothing ? parse_time(parse_body[:updated_at]) :
-                 nothing,
-                 parse_body[:submitted_at] !== nothing ?
-                 parse_time(parse_body[:submitted_at]) : nothing,
-                 parse_body[:filled_at] !== nothing ? parse_time(parse_body[:filled_at]) :
-                 nothing,
-                 parse_body[:expired_at] !== nothing ? parse_time(parse_body[:expired_at]) :
-                 nothing,
-                 parse_body[:canceled_at] !== nothing ?
-                 parse_time(parse_body[:canceled_at]) : nothing,
-                 parse_body[:failed_at] !== nothing ? parse_time(parse_body[:failed_at]) :
-                 nothing,
-                 parse(Float64, parse_body[:filled_qty]),
-                 parse_body[:filled_avg_price] !== nothing ?
-                 parse(Float64, parse_body[:filled_avg_price]) : 0.0,
-                 parse_body[:status],
-                 parse(Float64, parse_body[:qty]),
-                 0.0)
-end
-
-function receive_order(b::AlpacaBroker, ws)
-    msg = JSON3.read(receive(ws))
-    if msg[:stream] == "trade_updates"
-        return parse_order(b, msg[:data][:order])
-    end
-end
-
-function receive_order(broker::HistoricalBroker, args...)
-    sleep(1)
-    return nothing
-end
-
 """
     submit_order(broker, order::Union{Purchase,Sale})
 
@@ -163,14 +98,77 @@ function submit_order(t::Trader, e)
     return t[e] = submit_order(t.broker, e)
 end
 
+side(::AlpacaBroker, ::EntityState{Tuple{Component{Purchase}}}) = "buy"
+side(::AlpacaBroker, ::EntityState{Tuple{Component{Sale}}})     = "sell"
+
+function order_body(b::AlpacaBroker, order::EntityState)
+    body = Dict("symbol"        => string(order.ticker),
+                "qty"           => string(order.quantity),
+                "side"          => side(b, order),
+                "type"          => string(order.type),
+                "time_in_force" => string(order.time_in_force))
+
+    if order.type == OrderType.Limit
+        body["limit_price"] = string(order.price)
+    end
+
+    return JSON3.write(body)
+end
+
+function parse_order(b::AbstractBroker, resp::HTTP.Response)
+    if resp.status != 200
+        error("something went wrong while submitting order")
+    end
+
+    parse_body = JSON3.read(resp.body)
+    return parse_order(b, parse_body)
+end
+
+function parse_order(::AlpacaBroker, parse_body)
+    return Order(parse_body[:symbol],
+                 parse_body[:side],
+                 UUID(parse_body[:id]),
+                 UUID(parse_body[:client_order_id]),
+                 parse_body[:created_at] !== nothing ? parse_time(parse_body[:created_at]) :
+                 nothing,
+                 parse_body[:updated_at] !== nothing ? parse_time(parse_body[:updated_at]) :
+                 nothing,
+                 parse_body[:submitted_at] !== nothing ?
+                 parse_time(parse_body[:submitted_at]) : nothing,
+                 parse_body[:filled_at] !== nothing ? parse_time(parse_body[:filled_at]) :
+                 nothing,
+                 parse_body[:expired_at] !== nothing ? parse_time(parse_body[:expired_at]) :
+                 nothing,
+                 parse_body[:canceled_at] !== nothing ?
+                 parse_time(parse_body[:canceled_at]) : nothing,
+                 parse_body[:failed_at] !== nothing ? parse_time(parse_body[:failed_at]) :
+                 nothing,
+                 parse(Float64, parse_body[:filled_qty]),
+                 parse_body[:filled_avg_price] !== nothing ?
+                 parse(Float64, parse_body[:filled_avg_price]) : 0.0,
+                 parse_body[:status],
+                 parse(Float64, parse_body[:qty]),
+                 0.0)
+end
+
+function receive_order(b::AlpacaBroker, ws)
+    msg = JSON3.read(receive(ws))
+    if msg[:stream] == "trade_updates"
+        return parse_order(b, msg[:data][:order])
+    end
+end
+
+function receive_order(broker::HistoricalBroker, args...)
+    sleep(1)
+    return nothing
+end
+
 delete_all_orders!(b::AbstractBroker) = HTTP.delete(order_url(b), header(b))
 delete_all_orders!(::HistoricalBroker) = nothing
 delete_all_orders!(t::Trader) = delete_all_orders!(t.broker)
 
 """
-    OrderStream
-
-Interface to support executing trades and retrieving account updates.
+Interface to support executing trades and retrieving account updates. Opened with [`order_stream`](@ref)
 """
 Base.@kwdef struct OrderStream{B<:AbstractBroker}
     broker::B
@@ -198,15 +196,10 @@ order_stream(broker) do stream
 end
 ```
 """
-function order_stream(f::Function, broker::AlpacaBroker)
+function order_stream(f::Function, broker::AbstractBroker)
     HTTP.open(trading_stream_url(broker)) do ws
-        if !authenticate_trading(broker, ws)
-            error("couldn't authenticate")
-        end
+        authenticate_trading(broker, ws)
         @info "Authenticated trading"
-        send(ws,
-             JSON3.write(Dict("action" => "listen",
-                              "data" => Dict("streams" => ["trade_updates"]))))
         try
             f(OrderStream(broker, ws))
         catch e

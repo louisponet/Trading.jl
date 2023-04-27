@@ -96,7 +96,8 @@ makedocs(; modules = [Trading],
                   "Strategies" => ["strategies.md",
                                    "idea_generation.md",
                                    "Slow Fast" => "strategies/slow_fast.md",
-                                   "Cointegration" => "strategies/cointegration.md"]])
+                                   "Cointegration" => "strategies/cointegration.md"],
+                  "Developers"=> ["developers.md"]])
 
 # Deploy docs to gh-pages branch
 deploydocs(; repo = "github.com/louisponet/Trading.jl.git", devbranch = "master")

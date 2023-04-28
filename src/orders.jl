@@ -124,7 +124,7 @@ function parse_order(b::AbstractBroker, resp::HTTP.Response)
     return parse_order(b, parse_body)
 end
 
-function parse_order(::AlpacaBroker, parse_body)
+function parse_order(::AlpacaBroker, parse_body::JSON3.Object)
     return Order(parse_body[:symbol],
                  parse_body[:side],
                  UUID(parse_body[:id]),

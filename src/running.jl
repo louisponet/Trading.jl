@@ -85,17 +85,14 @@ function start_data(trader::Trader; interval = Minute(1), kwargs...)
                         Overseer.update(trader.ticker_ledgers[ticker])
                     end
                 end
-                # lock(trader.new_data_event) do 
                 notify(trader.new_data_event)
-                # end
 
             catch e
                 if !(e isa InvalidStateException) && !(e isa EOFError) &&
                    !(e isa InterruptException) && !(e == HTTP.WebSockets.WebSocketError(HTTP.WebSockets.CloseFrameBody(1006, "WebSocket connection is closed")))
-                   # @show isclosed(stream)
                     showerror(stdout, e, catch_backtrace())
                 else
-                    @info "Issue with data stream, restarting"
+                    @info "Issue with data stream"
                     return
                 end
             end

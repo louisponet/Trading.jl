@@ -18,21 +18,21 @@ struct TestStrat <: System
 
 Overseer.requested_components(::TestStrat) = (SMA{20, Close}, RSI{14, Open})
 ```
-This leads that for any ticker that `TestStrat` should be used on will automatically generate these derived `Indicators` as the data flows in.
-It is also used by [`new_entities`](@ref) to iterate over the new entities in a [`TickerLedger`](@ref) that hold the requested components for a given [`Strategy`](@ref).
-[`reset!`](@ref) on the other hand clears all the data for the requested components of a strategy in a [`TickerLedger`](@ref).
+This leads that for any asset that `TestStrat` should be used on will automatically generate these derived `Indicators` as the data flows in.
+It is also used by [`new_entities`](@ref) to iterate over the new entities in a [`AssetLedger`](@ref) that hold the requested components for a given [`Strategy`](@ref).
+[`reset!`](@ref) on the other hand clears all the data for the requested components of a strategy in a [`AssetLedger`](@ref).
 This is useful for example to not use the data of the previous day when calculating moving averages etc.
 
 ```julia
-function update(s::TestStrat, trader, ticker_ledgers)
+function update(s::TestStrat, trader, asset_ledgers)
     curt = current_time(trader)
     if is_market_open(curt)
-        for l in ticker_ledgers
+        for l in asset_ledgers
             # This clears the SMA{20, Close} and RSI{14, Open} Components from l
             reset!(l, s)
         end
     end
-    for l in ticker_ledgers
+    for l in asset_ledgers
         for e in new_entities(l, s)
             # do something with e
 
@@ -53,7 +53,7 @@ Trading.RSI
 Trading.Bollinger
 Trading.Sharpe
 Trading.new_entities
-Trading.reset!(::Trading.TickerLedger, ::Any)
+Trading.reset!(::Trading.AssetLedger, ::Any)
 ```
 ## [Systems](@id indicator_systems)
 ```@docs

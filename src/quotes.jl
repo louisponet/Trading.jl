@@ -1,7 +1,7 @@
 """
-    quotes(broker, ticker, start, stop)
+    quotes(broker, asset, start, stop)
 
-Returns the quotes made for `ticker` between `start` and `stop`.
+Returns the quotes made for `asset` between `start` and `stop`.
 When using [`AlpacaBroker`](@ref) see the [Quote Object](https://alpaca.markets/docs/api-references/market-data-api/stock-pricing-data/historical/#quotes)
 documentation for further reference.
 
@@ -13,8 +13,8 @@ quotes(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:
 ```
 """
 quotes(b::AbstractBroker) = broker(b).cache.quotes_data
-function quotes(broker::AbstractBroker, ticker, args...; kwargs...)
-    return retrieve_data(broker, quotes(broker), ticker, args...; section = "quotes",
+function quotes(broker::AbstractBroker, asset, args...; kwargs...)
+    return retrieve_data(broker, quotes(broker), asset, args...; section = "quotes",
                          kwargs...)
 end
 
@@ -22,8 +22,8 @@ function parse_quote(b::AlpacaBroker, q)
     return (ask_price = q[:ap], bid_price = q[:bp])
 end
 
-function latest_quote(b::AlpacaBroker, ticker::String)
-    resp = HTTP.get(quote_url(b, ticker), header(b))
+function latest_quote(b::AlpacaBroker, asset::Asset)
+    resp = HTTP.get(quote_url(b, asset), header(b))
 
     if resp.status != 200
         error("something went wrong while asking latest quote")
@@ -32,8 +32,8 @@ function latest_quote(b::AlpacaBroker, ticker::String)
     return parse_quote(b, JSON3.read(resp.body)[:quote])
 end
 
-function latest_quote(broker::HistoricalBroker, ticker)
-    qs = retrieve_data(broker, quotes(broker), ticker, broker.clock.time,
+function latest_quote(broker::HistoricalBroker, asset)
+    qs = retrieve_data(broker, quotes(broker), asset, broker.clock.time,
                        broker.clock.time + Second(1); section = "quotes")
     if isempty(qs)
         return nothing
@@ -44,10 +44,10 @@ function latest_quote(broker::HistoricalBroker, ticker)
 end
 
 # TODO requires :c , :o etc
-function price(broker::HistoricalBroker, price_t, ticker)
-    @assert haskey(bars(broker), (ticker, broker.clock.dtime)) "Ticker $ticker not in historical bar data"
+function price(broker::HistoricalBroker, price_t, asset)
+    @assert haskey(bars(broker), (asset, broker.clock.dtime)) "Ticker $asset not in historical bar data"
 
-    bars_ = bars(broker)[(ticker, broker.clock.dtime)]
+    bars_ = bars(broker)[(asset, broker.clock.dtime)]
 
     if isempty(bars_)
         return nothing
@@ -75,8 +75,8 @@ function price(broker::HistoricalBroker, price_t, ticker)
 end
 
 """
-    current_price(broker, ticker)
-    current_price(trader, ticker)
+    current_price(broker, asset)
+    current_price(trader, asset)
 
 Return the current price of an asset.
 """
@@ -84,9 +84,9 @@ function current_price(broker::AbstractBroker, args...)
     return price(broker, current_time(broker), args...)
 end
 
-function current_price(broker::AlpacaBroker, ticker)
-    dat = latest_quote(broker, ticker)
+function current_price(broker::AlpacaBroker, asset)
+    dat = latest_quote(broker, asset)
     return dat === nothing ? nothing : (dat[1] + dat[2]) / 2
 end
 
-current_price(t::Trader, ticker) = current_price(t.broker, ticker)
+current_price(t::Trader, asset) = current_price(t.broker, asset)

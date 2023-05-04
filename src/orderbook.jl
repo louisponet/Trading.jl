@@ -542,14 +542,14 @@ Represents the orderbook of an asset with two red-black trees of [`Limit`](@ref)
 bids and the asks.
 """
 mutable struct OrderBook
-    ticker::String
+    asset::String
     bids::LimitTree
     asks::LimitTree
     order_count::Int
     order_id_to_entry::Dict{OrderID,OrderBookEntry{Limit}}
 
-    function OrderBook(ticker::String)
-        return new(ticker, LimitTree(), LimitTree(), 0,
+    function OrderBook(asset::String)
+        return new(asset, LimitTree(), LimitTree(), 0,
                    Dict{OrderID,OrderBookEntry{Limit}}())
     end
 end

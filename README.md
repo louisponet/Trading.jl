@@ -9,15 +9,15 @@ This is an algorithmic trading and backtesting package written in Julia. It prov
 Behind the scenes it relies on an ECS paradigm as implemented by [Overseer.jl](https://github.com/louisponet/Overseer.jl), making it extremely easy to extend.
 
 # Simple Example
-To define a trading strategy, users need to implement a Julia struct with an update function that defines the trading logic. The update function is called periodically by the framework, and has access to tick data for the specified tickers, as well as any technical indicators requested by the strategy.
+To define a trading strategy, users need to implement a Julia struct with an update function that defines the trading logic. The update function is called periodically by the framework, and has access to tick data for the specified assets, as well as any technical indicators requested by the strategy.
 
 ```julia
 struct StratSys <: System end
 
 Overseer.requested_components(::StratSys) = (Open, Close, SMA{20, Close}, SMA{200, Close})
 
-function Overseer.update(s::StratSys, trader, ticker_ledgers)
-   for ledger in ticker_ledgers
+function Overseer.update(s::StratSys, trader, asset_ledgers)
+   for ledger in asset_ledgers
         for e in new_entities(ledger, s)
             #Trading logic goes here
         end
@@ -27,12 +27,12 @@ end
 
 The package includes several built-in technical indicators, such as simple moving averages, relative strength index, and exponential moving averages, but users can also define their own custom indicators.
 
-To execute a trading strategy in real-time, users can create a Trader object with the desired strategies and tickers, and connect it to a real-time data source through the different broker APIs.
+To execute a trading strategy in real-time, users can create a Trader object with the desired strategies and assets, and connect it to a real-time data source through the different broker APIs.
 
 ```julia
 broker = AlpacaBroker("<key_id>", "<secret>")
 
-strategy = Strategy(:strat, [StratSys()], tickers=["AAPL"])
+strategy = Strategy(:strat, [StratSys()], assets=[Stock("AAPL")])
 
 trader = Trader(broker, strategies=[strategy])
 

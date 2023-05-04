@@ -35,7 +35,7 @@ function Overseer.requested_components(::SlowFast)
 end
 
 @testset "Ticker Ledger" begin
-    l = Trading.TickerLedger("AAPL")
+    l = Trading.AssetLedger(Stock("AAPL"))
     Trading.register_strategy!(l, SlowFast())
 
     for CT in Overseer.requested_components(SlowFast())
@@ -78,23 +78,23 @@ if haskey(ENV, "ALPACA_KEY_ID")
         @test_throws Trading.AuthenticationException AlpacaBroker("asdfasf", "Adsfasdf")
         alpaca_broker = AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"])
 
-        b = bars(alpaca_broker, "AAPL", DateTime("2023-01-10T15:30:00"),
+        b = bars(alpaca_broker, Stock("AAPL"), DateTime("2023-01-10T15:30:00"),
                  DateTime("2023-01-10T15:35:00"); timeframe = Minute(1), normalize = false)
         @test length(b) == 6
 
-        @test haskey(bars(alpaca_broker), ("AAPL", Minute(1)))
-        b = bars(alpaca_broker, "AAPL", DateTime("2023-01-10T15:28:00"),
+        @test haskey(bars(alpaca_broker), (Stock("AAPL"), Minute(1)))
+        b = bars(alpaca_broker, Stock("AAPL"), DateTime("2023-01-10T15:28:00"),
                  DateTime("2023-01-10T15:37:00"); timeframe = Minute(1), normalize = false)
         @test length(b) == 10
         @test timestamp(b)[1] == DateTime("2023-01-10T15:28:00")
         @test timestamp(b)[end] == DateTime("2023-01-10T15:37:00")
 
-        b = bars(alpaca_broker, "AAPL", DateTime("2023-01-10T16:28:00"),
+        b = bars(alpaca_broker, Stock("AAPL"), DateTime("2023-01-10T16:28:00"),
                  DateTime("2023-01-10T16:37:00"); timeframe = Minute(1), normalize = false)
         @test length(b) == 10
-        @test length(bars(alpaca_broker)[("AAPL", Minute(1))]) == 20
+        @test length(bars(alpaca_broker)[(Stock("AAPL"), Minute(1))]) == 20
 
-        int_b = Trading.interpolate_timearray(bars(alpaca_broker)[("AAPL", Minute(1))])
+        int_b = Trading.interpolate_timearray(bars(alpaca_broker)[(Stock("AAPL"), Minute(1))])
         @test length(int_b) == 70
         tstamps = timestamp(int_b)
         @test all(x -> x ∈ tstamps,
@@ -104,16 +104,16 @@ else
     @warn "Couldn't test ALPACA functionality. Set ALPACA_KEY_ID and ALPACA_SECRET environment variables to trigger then."
 end
 
-function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
-    for ticker_ledger in ticker_ledgers
-        ticker = ticker_ledger.ticker
-        for e in new_entities(ticker_ledger, s)
+function Overseer.update(s::SlowFast, t::Trader, asset_ledgers)
+    for asset_ledger in asset_ledgers
+        asset = asset_ledger.asset
+        for e in new_entities(asset_ledger, s)
             prev_e = prev(e, 1)
 
             if prev_e === nothing
                 continue
             end
-            curpos = current_position(t, ticker)
+            curpos = current_position(t, asset)
 
             sma_50  = e[SMA{50,Close}].sma
             sma_200 = e[SMA{200,Close}].sma
@@ -122,9 +122,9 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
             prev_sma_200 = prev_e[SMA{200,Close}].sma
 
             if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
-                Entity(t, Sale(ticker, 1.0))
+                Entity(t, Sale(asset, 1.0))
             elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
-                Entity(t, Purchase(ticker, 1.0))
+                Entity(t, Purchase(asset, 1.0))
             end
         end
     end
@@ -135,20 +135,20 @@ end
 
     trader = Trading.BackTester(broker;
                                 strategies = [Strategy(:slowfast, [SlowFast()];
-                                                       tickers = ["stock1"])],
+                                                       assets = [Stock("stock1")])],
                                 start = DateTime("2023-01-01T00:00:00"),
                                 stop = DateTime("2023-01-06T00:00:00"),
                                 dt = Minute(1),
                                 only_day = false)
 
     Trading.start(trader)
-    for (ticker, l) in trader.ticker_ledgers
+    for (asset, l) in trader.asset_ledgers
         for c in (Open, Close, High, Low, Volume, TimeStamp)
-            @test length(l[c]) == length(bars(broker)[(ticker, Minute(1))])
+            @test length(l[c]) == length(bars(broker)[(asset, Minute(1))])
         end
     end
 
-    @test !isempty(trader["stock1"][SMA{50,Close}])
+    @test !isempty(trader[Stock("stock1")][SMA{50,Close}])
 
     ta = TimeArray(trader)
     close = dropnan(ta[:stock1_Close])
@@ -178,9 +178,9 @@ if haskey(ENV, "ALPACA_KEY_ID")
 
         trader = BackTester(broker;
                             strategies = [Strategy(:slowfast, [SlowFast()];
-                                                   tickers = ["AAPL"]),
+                                                   assets = [Stock("AAPL")]),
                                           Strategy(:slowfast, [SlowFast()];
-                                                   tickers = ["MSFT"])],
+                                                   assets = [Stock("MSFT")])],
                             start = DateTime("2023-01-01T00:00:00"),
                             stop = DateTime("2023-02-01T00:00:00"),
                             dt = Minute(1),
@@ -242,7 +242,7 @@ if haskey(ENV, "ALPACA_KEY_ID")
         while !trader.is_trading
             sleep(0.1)
         end
-        e = Entity(trader, Purchase("AAPL", 1))
+        e = Entity(trader, Purchase(Stock("AAPL"), 1))
         while e ∉ trader[Trading.Order]
             sleep(0.001)
         end
@@ -257,7 +257,7 @@ if haskey(ENV, "ALPACA_KEY_ID")
 
         @test trader[Trading.Order][e].status ∈ ("filled", "canceled")
         if trader[Trading.Order][e].status == "filled"
-            e2 = Entity(trader, Trading.Sale("AAPL", 1))
+            e2 = Entity(trader, Trading.Sale(Stock("AAPL"), 1))
             while e ∉ trader[Trading.Order]
                 sleep(0.001)
             end

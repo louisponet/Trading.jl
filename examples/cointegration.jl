@@ -13,9 +13,9 @@ using ThreadPools
 # using TimeSeries: rename
 using Trading.Strategies: prev
 
-function fit_γμ(account, ticker1, ticker2, start, stop; timeframe=Minute(1), only_day=true)
-    df1 = bars(account, ticker1, start, stop, timeframe=Minute(1))
-    df2 = bars(account, ticker2, start, stop, timeframe=Minute(1))
+function fit_γμ(account, asset1, asset2, start, stop; timeframe=Minute(1), only_day=true)
+    df1 = bars(account, asset1, start, stop, timeframe=Minute(1))
+    df2 = bars(account, asset2, start, stop, timeframe=Minute(1))
 
     if only_day
         df1 = df1[findall(x->in_day(x), timestamp(df1))]
@@ -38,9 +38,9 @@ function fit_γμ(df1, df2)
     return γ, μ, test
 end
 
-function mean_daily_γ(acc, ticker1, ticker2, start, stop; timeframe=Minute(1))
-    df1 = bars(acc, ticker1, start, stop, timeframe=Minute(1), normalize=false)
-    df2 = bars(acc, ticker2, start, stop, timeframe=Minute(1), normalize=false)
+function mean_daily_γ(acc, asset1, asset2, start, stop; timeframe=Minute(1))
+    df1 = bars(acc, asset1, start, stop, timeframe=Minute(1), normalize=false)
+    df2 = bars(acc, asset2, start, stop, timeframe=Minute(1), normalize=false)
     return mean_daily_γ(df1, df2)
 end
 
@@ -62,17 +62,17 @@ function mean_daily_γ(df1, df2)
     return (map(i -> mean(map(x->x[2], filter(x->x[1] == i, coint_params))), 1:5)...,)
 end
 
-function cointegration_timearray(account, ticker1, ticker2, start, stop; γ=0.78, z_thr=1.5,window=20, timeframe=Minute(1), only_day=true)
+function cointegration_timearray(account, asset1, asset2, start, stop; γ=0.78, z_thr=1.5,window=20, timeframe=Minute(1), only_day=true)
     
-    df1 = bars(account, ticker1, start, stop, timeframe=timeframe)
-    df2 = bars(account, ticker2, start, stop, timeframe=timeframe)
+    df1 = bars(account, asset1, start, stop, timeframe=timeframe)
+    df2 = bars(account, asset2, start, stop, timeframe=timeframe)
 
     if only_day
         df1 = df1[findall(x->in_day(x), timestamp(df1))]
         df2 = df2[findall(x->in_day(x), timestamp(df2))]
     end
-    ticksym1 = Symbol(ticker1)
-    ticksym2 = Symbol(ticker2)
+    ticksym1 = Symbol(asset1)
+    ticksym2 = Symbol(asset2)
     df1 = rename!(df1[:c], ticksym1)
     df2 = rename!(df2[:c], ticksym2)
     df = log.(merge(df1, df2))
@@ -141,24 +141,24 @@ end
 
 Overseer.requested_components(::SpreadCalculator) = (LogVal{Close},)
 
-function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
+function Overseer.update(s::SpreadCalculator, m::Trading.Trader, asset_ledgers)
 
-    @assert length(ticker_ledgers) == 3 "Pairs Strategy only implemented for 2 tickers at a time"
-    combined_ledger = ticker_ledgers[end]
+    @assert length(asset_ledgers) == 3 "Pairs Strategy only implemented for 2 assets at a time"
+    combined_ledger = asset_ledgers[end]
 
     curt = current_time(m)
 
     # We clear all data at market open
     if Trading.is_market_open(curt)
-        for l in ticker_ledgers[1:2]
+        for l in asset_ledgers[1:2]
             reset!(l, s)
         end
     end
 
-    new_bars1 = new_entities(ticker_ledgers[1], s)
-    new_bars2 = new_entities(ticker_ledgers[2], s)
+    new_bars1 = new_entities(asset_ledgers[1], s)
+    new_bars2 = new_entities(asset_ledgers[2], s)
 
-    tickers = map(x->x.ticker, ticker_ledgers[1:2])
+    assets = map(x->x.asset, asset_ledgers[1:2])
     
     if length(new_bars1) != length(new_bars2)
         return
@@ -172,11 +172,11 @@ function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
 end
 
 
-function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
+function Overseer.update(s::PairStrat, m::Trading.Trader, asset_ledgers)
 
     curt = current_time(m)
     if Trading.is_market_open(curt)
-        reset!(ticker_ledgers[end], s)
+        reset!(asset_ledgers[end], s)
     end
 
     cash = m[PurchasePower][1].cash
@@ -185,14 +185,14 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
 
     pending_order || !in_day(curt) && return
     
-    z_comp = ticker_ledgers[end][ZScore{Spread}]
+    z_comp = asset_ledgers[end][ZScore{Spread}]
 
-    ticker1 = ticker_ledgers[1].ticker
-    ticker2 = ticker_ledgers[2].ticker
+    asset1 = asset_ledgers[1].asset
+    asset2 = asset_ledgers[2].asset
     
     γ = s.γ[dayofweek(curt)]
     
-    for e in new_entities(ticker_ledgers[end], s)
+    for e in new_entities(asset_ledgers[end], s)
 
         v         = e.v
         sma       = e.sma
@@ -200,11 +200,11 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
         z_score   = (v - sma) / σ
         z_comp[e] = ZScore{Spread}(z_score)
         
-        curpos1 = current_position(m, ticker1)
-        curpos2 = current_position(m, ticker2)
+        curpos1 = current_position(m, asset1)
+        curpos2 = current_position(m, asset2)
 
-        p1 = current_price(m, ticker1)
-        p2 = current_price(m, ticker2)
+        p1 = current_price(m, asset1)
+        p2 = current_price(m, asset2)
 
         quantity2(n1) = round(Int, n1 * p1 * γ / p2)
         # quantity2(n1) = round(Int, n1 * pair.γ)
@@ -220,8 +220,8 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
             else
                 q = cash/p1
             end
-            Entity(m, Purchase(ticker1, q))
-            Entity(m, Sale(ticker2, quantity2(q)))
+            Entity(m, Purchase(asset1, q))
+            Entity(m, Sale(asset2, quantity2(q)))
                 
 
         elseif z_score > s.z_thr && (in_bought_leg || curpos1 == 0)
@@ -231,8 +231,8 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
             else
                 q = cash / p1
             end
-            Entity(m, Purchase(ticker2, quantity2(q)))
-            Entity(m, Sale(ticker1, q))
+            Entity(m, Purchase(asset2, quantity2(q)))
+            Entity(m, Sale(asset1, q))
         end
 
         prev_e = prev(e, 1)
@@ -245,12 +245,12 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
         going_up = z_score - z_comp[prev_e].v > 0
 
         if z_score > 0 && in_bought_leg && !going_up
-            Entity(m, Sale(ticker1, curpos1))
-            Entity(m, Purchase(ticker2, -curpos2))
+            Entity(m, Sale(asset1, curpos1))
+            Entity(m, Purchase(asset2, -curpos2))
             new_pos = true
         elseif z_score < 0 && in_sold_leg && going_up
-            Entity(m, Purchase(ticker1, -curpos1))
-            Entity(m, Sale(ticker2, curpos2))
+            Entity(m, Purchase(asset1, -curpos1))
+            Entity(m, Sale(asset2, curpos2))
             new_pos = true
         end
     end
@@ -266,11 +266,11 @@ struct MomentumPairStrat{horizon} <: System
 end
 Overseer.requested_components(::MomentumPairStrat{horizon}) where {horizon} = (Spread, SMA{horizon, Spread},MovingStdDev{horizon, Spread})
 
-function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers)
+function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, asset_ledgers)
 
     curt = current_time(m)
     if Trading.is_market_open(curt)
-        reset!(ticker_ledgers[end], s)
+        reset!(asset_ledgers[end], s)
     end
     
     !in_day(curt) && return
@@ -278,25 +278,25 @@ function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers
     cash = m[Trading.PurchasePower][1].cash
     new_pos = any(x -> x ∉ m[Filled], @entities_in(m, Purchase || Sale))
     
-    ticker1 = ticker_ledgers[1].ticker
-    ticker2 = ticker_ledgers[2].ticker
+    asset1 = asset_ledgers[1].asset
+    asset2 = asset_ledgers[2].asset
     
     γ = s.γ[dayofweek(curt)]
      
-    for e in new_entities(ticker_ledgers[end], s)
+    for e in new_entities(asset_ledgers[end], s)
 
         v         = e.v
         sma       = e.sma
         σ         = e.σ 
         z_score   = (v - sma) / σ
-        Entity(ticker_ledgers[end], ZScore{Spread}(z_score))
+        Entity(asset_ledgers[end], ZScore{Spread}(z_score))
         new_pos && continue
         
-        curpos1 = current_position(m, ticker1)
-        curpos2 = current_position(m, ticker2)
+        curpos1 = current_position(m, asset1)
+        curpos2 = current_position(m, asset2)
 
-        p1 = current_price(m, ticker1)
-        p2 = current_price(m, ticker2)
+        p1 = current_price(m, asset1)
+        p2 = current_price(m, asset2)
 
         quantity2(n1) = round(Int, n1 * p1 * γ / p2)
         # quantity2(n1) = round(Int, n1 * pair.γ)
@@ -306,15 +306,15 @@ function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers
             if z_score < -s.z_thr
                 new_pos = true
                 q = cash / p1 
-                Entity(m, Sale(ticker1, q))
-                Entity(m, Purchase(ticker2, quantity2(q)))
+                Entity(m, Sale(asset1, q))
+                Entity(m, Purchase(asset2, quantity2(q)))
 
             elseif z_score > s.z_thr
                 new_pos = true
                 q = cash / p1 
                 
-                Entity(m, Sale(ticker2, quantity2(q)))
-                Entity(m, Purchase(ticker1, q))
+                Entity(m, Sale(asset2, quantity2(q)))
+                Entity(m, Purchase(asset1, q))
             end
         end
 
@@ -329,18 +329,18 @@ function Overseer.update(s::MomentumPairStrat, m::Trading.Trader, ticker_ledgers
         if sign(v - sma.v) != sign(prev_e.v - prev_e.sma.v)
 
             if curpos1 < 0.0
-                Entity(m, Purchase(ticker1, -curpos1))
+                Entity(m, Purchase(asset1, -curpos1))
                 new_pos = true
             elseif curpos1 > 0.0
-                Entity(m, Sale(ticker1, curpos1))
+                Entity(m, Sale(asset1, curpos1))
                 new_pos = true
             end
 
             if curpos2 < 0.0
-                Entity(m, Purchase(ticker2, -curpos2))
+                Entity(m, Purchase(asset2, -curpos2))
                 new_pos = true
             elseif curpos2 > 0.0
-                Entity(m, Sale(ticker2, curpos2))
+                Entity(m, Sale(asset2, curpos2))
                 new_pos = true
             end
             
@@ -362,13 +362,13 @@ function plot_simulation(l::AbstractLedger, start=l[TimeStamp][1].t, stop=l[Time
     plot!(p, msft_closes, label = "MSFT")
     plot!(p, aapl_closes, label = "AAPL")
     
-    purchase_es      = filter(x->x[Trading.Order].ticker == "MSFT", @entities_in(l, Purchase && Filled && Trading.Order))
+    purchase_es      = filter(x->x[Trading.Order].asset == "MSFT", @entities_in(l, Purchase && Filled && Trading.Order))
     purchase_times   = map(x->DateTime(x.filled_at), purchase_es)
-    purchase_tickers = map(x->x[Trading.Order].ticker, purchase_es)
+    purchase_assets = map(x->x[Trading.Order].asset, purchase_es)
 
     sale_es      = filter(x->x[Trading.Order].ticker == "MSFT", @entities_in(l, Sale && Filled && Trading.Order))
     sale_times   = map(x->DateTime(x.filled_at), sale_es)
-    sale_tickers = map(x->x[Trading.Order].ticker, sale_es)
+    sale_assets = map(x->x[Trading.Order].asset, sale_es)
 
     purchase_total_values = map(purchase_times) do t
         values[findmin(x -> abs(x-t), tstamps)[2]]
@@ -400,19 +400,19 @@ function plot_indicators(l::AbstractLedger, start=l[TimeStamp][1].t, stop=l[Time
     return p
 end
 
-function pair_trader(broker, ticker1::String, ticker2::String, γ; z_thr=1.5, momentum = true)
+function pair_trader(broker, asset1::String, asset2::String, γ; z_thr=1.5, momentum = true)
 
     stratsys = momentum ? [SpreadCalculator(γ), MomentumPairStrat{20}(γ, z_thr)] : [SpreadCalculator(γ), PairStrat{20}(γ, z_thr)]
-    t = Trader(broker; tickers=[ticker1, ticker2], strategies=[Strategy(:pair, stratsys, tickers=["MSFT", "AAPL"])])
+    t = Trader(broker; assets=[asset1, asset2], strategies=[Strategy(:pair, stratsys, assets=[Stock("MSFT"), Stock("AAPL")])])
    
     return t
 end
 
-function pair_trader(broker, ticker1::String, ticker2::String, start, stop, γ; z_thr=1.5, momentum=true)
+function pair_trader(broker, asset1::String, asset2::String, start, stop, γ; z_thr=1.5, momentum=true)
     
     stratsys = momentum ? [SpreadCalculator(γ), MomentumPairStrat{20}(γ, z_thr)] : [SpreadCalculator(γ), PairStrat{20}(γ, z_thr)]
     
-    t = BackTester(broker; strategies=[Strategy(:pair, stratsys, tickers=["MSFT", "AAPL"])], start=start, stop=stop)
+    t = BackTester(broker; strategies=[Strategy(:pair, stratsys, assets=[Stock("MSFT"), Stock("AAPL")])], start=start, stop=stop)
     
     return t
 end

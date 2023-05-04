@@ -11,7 +11,8 @@ abstract type AbstractBroker end
 # bars(::AbstractBroker, ::Vector)                  = throw(MethodError(bars))
 # authenticate_data(::AbstractBroker, ::WebSocket)  = throw(MethodError(authenticate_data))
 # authenticate_trading(::AbstractBroker, ::WebSocket)  = throw(MethodError(authenticate_trading))
-# latest_quote(::AbstractBroker, ticker::String)
+# latest_quote(::AbstractBroker, asset::String)
+# asset_type(::AbstractBroker, position_data)
 broker(b::AbstractBroker) = b
 function data_query(b::AbstractBroker, args...; kwargs...)
     return data_query(broker(b), args...; kwargs...)
@@ -34,7 +35,7 @@ end
 # TODO not great
 function retrieve_data(broker::AbstractBroker, set, key, start, stop, args...;
                        normalize = false, kwargs...)
-    ticker = key isa Tuple ? first(key) : key
+    asset = key isa Tuple ? first(key) : key
 
     dt = key isa Tuple ? last(key) : Millisecond(1)
     @assert stop === nothing || start <= stop ArgumentError("start should be <= stop")
@@ -44,7 +45,7 @@ function retrieve_data(broker::AbstractBroker, set, key, start, stop, args...;
         timestamps = timestamp(data)
         if stop !== nothing
             if start <= stop < timestamps[1]
-                new_data = data_query(broker, ticker, start, stop, args...; kwargs...)
+                new_data = data_query(broker, asset, start, stop, args...; kwargs...)
 
                 if new_data !== nothing
                     new_data = normalize ? interpolate_timearray(new_data; kwargs...) :
@@ -55,7 +56,7 @@ function retrieve_data(broker::AbstractBroker, set, key, start, stop, args...;
                 return new_data
 
             elseif timestamps[end] < start <= stop
-                new_data = data_query(broker, ticker, start, stop, args...; kwargs...)
+                new_data = data_query(broker, asset, start, stop, args...; kwargs...)
 
                 if new_data !== nothing
                     new_data = normalize ? interpolate_timearray(new_data; kwargs...) :
@@ -71,7 +72,7 @@ function retrieve_data(broker::AbstractBroker, set, key, start, stop, args...;
             out_data = from(data, start)
         else
             next_stop = timestamps[1] - dt
-            new_data = data_query(broker, ticker, start, next_stop, args...; kwargs...)
+            new_data = data_query(broker, asset, start, next_stop, args...; kwargs...)
 
             if new_data !== nothing
                 new_data = normalize ? interpolate_timearray(new_data; kwargs...) : new_data
@@ -93,7 +94,7 @@ function retrieve_data(broker::AbstractBroker, set, key, start, stop, args...;
             next_start = timestamps[end] + dt
             
             if next_start < stop
-                new_data = data_query(broker, ticker, next_start, stop, args...; kwargs...)
+                new_data = data_query(broker, asset, next_start, stop, args...; kwargs...)
                 if new_data !== nothing
                     new_data = normalize ? interpolate_timearray(new_data; kwargs...) : new_data
                     out_data = vcat(out_data, new_data)
@@ -104,7 +105,7 @@ function retrieve_data(broker::AbstractBroker, set, key, start, stop, args...;
             return normalize ? interpolate_timearray(out_data; kwargs...) : out_data
         end
     end
-    data = data_query(broker, ticker, start, stop, args...; kwargs...)
+    data = data_query(broker, asset, start, stop, args...; kwargs...)
     if data !== nothing
         data = normalize ? interpolate_timearray(data; kwargs...) : data
         set[key] = data

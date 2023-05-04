@@ -49,7 +49,7 @@ function Base.string(t::TimeInForce.T)
 end
 
 """
-    Purchase(ticker, quantity;
+    Purchase(asset, quantity;
              type          = OrderType.Market,
              time_in_force = TimeInForce.GTC,
              price         = 0.0,
@@ -61,7 +61,7 @@ it's communicated to the [`broker`](@ref AbstractBroker).
 See [`OrderType`](@ref) and [`TimeInForce`](@ref) for more information on those `kwargs`.
 """
 @component Base.@kwdef mutable struct Purchase
-    ticker::String
+    asset::Asset
     quantity::Float64
     type::OrderType.T = OrderType.Market
     time_in_force::TimeInForce.T = TimeInForce.GTC
@@ -70,12 +70,12 @@ See [`OrderType`](@ref) and [`TimeInForce`](@ref) for more information on those 
     trail_percent::Float64 = 0.0
 end
 
-function Purchase(ticker, quantity; kwargs...)
-    return Purchase(; ticker = ticker, quantity = quantity, kwargs...)
+function Purchase(asset, quantity; kwargs...)
+    return Purchase(; asset = asset, quantity = quantity, kwargs...)
 end
 
 """
-    Sale(ticker, quantity;
+    Sale(asset, quantity;
              type          = OrderType.Market,
              time_in_force = TimeInForce.GTC,
              price         = 0.0,
@@ -87,7 +87,7 @@ it's communicated to the [`broker`](@ref AbstractBroker).
 See [`OrderType`](@ref) and [`TimeInForce`](@ref) for more information on those `kwargs`.
 """
 @component Base.@kwdef mutable struct Sale
-    ticker::String
+    asset::Asset
     quantity::Float64
     type::OrderType.T = OrderType.Market
     time_in_force::TimeInForce.T = TimeInForce.GTC
@@ -96,7 +96,7 @@ See [`OrderType`](@ref) and [`TimeInForce`](@ref) for more information on those 
     trail_percent::Float64 = 0.0
 end
 
-Sale(ticker, quantity; kwargs...) = Sale(; ticker = ticker, quantity = quantity, kwargs...)
+Sale(asset, quantity; kwargs...) = Sale(; asset = asset, quantity = quantity, kwargs...)
 
 """
 Representation of a [`Purchase`](@ref) or [`Sale`](@ref) order that has been
@@ -105,7 +105,7 @@ Once the status goes to "filled" the filling information will be
 taken by the [`Filler`](@ref) `System` to create a [`Filled`](@ref) component. 
 """
 @component Base.@kwdef mutable struct Order
-    ticker           :: String
+    asset            :: Asset
     side             :: String
     id               :: UUID
     client_order_id  :: UUID
@@ -123,8 +123,8 @@ taken by the [`Filler`](@ref) `System` to create a [`Filled`](@ref) component.
     requested_quantity::Float64
     fee::Float64
 end
-value(o::Order) = (o.ticker, o.side, o.created_at, o.filled_at, o.canceled_at, o.failed_at, o.filled_qty, o.filled_avg_price)
-TimeSeries.colnames(::Type{Order}) = ["ticker", "side", "created_at", "filled_at", "canceled_at", "failed_at","filled_qty", "filled_avg_price"]
+value(o::Order) = (o.asset.ticker, o.side, o.created_at, o.filled_at, o.canceled_at, o.failed_at, o.filled_qty, o.filled_avg_price)
+TimeSeries.colnames(::Type{Order}) = ["asset", "side", "created_at", "filled_at", "canceled_at", "failed_at","filled_qty", "filled_avg_price"]
 
 """
 Represents the filled `avg_price` and `quantity` of an [`Order`](@ref).
@@ -151,10 +151,10 @@ It can thus be used to determine how many purchases/trades can be made during on
 end
 
 """
-Represents a position held in an equity represented by ticker.
+Represents a position held in an equity represented by `asset`.
 """
 @component mutable struct Position
-    ticker::String
+    asset::Asset
     quantity::Float64
 end
 

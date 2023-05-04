@@ -18,7 +18,7 @@ function Overseer.update(::Purchaser, l::AbstractLedger)
         end
 
         if e.type == OrderType.Market
-            cur_price = current_price(l, e.ticker)
+            cur_price = current_price(l, e.asset)
             cur_price == nothing && continue
         elseif e.type == OrderType.Limit
             cur_price = e.limit_price
@@ -62,7 +62,7 @@ function Overseer.update(::Seller, l::AbstractLedger)
         end
 
         if e.quantity === Inf
-            posid = findfirst(x -> x.ticker == e.ticker, l[Position])
+            posid = findfirst(x -> x.asset == e.asset, l[Position])
 
             if posid === nothing
                 pop!(l[Sale], e)
@@ -103,7 +103,7 @@ function Overseer.update(::Filler, l::AbstractLedger)
     for e in @entities_in(l, Order && !Filled)
         if e.status == "filled"
             l[e] = Filled(e.filled_avg_price, e.filled_qty)
-            ticker = e.ticker
+            asset = e.asset
 
             if e.side == "buy"
                 quantity_filled = e.filled_qty
@@ -114,10 +114,10 @@ function Overseer.update(::Filler, l::AbstractLedger)
             cash.cash -= e.filled_avg_price * quantity_filled
             cash.cash -= e.fee
 
-            id = findfirst(x -> x.ticker == ticker, l[Position])
+            id = findfirst(x -> x.asset == asset, l[Position])
 
             if id === nothing
-                Entity(l, Position(ticker, quantity_filled))
+                Entity(l, Position(asset, quantity_filled))
             else
                 l[Position][id].quantity += quantity_filled
             end
@@ -155,14 +155,14 @@ function Overseer.update(::DayCloser, l::AbstractLedger)
 
     # for e in @entities_in(l, Position)
     #     if e.quantity > 0
-    #         Entity(l, Sale(e.ticker, Inf, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+    #         Entity(l, Sale(e.asset, Inf, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
     #     elseif e.quantity < 0 
-    #         Entity(l, Purchase(e.ticker, -e.quantity, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
+    #         Entity(l, Purchase(e.asset, -e.quantity, OrderType.Market, TimeInForce.GTC, 0.0, 0.0))
     #     end
     # end
     # update(Purchaser(), l)
     # update(Seller(), l)
-    # for ledger in values(l.ticker_ledgers)
+    # for ledger in values(l.asset_ledgers)
     #     empty_entities!(ledger)
     # end
 end
@@ -195,7 +195,7 @@ function Overseer.update(s::SnapShotter, l::AbstractLedger)
 
     for e in @entities_in(l, Position)
         push!(positions, deepcopy(e[Position]))
-        price = current_price(l, e.ticker)
+        price = current_price(l, e.asset)
         if price === nothing
             return
         end

@@ -131,22 +131,22 @@ end
 TimeStamp(args...) = TimeStamp(current_time(args...))
 
 """
-    Strategy(name::Symbol, systems::Vector{System}; only_day = false, tickers = String[])
+    Strategy(name::Symbol, systems::Vector{System}; only_day = false, assets = Asset[])
 
 A strategy embodies a set of `Systems` that will run periodically, where each of the `Systems` should have a defined
-`update(s::System, trader, ticker_ledgers)` function, with `ticker_ledgers` being the [`TickerLedgers`](@ref TickerLedger)
-associated with each of the `tickers` that the strategy should be applied on.
+`update(s::System, trader, asset_ledgers)` function, with `asset_ledgers` being the [`AssetLedgers`](@ref AssetLedger)
+associated with each of the `assets` that the strategy should be applied on.
 
 !!! note
 
-   The last [`TickerLedger`](@ref) in `ticker_ledgers` is a "combined" ledger which can store data shared between all `tickers` for this strategy.
+   The last [`AssetLedger`](@ref) in `asset_ledgers` is a "combined" ledger which can store data shared between all `assets` for this strategy.
 
 `only_day`: whether this strategy should only run during a trading day
 """
 @component Base.@kwdef struct Strategy
     stage::Stage
     only_day::Bool = false
-    tickers::Vector{String} = String[]
+    assets::Vector{Asset} = Asset[]
 end
 
 Strategy(name::Symbol, steps; kwargs...) = Strategy(; stage = Stage(name, steps), kwargs...)

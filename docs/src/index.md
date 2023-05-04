@@ -17,7 +17,7 @@ It builds on the ease of use, extensibility, inherent performance and elegance o
 
 # Illustrative Example
 To define a trading strategy, all you need to do is implement a Julia `struct` that subtypes `System` with an `update` function that defines the trading logic.
-The `update` function is called periodically by the framework and has access to tick data for the tickers that the strategy was created for, as well as any technical indicators requested by the strategy.
+The `update` function is called periodically by the framework and has access to tick data for the assets that the strategy was created for, as well as any technical indicators requested by the strategy.
 The package includes several built-in technical [`indicators`](@ref Indicators) such as simple moving averages, relative strength index, and exponential moving averages.
 Users can also define their own custom [`indicators`](@ref Indicators).
 
@@ -26,8 +26,8 @@ struct MyStrategy <: System end
 
 Overseer.requested_components(::MyStrategy) = (Open, Close, SMA{20, Close}, SMA{200, Close})
 
-function Overseer.update(s::MyStrategy, trader, ticker_ledgers)
-   for ledger in ticker_ledgers
+function Overseer.update(s::MyStrategy, trader, asset_ledgers)
+   for ledger in asset_ledgers
         for e in new_entities(ledger, s)
             #Trading logic goes here
         end
@@ -38,7 +38,7 @@ To execute a trading strategy in real-time, users can create a [`Trader`](@ref) 
 
 ```julia
 broker = AlpacaBroker("<key_id>", "<secret>")
-strategy = Strategy(:my_strategy, [MyStrategy()], tickers=["AAPL"])
+strategy = Strategy(:my_strategy, [MyStrategy()], assets=[Stock("AAPL")])
 trader = Trader(broker, strategies=[strategy])
 start(trader)
 ```

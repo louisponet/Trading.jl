@@ -14,10 +14,10 @@ using Trading.Portfolio
 struct SlowFast <: System end
 Overseer.requested_components(::SlowFast) = (SMA{50, Close}, SMA{200, Close})
 
-function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
-    for ticker_ledger in ticker_ledgers
-        ticker = ticker_ledger.ticker
-        for e in new_entities(ticker_ledger, s)
+function Overseer.update(s::SlowFast, t::Trader, asset_ledgers)
+    for asset_ledger in asset_ledgers
+        asset = asset_ledger.asset
+        for e in new_entities(asset_ledger, s)
             prev_e = prev(e, 1)
 
             if prev_e === nothing
@@ -31,9 +31,9 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
             prev_sma_200 = prev_e[SMA{200, Close}].sma
 
             if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
-                Entity(t, Sale(ticker, 1.0))
+                Entity(t, Sale(asset, 1.0))
             elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
-                Entity(t, Purchase(ticker, 1.0))
+                Entity(t, Purchase(asset, 1.0))
             end
         end
     end
@@ -45,7 +45,7 @@ The `Inf` values for the quantity of stocks to trade in the [`Sale`](@ref) and [
 ````@example slow_fast
 broker = HistoricalBroker(AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"]))
 
-strategy = Strategy(:slowfast, [SlowFast()], tickers=["MSFT", "AAPL"])
+strategy = Strategy(:slowfast, [SlowFast()], assets=[Stock("MSFT"), Stock("AAPL")])
 
 trader = BackTester(broker, start = DateTime("2015-01-01T00:00:00"),
                             stop = DateTime("2020-01-01T00:00:00"),
@@ -72,10 +72,10 @@ inverting it, we might get a better result.
 We can simply redefine our `update` function as follows:
 
 ````@example slow_fast
-function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
-    for ticker_ledger in ticker_ledgers
-        ticker = ticker_ledger.ticker
-        for e in new_entities(ticker_ledger, s)
+function Overseer.update(s::SlowFast, t::Trader, asset_ledgers)
+    for asset_ledger in asset_ledgers
+        asset = asset_ledger.asset
+        for e in new_entities(asset_ledger, s)
             prev_e = prev(e, 1)
 
             if prev_e === nothing
@@ -89,9 +89,9 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
             prev_sma_200 = prev_e[SMA{200, Close}].sma
 
             if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
-                Entity(t, Purchase(ticker, Inf))
+                Entity(t, Purchase(asset, Inf))
             elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
-                Entity(t, Sale(ticker, Inf))
+                Entity(t, Sale(asset, Inf))
             end
         end
     end

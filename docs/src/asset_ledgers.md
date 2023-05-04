@@ -4,7 +4,8 @@ CurrentModule = Trading
 ```
 
 ```@docs
-Trading.TickerLedger
+Trading.AssetLedger
+Trading.Asset
 ```
 
 ## Bar Components

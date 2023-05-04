@@ -43,7 +43,8 @@ function account_details(b::AlpacaBroker)
     end
 
     pos_parse = JSON3.read(resp.body)
-    positions = map(position -> (string(position[:symbol]), parse(Float64, position[:qty])),
+    positions = map(position -> (position[:asset_class] == "us_equity" ? Stock(string(position[:symbol])) : Crypto(string(position[:symbol])),
+                                 parse(Float64, position[:qty])),
                     pos_parse)
     return (; cash, positions)
 end
@@ -57,13 +58,13 @@ function fill_account!(trader::Trader)
 
     Entity(trader.l, Cash(cash), PurchasePower(cash))
     
-    current_positions = Set{String}(map(x->x.ticker, trader[Position]))
+    current_positions = Set{Asset}(map(x->x.asset, trader[Position]))
 
     for p in positions
         
         delete!(current_positions, p[1])
         
-        id = findfirst(x -> x.ticker == p[1], trader[Position])
+        id = findfirst(x -> x.asset.ticker == p[1], trader[Position])
         if id === nothing
             Entity(trader.l, Position(p...))
         else
@@ -72,7 +73,7 @@ function fill_account!(trader::Trader)
     end
     
     for p in current_positions
-        id = findfirst(x -> x.ticker == p, trader[Position])
+        id = findfirst(x -> x.asset == p, trader[Position])
         if id === nothing
             continue
         end

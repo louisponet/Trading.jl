@@ -48,23 +48,23 @@ broker(b::AlpacaBroker) = b
 ```
 
 ### `data_query`
-Next up is the `data_query(broker, ticker, start, stop, args...; section = ["bars" or "quotes" or"trades"], [timeframe=DateTime if section == "bars"])` function,
+Next up is the `data_query(broker, asset, start, stop, args...; section = ["bars" or "quotes" or"trades"], [timeframe=DateTime if section == "bars"])` function,
 which performs the actual api calls to retrieve either `bars`, `quotes` or `trades` from the `broker`. What to retrieve is communicated through the `section` kwarg, and in the case of `bars` it will be called using the `timeframe` kwarg.
 This should return a `TimeFrame`.
 
 ### Bars
 The `bars(broker, msg::Vector)` function should be overloaded to be used in [`BarStream`](@ref) to parse incoming bar updates. It should return
-a `Vector` of `(ticker, (datetime, (bar_open, bar_high, bar_low, bar_close, bar_volume)))`:
+a `Vector` of `(asset, (datetime, (bar_open, bar_high, bar_low, bar_close, bar_volume)))`:
 ```julia
 function bars(::Union{AlpacaBroker,MockBroker}, msg::AbstractVector)
     return map(filter(x -> x[:T] == "b", msg)) do bar
-        ticker = bar[:S]
-        return ticker, (parse_time(bar[:t]), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
+        asset = bar[:S]
+        return asset, (parse_time(bar[:t]), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
     end
 end
 ```
 
-The function `subscribe_bars(broker, ticker, websocket)` should be overloaded in order to communicate to a [`BarStream`](@ref) which `tickers` we want to receive updates for.
+The function `subscribe_bars(broker, asset, websocket)` should be overloaded in order to communicate to a [`BarStream`](@ref) which `assets` we want to receive updates for.
 
 `data_stream_url(broker)` should point to a url from which we can stream bar update data.
 `authenticate_data(broker)` is called just after opening the stream.
@@ -82,7 +82,7 @@ the right message to start listening to the updates.
 
 ### Account Details
 Upon construction a [`Trader`](@ref) will fill out the current portfolio by calling `account_details(broker)` which should return `(cash, positions)` where
-`positions = [(ticker, quantity), (ticker, quantity), ...]`.
+`positions = [(asset, quantity), (asset, quantity), ...]`.
 
 ## References
 ```@docs

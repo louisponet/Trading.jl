@@ -27,14 +27,14 @@ using Statistics
 
 include("utils.jl")
 
+include("assets.jl")
 include("Components/core.jl")
 include("Components/indicators.jl")
 include("Components/portfolio.jl")
 include("timearrays.jl")
-include("assets.jl")
 include("datacache.jl")
 include("brokers.jl")
-include("ticker_ledger.jl")
+include("asset_ledger.jl")
 include("trader.jl")
 
 include("account.jl")
@@ -49,6 +49,7 @@ include("Systems/core.jl")
 include("Systems/indicators.jl")
 include("Systems/portfolio.jl")
 
+export Stock, Crypto
 export Trader, BackTester, start, stop, stop_main, stop_trading, stop_data
 export AlpacaBroker, HistoricalBroker
 export bars, quotes, trades
@@ -58,26 +59,27 @@ function __init__()
 end
 
 module Indicators
-using ..Trading: SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
-export SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
+    using ..Trading: SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
+    export SMA, EMA, MovingStdDev, RSI, Bollinger, Sharpe
 end
 
 module Basic
-using ..Trading: Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference,
-                 RelativeDifference
-export Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference, RelativeDifference
+    using ..Trading: Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference,
+                     RelativeDifference
+    export Open, High, Low, Close, Volume, TimeStamp, LogVal, Difference, RelativeDifference
 end
 
 module Portfolio
-using ..Trading: Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType,
-                 TimeInForce,
-                 current_position, current_cash, current_purchasepower
-export Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType, TimeInForce,
-       current_position, current_cash, current_purchasepower
+    using ..Trading: Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType,
+                     TimeInForce,
+                     current_position, current_cash, current_purchasepower
+    export Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType, TimeInForce,
+           current_position, current_cash, current_purchasepower
 end
 
 module Strategies
 using ..Trading: Strategy, new_entities, reset!, current_price, prev
+export Strategy, new_entities, reset!, current_price, prev
 export Strategy, new_entities, reset!, current_price, prev
 end
 

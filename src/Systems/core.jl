@@ -27,11 +27,13 @@ function Overseer.update(::StrategyRunner, t::Trader)
         if e.only_day && !inday
             continue
         end
-        tickers = e.tickers
-        combined = join(tickers, "_")
+        if !isempty(e.assets)
+            combined = typeof(e.assets[1])(join(e.assets, "_"))
 
-        # Sometimes no new bars arrive for a given ticker,
-        # we insert the current price for all values
-        update(e.stage, t, [map(ticker -> t[ticker], e.tickers); t[combined]])
+            update(e.stage, t, [map(asset -> t[asset], e.assets); t[combined]])
+        else
+            update(e.stage, t, e.assets)
+        end
+            
     end
 end

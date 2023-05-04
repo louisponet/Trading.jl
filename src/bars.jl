@@ -1,7 +1,7 @@
 """
-    bars(broker, ticker, start, stop; timeframe, kwargs...)
+    bars(broker, asset, start, stop; timeframe, kwargs...)
 
-Retrieve the bar data for `ticker` from `start` to `stop` and with an interval of `timeframe`.
+Retrieve the bar data for `asset` from `start` to `stop` and with an interval of `timeframe`.
 When using [`AlpacaBroker`](@ref) see the [Bar Object](https://alpaca.markets/docs/api-references/market-data-api/stock-pricing-data/historical/#bars)
 documentation for further reference.
 
@@ -19,35 +19,35 @@ The above will retrieve 2022 bar data "AAPL" on a Minute resolution.
 """
 bars(b::AbstractBroker) = broker(b).cache.bar_data
 
-function bars(broker::AbstractBroker, ticker, start, stop = current_time();
+function bars(broker::AbstractBroker, asset::Asset, start, stop = current_time();
               timeframe::Period, kwargs...)
     start = round(start, typeof(timeframe), RoundDown)
     stop  = round(stop, typeof(timeframe), RoundUp)
 
-    return t = retrieve_data(broker, bars(broker), (ticker, timeframe), start, stop,
+    return t = retrieve_data(broker, bars(broker), (asset, timeframe), start, stop,
                              Float64; section = "bars", timeframe = timeframe, kwargs...)
 end
 
 function bars(::Union{AlpacaBroker,MockBroker}, msg::AbstractVector)
     return map(filter(x -> x[:T] == "b", msg)) do bar
-        ticker = bar[:S]
-        return ticker, (parse_time(bar[:t]), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
+        asset = bar[:S]
+        return asset, (parse_time(bar[:t]), (bar[:o], bar[:h], bar[:l], bar[:c], bar[:v]))
     end
 end
 
-function subscribe_bars(::AlpacaBroker, ticker::String, ws::WebSocket)
+function subscribe_bars(::AlpacaBroker, asset::Asset, ws::WebSocket)
     return send(ws, JSON3.write(Dict("action" => "subscribe",
-                                     "bars" => [ticker])))
+                                     "bars" => [asset.ticker])))
 end
 
-function subscribe_bars(dp::HistoricalBroker, ticker::String, start = nothing,
+function subscribe_bars(dp::HistoricalBroker, asset::Asset, start = nothing,
                         stop = nothing; timeframe = nothing)
-    if !any(x -> first(x) == ticker, keys(bars(dp)))
+    if !any(x -> first(x) == asset, keys(bars(dp)))
         start     = start === nothing ? minimum(x -> timestamp(x)[1], values(bars(dp))) : start
         stop      = stop === nothing ? maximum(x -> timestamp(x)[end], values(bars(dp))) : stop
         timeframe = timeframe === nothing ? minimum(x -> last(x), keys(bars(dp))) : timeframe
 
-        bars(dp, ticker, start, stop; timeframe = timeframe)
+        bars(dp, asset, start, stop; timeframe = timeframe)
     end
     return nothing
 end
@@ -67,13 +67,13 @@ function receive_bars(dp::HistoricalBroker, args...)
     while isempty(msg) && dp.clock.time <= last_time(dp)
         dp.clock.time += dp.clock.dtime
 
-        for (ticker, frame) in bars(dp)
+        for (asset, frame) in bars(dp)
             dat = frame[dp.clock.time]
 
             dat === nothing && continue
 
             vals = values(dat)
-            push!(msg, (first(ticker), (timestamp(dat)[1], (view(vals, 1:5)...,))))
+            push!(msg, (first(asset).ticker, (timestamp(dat)[1], (view(vals, 1:5)...,))))
         end
     end
     dp.last = dp.clock.time
@@ -105,22 +105,22 @@ function WebSockets.isclosed(b::BarStream{<:HistoricalBroker})
 end
 
 """
-    register!(barstream, ticker)
+    register!(barstream, asset)
 
-Register a ticker to the [`BarStream`](@ref) so that [`receive`](@ref) will also
-return updates with new bars for `ticker`.
+Register a asset to the [`BarStream`](@ref) so that [`receive`](@ref) will also
+return updates with new bars for `asset`.
 """
-register!(b::BarStream, ticker) = subscribe_bars(b.broker, ticker, b.ws)
+register!(b::BarStream, asset) = subscribe_bars(b.broker, asset, b.ws)
 
 """
     bar_stream(f::Function, broker)
 
 Open a bar stream, calls function `f` with a [`BarStream`](@ref) object.
 Call [`receive`](@ref) on the [`BarStream`](@ref) to get new bars streamed in,
-and [`register!`](@ref) to register tickers for which to receive bar updates for.
+and [`register!`](@ref) to register assets for which to receive bar updates for.
 """
-function bar_stream(func::Function, broker::AbstractBroker)
-    HTTP.open(data_stream_url(broker)) do ws
+function bar_stream(func::Function, broker::AbstractBroker, ::Type{T}) where {T<:Asset}
+    HTTP.open(bar_stream_url(broker, T)) do ws
         if !authenticate_data(broker, ws)
             error("couldn't authenticate")
         end
@@ -136,7 +136,7 @@ function bar_stream(func::Function, broker::AbstractBroker)
     end
 end
 
-function bar_stream(func::Function, broker::HistoricalBroker)
+function bar_stream(func::Function, broker::HistoricalBroker, ::Type{<:Asset})
     try
         return func(BarStream(broker, nothing))
     catch e

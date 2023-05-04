@@ -16,16 +16,16 @@ After calling [`start`](@ref) on the [`Trader`](@ref), a couple of tasks will st
 Aside from this `main_task` there are two other tasks:
 - `main_task`:    runs the [Core Systems](@ref) in sequence. This includes [`StrategyRunner`](@ref) which executes the [`Strategies`](@ref Strategy) 
 - `trading_task`: streams in portfolio and order updates
-- `data_task`:    streams in updates to the registered tickers and updates their [`TickerLedgers`](@ref TickerLedger)
+- `data_task`:    streams in updates to the registered assets and updates their [`AssetLedgers`](@ref AssetLedger)
 
 Aside from [`start`](@ref) there are some other functions to control the runtime:
 - [`stop_main`](@ref):     stops the `main_task`
 - [`stop_trading`](@ref):  stops the `trading_task`
-- [`stop_data`](@ref):     stops the `data_task`
+- [`stop_data`](@ref):     stops the `data_tasks`
 - [`stop`](@ref):          combines the previous 3
 - [`start_main`](@ref):    starts the `main_task`
 - [`start_trading`](@ref): starts the `trading_task`
-- [`start_data`](@ref):    stops the `data_task`
+- [`start_data`](@ref):    starts the `data_tasks`
 
 # AbstractLedger interface
 [`Trader`](@ref) is a subtype of the `AbstractLedger` type defined in [Overseer.jl](https://github.com/louisponet/Overseer.jl), meaning that
@@ -36,8 +36,8 @@ example of an algorithmic trader implementation, but it can be tuned and tweaked
 mutable struct Trader{B<:AbstractBroker} <: AbstractLedger
     l              :: Ledger
     broker         :: B
-    ticker_ledgers :: Dict{String,TickerLedger}
-    data_task      :: Union{Task,Nothing}
+    asset_ledgers  :: Dict{Asset, AssetLedger}
+    data_tasks     :: Dict{DataType, Task} # One data task per Asset Class
     trading_task   :: Union{Task,Nothing}
     main_task      :: Union{Task,Nothing}
     stop_main      :: Bool
@@ -58,7 +58,7 @@ function Overseer.Entity(t::Trader{<:HistoricalBroker}, args...)
     return Entity(Overseer.ledger(t), TimeStamp(current_time(t)), args...)
 end
 
-Base.getindex(t::Trader, id::String) = t.ticker_ledgers[id]
+Base.getindex(t::Trader, id::Asset) = t.asset_ledgers[id]
 
 function main_stage()
     return Stage(:main,
@@ -69,7 +69,8 @@ end
 function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[],
                 start = current_time())
     l = Ledger(main_stage())
-    ticker_ledgers = Dict{String,TickerLedger}()
+    
+    asset_ledgers = Dict{Asset, AssetLedger}()
 
     for strat in strategies
         for c in Overseer.requested_components(strat.stage)
@@ -78,26 +79,30 @@ function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[
 
         Entity(l, strat)
 
-        for ticker in strat.tickers
-            tl = get!(ticker_ledgers, ticker, TickerLedger(ticker))
+        for asset in strat.assets
+            
+            tl = get!(asset_ledgers, asset, AssetLedger(asset))
+            
             register_strategy!(tl, strat)
 
-            if current_position(l, ticker) === nothing
-                Entity(l, Position(ticker, 0.0))
+            if current_position(l, asset) === nothing
+                Entity(l, Position(asset, 0.0))
             end
         end
-
-        combined = join(strat.tickers, "_")
-        tl = get!(ticker_ledgers, combined, TickerLedger(combined))
-        register_strategy!(tl, strat)
+        
+        if length(strat.assets) > 1
+            combined = typeof(strat.assets[1])(join(strat.assets, "_"))
+            tl = get!(asset_ledgers, combined, AssetLedger(combined))
+            register_strategy!(tl, strat)
+        end
     end
 
-    for ledger in values(ticker_ledgers)
+    for ledger in values(asset_ledgers)
         ensure_systems!(ledger)
     end
     Entity(l, Clock(start, Minute(0)))
 
-    trader = Trader(l, broker, ticker_ledgers, nothing, nothing, nothing, false, false,
+    trader = Trader(l, broker, asset_ledgers, Dict{DataType, Task}(), nothing, nothing, false, false,
                     false, false, Base.Event())
 
     fill_account!(trader)
@@ -106,13 +111,13 @@ function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[
 end
 
 """
-    current_position(trader, ticker::String)
+    current_position(trader, asset::Asset)
 
-Returns the current portfolio position for `ticker`.
-Returns `nothing` if `ticker` is not found in the portfolio.
+Returns the current portfolio position for `asset`.
+Returns `nothing` if `asset` is not found in the portfolio.
 """
-function current_position(t::AbstractLedger, ticker::String)
-    pos_id = findfirst(x -> x.ticker == ticker, t[Position])
+function current_position(t::AbstractLedger, asset::Asset)
+    pos_id = findfirst(x -> x.asset == asset, t[Position])
     pos_id === nothing && return 0.0
     return t[Position][pos_id].quantity
 end
@@ -134,15 +139,15 @@ current_purchasepower(t::AbstractLedger) = singleton(t, PurchasePower).cash
 function Base.show(io::IO, ::MIME"text/plain", trader::Trader)
     positions = Matrix{Any}(undef, length(trader[Position]), 3)
     for (i, p) in enumerate(trader[Position])
-        positions[i, 1] = p.ticker
+        positions[i, 1] = p.asset
         positions[i, 2] = p.quantity
-        positions[i, 3] = current_price(trader.broker, p.ticker) * p.quantity
+        positions[i, 3] = current_price(trader.broker, p.asset) * p.quantity
     end
 
     println(io, "Trader\n")
     println(io, "Main task:    $(trader.main_task)")
     println(io, "Trading task: $(trader.trading_task)")
-    println(io, "Data task:    $(trader.data_task)")
+    println(io, "Data tasks:   $(trader.data_tasks)")
     println(io)
 
     positions_value = sum(positions[:, 3]; init = 0)
@@ -179,7 +184,7 @@ function Base.show(io::IO, ::MIME"text/plain", trader::Trader)
     for (i, e) in enumerate(@entities_in(trader, TimeStamp && Filled && Order))
         id = ntrades - i + 1 # to reverse
         trades[id, 1] = e.filled_at
-        trades[id, 2] = e.ticker
+        trades[id, 2] = e.asset
         trades[id, 3] = e in trader[Purchase] ? "buy" : "sell"
         trades[id, 4] = e.quantity
         trades[id, 5] = e.avg_price
@@ -219,6 +224,7 @@ function BackTester(broker::HistoricalBroker;
                     stop     = current_time(),
                     cash     = 1e6,
                     only_day = true, kwargs...)
+                    
     trader = Trader(broker; start = start, kwargs...)
 
     maxstart = start
@@ -227,10 +233,10 @@ function BackTester(broker::HistoricalBroker;
     lck = ReentrantLock()
     @info "Fetching historical data"
 
-    tickers = filter(x -> !occursin("_", x), collect(keys(trader.ticker_ledgers)))
+    assets = filter(asset -> !occursin("_", asset.ticker), collect(keys(trader.asset_ledgers)))
 
-    Threads.@threads for ticker in tickers
-        b = bars(broker, ticker, start, stop; timeframe = dt, normalize = true)
+    Threads.@threads for asset in assets
+        b = bars(broker, asset, start, stop; timeframe = dt, normalize = true)
 
         lock(lck) do
             maxstart = max(timestamp(b)[1], maxstart)
@@ -238,12 +244,12 @@ function BackTester(broker::HistoricalBroker;
         end
 
         if only_day
-            bars(broker)[(ticker, dt)] = only_trading(b)
+            bars(broker)[(asset, dt)] = only_trading(b)
         end
     end
 
-    for ticker in tickers
-        bars(broker)[(ticker, dt)] = to(from(bars(broker)[(ticker, dt)], maxstart), minstop)
+    for asset in assets
+        bars(broker)[(asset, dt)] = to(from(bars(broker)[(asset, dt)], maxstart), minstop)
     end
 
     if all(isempty, values(bars(broker)))
@@ -339,7 +345,7 @@ end
 Resets a [`Trader`](@ref) to the starting point. Usually only used on a [`BackTester`](@ref).
 """
 function reset!(trader::Trader)
-    for l in values(trader.ticker_ledgers)
+    for l in values(trader.asset_ledgers)
         empty_entities!(l)
     end
 

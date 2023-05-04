@@ -146,12 +146,13 @@ function header(b::AlpacaBroker)
     return ["APCA-API-KEY-ID" => b.key_id, "APCA-API-SECRET-KEY" => b.secret_key]
 end
 
-data_stream_url(::AlpacaBroker)            = URI("wss://stream.data.alpaca.markets/v2/iex")
+bar_stream_url(::AlpacaBroker, ::Type{Stock})    = URI("wss://stream.data.alpaca.markets/v2/iex")
+bar_stream_url(::AlpacaBroker, ::Type{Crypto})   = URI("wss://stream.data.alpaca.markets/v1beta3/crypto/us")
 trading_stream_url(::AlpacaBroker)         = URI("wss://paper-api.alpaca.markets/stream")
 trading_url(::AlpacaBroker)                = URI("https://paper-api.alpaca.markets")
 order_url(b::AlpacaBroker)                 = URI(trading_url(b); path = "/v2/orders")
 data_url(::AlpacaBroker)                   = URI("https://data.alpaca.markets")
-quote_url(b::AlpacaBroker, ticker::String) = URI(data_url(b); path = "/v2/stocks/$ticker/quotes/latest")
+quote_url(b::AlpacaBroker, asset::Asset) = URI(data_url(b); path = "/v2/stocks/$(asset.ticker)/quotes/latest")
 
 function Base.string(::AlpacaBroker, timeframe::Period)
     if timeframe isa Minute
@@ -213,8 +214,8 @@ function HTTP.URI(broker::AlpacaBroker, s::Crypto, args...; section::AbstractStr
 end
 
 
-function mock_bar(b::AlpacaBroker, ticker, vals)
-    return merge((T = "b", S = ticker),
+function mock_bar(b::AlpacaBroker, asset, vals)
+    return merge((T = "b", S = asset),
                  NamedTuple(map(x -> x[1] => x[2], zip(bar_fields(b), vals))))
 end
 
@@ -284,7 +285,7 @@ function data_query(broker::AlpacaBroker, asset::Asset, start::DateTime, stop::U
             end
         else
             @warn """
-            Something went wrong querying $section data for ticker $(asset.ticker)
+            Something went wrong querying $section data for asset $(asset.ticker)
             leading to status: $(resp.status)
             """
             break

@@ -75,10 +75,10 @@ function TimeSeries.TimeArray(c::AbstractComponent{PortfolioSnapshot}, tcomp)
     for e in es_to_store
         tstamp = tcomp[e].t
         for p in e.positions
-            arr = get!(pos_dict, p.ticker * "_position", Float64[])
+            arr = get!(pos_dict, p.asset.ticker * "_position", Float64[])
             push!(arr, p.quantity)
 
-            tstamp_arr = get!(pos_timestamps, p.ticker * "_position", DateTime[])
+            tstamp_arr = get!(pos_timestamps, p.asset.ticker * "_position", DateTime[])
             push!(tstamp_arr, tstamp)
         end
 
@@ -138,12 +138,12 @@ function TimeSeries.TimeArray(l::AbstractLedger, cols = keys(components(l)))
     end
 
     if l isa Trader
-        for (ticker, ledger) in l.ticker_ledgers
+        for (asset, ledger) in l.asset_ledgers
             ta = TimeArray(ledger)
 
             ta === nothing && continue
 
-            colnames(ta) .= Symbol.((ticker * "_",) .* string.(colnames(ta)))
+            colnames(ta) .= Symbol.((asset.ticker * "_",) .* string.(colnames(ta)))
 
             out = out === nothing ? ta : merge(out, ta; method = :outer)
         end

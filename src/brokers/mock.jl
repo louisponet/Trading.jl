@@ -19,7 +19,7 @@ function data_query(broker::MockBroker, symbol, start, stop = nothing, ::Type{T}
     return TimeArray(collect(tstamps), mock_dat, colnames)
 end
 
-function mock_bar(b::MockBroker, ticker, vals)
-    return merge((T = "b", S = ticker),
+function mock_bar(b::MockBroker, asset, vals)
+    return merge((T = "b", S = asset),
                  NamedTuple(map(x -> x[1] => x[2], zip(bar_fields(b), vals))))
 end

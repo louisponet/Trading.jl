@@ -14,7 +14,7 @@ A slew of historical data can be requested through a broker e.g
 ```@example
 using Trading#hide
 broker = AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"])
-bars(broker, "AAPL", DateTime("2023-04-05T00:00:00"), DateTime("2023-04-05T22:00:00"), timeframe=Minute(1))
+bars(broker, Stock("AAPL"), DateTime("2023-04-05T00:00:00"), DateTime("2023-04-05T22:00:00"), timeframe=Minute(1))
 ```
 
 There are so far three such functions:
@@ -29,12 +29,12 @@ by calling [`bar_stream`](@ref), either in realtime from a realtime broker (e.g.
 For example, internally [`start_data`](@ref) essentially looks like:
 ```julia
 bar_stream(trader.broker) do stream
-    for (ticker, q) in trader.ticker_ledgers
-        register!(stream, ticker)
+    for (asset, q) in trader.asset_ledgers
+        register!(stream, asset)
     end
     while !trader.stop_data
         bars = receive(stream)
-        # distribute bars to ticker ledgers
+        # distribute bars to asset ledgers
     end
 end
 ```
@@ -69,7 +69,7 @@ current_price
 Trading.BarStream
 Trading.bar_stream
 Trading.HTTP.receive(b::Trading.BarStream)
-Trading.register!(b::Trading.BarStream, ticker)
+Trading.register!(b::Trading.BarStream, asset)
 Trading.submit_order
 Trading.OrderStream
 Trading.order_stream

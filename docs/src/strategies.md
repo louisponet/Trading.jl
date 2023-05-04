@@ -11,7 +11,7 @@ There are three main parts that need to be implemented for a [`Strategy`](@ref) 
 - the `Overseer.update` function
 - the `Overseer.requested_components` function
 
-This latter one will be used to determine which [`Indicator`](@ref Indicators) systems need to be executed on the data inside each [`TickerLedger`](@ref) in order to produce
+This latter one will be used to determine which [`Indicator`](@ref Indicators) systems need to be executed on the data inside each [`AssetLedger`](@ref) in order to produce
 the [`Indicators`](@ref Indicators) that are used by the [`Strategy`](@ref).
 
 ## Strategy Definition
@@ -19,10 +19,10 @@ As an example we will implement a very simple slow/fast moving average strategy,
 The goal is that we can later use it in our [`Trader`](@ref) in to following way:
 
 ```julia
-trader = Trader(broker; strategies = [Strategy(:slowfast, [SlowFast()], tickers=["stock1"])])
+trader = Trader(broker; strategies = [Strategy(:slowfast, [SlowFast()], assets=[Stock("stock1")])])
 ```
 
-We begin by defining the `SlowFast` `System` and the components that it requests to be present in [`TickerLedgers`](@ref TickerLedger).
+We begin by defining the `SlowFast` `System` and the components that it requests to be present in [`AssetLedgers`](@ref AssetLedger).
 They will be automatically created as tick data arrives.
 ```@example strategy
 using Trading#hide
@@ -38,12 +38,12 @@ We here request the slow and fast sma components of the closing price ([`SMA{200
 
 We then implement the following `update` function that will be executed periodically:
 ```@example strategy
-function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
-    for ticker_ledger in ticker_ledgers
+function Overseer.update(s::SlowFast, t::Trader, asset_ledgers)
+    for asset_ledger in asset_ledgers
 
-        ticker = ticker_ledger.ticker
+        asset = asset_ledger.asset
 
-        for e in new_entities(ticker_ledger, s)
+        for e in new_entities(asset_ledger, s)
             prev_e = prev(e, 1)
 
             if prev_e === nothing
@@ -57,9 +57,9 @@ function Overseer.update(s::SlowFast, t::Trader, ticker_ledgers)
             prev_sma_200 = prev_e[SMA{200, Close}].sma
 
             if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
-                Entity(t, Sale(ticker, 1.0))
+                Entity(t, Sale(asset, 1.0))
             elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
-                Entity(t, Purchase(ticker, 1.0))
+                Entity(t, Purchase(asset, 1.0))
             end
 
         end
@@ -69,14 +69,14 @@ end
 
 Let's go through this line by line:
 ```julia
-for ticker_ledger in ticker_ledgers
+for asset_ledger in asset_ledgers
 ```
-We loop through each of the ticker ledgers that this strategy was created for (i.e. `stock1`, `stock2`).
+We loop through each of the asset ledgers that this strategy was created for (i.e. `stock1`, `stock2`).
 
 ```julia
-for e in new_entities(ticker_ledger, s)
+for e in new_entities(asset_ledger, s)
 ```
-Then, we ask for the [`new_entities`](@ref) in the [`TickerLedger`](@ref) that have
+Then, we ask for the [`new_entities`](@ref) in the [`AssetLedger`](@ref) that have
 in this case both the `SMA{200, Close}` and `SMA{50,Close}` components. Each of these entities will be touched once and only once.
 
 ```julia
@@ -96,9 +96,9 @@ We retrieve the sma's for both the current and previous `entity`.
 
 ```julia
 if sma_50 > sma_200 && prev_sma_50 < prev_sma_200
-    Entity(t, Sale(ticker, 1.0))
+    Entity(t, Sale(asset, 1.0))
 elseif sma_50 < sma_200 && prev_sma_50 > prev_sma_200
-    Entity(t, Purchase(ticker, 1.0))
+    Entity(t, Purchase(asset, 1.0))
 end
 ```
 If the fast sma crosses above the slow sma, we assume the stock is overbought and we sell it by creating an `Entity` with a  [`Sale`](@ref) component.
@@ -112,7 +112,7 @@ our strategy on some historical data.
 We first define the broker from which to pull the historical data, in this case we use [`AlpacaBroker`](@ref) with our `key_id` and `secret`.
 We then use it in the [`HistoricalBroker`](@ref) which supplies data in the same way of a realtime broker would.
 
-We then set up the strategy for the `MSFT` and `AAPL` tickers, define our `BackTester` with our data range and interval `dt`.
+We then set up the strategy for the `MSFT` and `AAPL` assets, define our `BackTester` with our data range and interval `dt`.
 
 !!! note
 
@@ -123,7 +123,7 @@ Finally we use [`start`](@ref) to loop through all the days and execute the stra
 ```@example strategy
 broker = HistoricalBroker(AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"]))
 
-strategy = Strategy(:slowfast, [SlowFast()], tickers=["MSFT", "AAPL"])
+strategy = Strategy(:slowfast, [SlowFast()], assets=[Stock("MSFT"), Stock("AAPL")])
 
 trader = BackTester(broker, start = DateTime("2015-01-01T00:00:00"),
                             stop = DateTime("2020-01-01T00:00:00"),

@@ -17,7 +17,7 @@ broker = AlpacaBroker(ENV["ALPACA_KEY_ID"], ENV["ALPACA_SECRET"])
 
 start_day = DateTime("2015-01-01T00:00:00")
 stop_day  = DateTime("2020-01-01T00:00:00")
-full_bars = bars(broker, "AAPL", start_day, stop_day, timeframe=Day(1))
+full_bars = bars(broker, Stock("AAPL"), start_day, stop_day, timeframe=Day(1))
 df        = rename(merge(full_bars[:c], full_bars[:o]), [:AAPL_Close, :AAPL_Open])
 ```
 Next, we calculate the two moving averages that we will use in our strategy:

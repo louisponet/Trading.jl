@@ -43,31 +43,31 @@ It is also important to have `.v` as the value field.
 If this is undesired you can overload [`Trading.value`](@ref) for your component type.
 
 Next we specify the `update` functions.
-In this more complicated strategy, we need to keep track of the `Spread` between two tickers.
+In this more complicated strategy, we need to keep track of the `Spread` between two assets.
 To facilitate this notion of shared or combined data, a ledger will be automatically generated
-with the name of shared tickers separated by `_`, i.e. `MSFT_AAPL` in our current example.
-This combined ledger will be the last entry in the `ticker_ledgers` argument.
+with the name of shared assets separated by `_`, i.e. `MSFT_AAPL` in our current example.
+This combined ledger will be the last entry in the `asset_ledgers` argument.
 
 ````@example cointegration
-function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
+function Overseer.update(s::SpreadCalculator, m::Trading.Trader, asset_ledgers)
 
-    @assert length(ticker_ledgers) == 3 "Pairs Strategy only implemented for 2 tickers at a time"
-    combined_ledger = ticker_ledgers[end]
+    @assert length(asset_ledgers) == 3 "Pairs Strategy only implemented for 2 assets at a time"
+    combined_ledger = asset_ledgers[end]
 
     curt = current_time(m)
 
     # We clear all data from the previous day at market open
     if Trading.is_market_open(curt)
-        for l in ticker_ledgers[1:2]
+        for l in asset_ledgers[1:2]
             reset!(l, s)
         end
     end
 
-    new_bars1 = new_entities(ticker_ledgers[1], s)
-    new_bars2 = new_entities(ticker_ledgers[2], s)
+    new_bars1 = new_entities(asset_ledgers[1], s)
+    new_bars2 = new_entities(asset_ledgers[2], s)
 
-    tickers = map(x->x.ticker, ticker_ledgers[1:2])
-    @assert length(new_bars1) == length(new_bars2) "New bars differ for tickers $tickers"
+    assets = map(x->x.asset, asset_ledgers[1:2])
+    @assert length(new_bars1) == length(new_bars2) "New bars differ for assets $assets"
 
     γ = s.γ[dayofweek(curt)]
     for (b1, b2) in zip(new_bars1, new_bars2)
@@ -76,10 +76,10 @@ function Overseer.update(s::SpreadCalculator, m::Trading.Trader, ticker_ledgers)
     update(combined_ledger)
 end
 
-function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
+function Overseer.update(s::PairStrat, m::Trading.Trader, asset_ledgers)
     curt = current_time(m)
     if Trading.is_market_open(curt)
-        reset!(ticker_ledgers[end], s)
+        reset!(asset_ledgers[end], s)
     end
 
     !in_day(curt) && return
@@ -87,27 +87,27 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
     cash = m[Trading.PurchasePower][1].cash
     new_pos = any(x -> x ∉ m[Trading.Order], @entities_in(m, Purchase || Sale))
 
-    ticker1 = ticker_ledgers[1].ticker
-    ticker2 = ticker_ledgers[2].ticker
+    asset1 = asset_ledgers[1].asset
+    asset2 = asset_ledgers[2].asset
 
     γ = s.γ[dayofweek(curt)]
-    z_comp = ticker_ledgers[end][ZScore{Spread}]
+    z_comp = asset_ledgers[end][ZScore{Spread}]
 
-    for e in new_entities(ticker_ledgers[end], s)
+    for e in new_entities(asset_ledgers[end], s)
 
         v         = e.v
         sma       = e.sma
         σ         = e.σ
         z_score   = (v - sma) / σ
-        ticker_ledgers[end][e] = ZScore{Spread}(z_score)
+        asset_ledgers[end][e] = ZScore{Spread}(z_score)
         new_pos && continue
 
 
-        curpos1 = current_position(m, ticker1)
-        curpos2 = current_position(m, ticker2)
+        curpos1 = current_position(m, asset1)
+        curpos2 = current_position(m, asset2)
 
-        p1 = current_price(m, ticker1)
-        p2 = current_price(m, ticker2)
+        p1 = current_price(m, asset1)
+        p2 = current_price(m, asset2)
 
         quantity2(n1) = round(Int, n1 * p1 * γ / p2)
 
@@ -121,8 +121,8 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
             else
                 q = cash/p1
             end
-            Entity(m, Purchase(ticker1, round(Int, q)))
-            Entity(m, Sale(ticker2, quantity2(q)))
+            Entity(m, Purchase(asset1, round(Int, q)))
+            Entity(m, Sale(asset2, quantity2(q)))
 
 
         elseif z_score > s.z_thr && (in_bought_leg || curpos1 == 0)
@@ -132,8 +132,8 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
             else
                 q = cash / p1
             end
-            Entity(m, Purchase(ticker2, quantity2(q)))
-            Entity(m, Sale(ticker1, round(Int, q)))
+            Entity(m, Purchase(asset2, quantity2(q)))
+            Entity(m, Sale(asset1, round(Int, q)))
         end
 
         prev_e = prev(e, 1)
@@ -145,12 +145,12 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
 
         going_up = z_score - z_comp[prev_e].v > 0
         if z_score > 0 && in_bought_leg && !going_up
-            Entity(m, Sale(ticker1, curpos1))
-            Entity(m, Purchase(ticker2, -curpos2))
+            Entity(m, Sale(asset1, curpos1))
+            Entity(m, Purchase(asset2, -curpos2))
             new_pos = true
         elseif z_score < 0 && in_sold_leg && going_up
-            Entity(m, Purchase(ticker1, -curpos1))
-            Entity(m, Sale(ticker2, curpos2))
+            Entity(m, Purchase(asset1, -curpos1))
+            Entity(m, Sale(asset2, curpos2))
             new_pos = true
         end
     end
@@ -179,7 +179,7 @@ Next we specify the daily cointegration parameters that were fit to 2022 data, a
 stratsys = [SpreadCalculator(γ), PairStrat{20}(γ, 2.5)]
 sim_start =TimeDate("2023-01-01T00:00:00")
 sim_stop = TimeDate("2023-03-31T23:59:59")
-trader = BackTester(broker; strategies=[Strategy(:pair, stratsys, tickers=["MSFT", "AAPL"])],
+trader = BackTester(broker; strategies=[Strategy(:pair, stratsys, assets=[Stock("MSFT"), Stock("AAPL")])],
                             start=sim_start,
                             stop=sim_stop)
 
@@ -198,13 +198,13 @@ Again we see that this strategy does not particularly work.
 ## Invert
 The interesting part is that our strategy is not just bad, it's **consistently bad**. This means that again,
 we can invert it and theoretically get a **consistently good** strategy (big grains of salt here).
-This can be achieved by inserting one line in the above `PairStrat`: `ticker1, ticker2 = ticker2, ticker1`.
+This can be achieved by inserting one line in the above `PairStrat`: `asset1, asset2 = asset2, asset1`.
 
 ````@example cointegration
-function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
+function Overseer.update(s::PairStrat, m::Trading.Trader, asset_ledgers)
     curt = current_time(m)
     if Trading.is_market_open(curt)
-        reset!(ticker_ledgers[end], s)
+        reset!(asset_ledgers[end], s)
     end
 
     !in_day(curt) && return
@@ -212,28 +212,28 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
     cash = m[Trading.PurchasePower][1].cash
     new_pos = any(x -> x ∉ m[Trading.Order], @entities_in(m, Purchase || Sale))
 
-    ticker1 = ticker_ledgers[1].ticker
-    ticker2 = ticker_ledgers[2].ticker
+    asset1 = asset_ledgers[1].asset
+    asset2 = asset_ledgers[2].asset
 
     γ = s.γ[dayofweek(curt)]
-    z_comp = ticker_ledgers[end][ZScore{Spread}]
+    z_comp = asset_ledgers[end][ZScore{Spread}]
 
-    for e in new_entities(ticker_ledgers[end], s)
+    for e in new_entities(asset_ledgers[end], s)
 
         v         = e.v
         sma       = e.sma
         σ         = e.σ
         z_score   = (v - sma) / σ
-        ticker_ledgers[end][e] = ZScore{Spread}(z_score)
+        asset_ledgers[end][e] = ZScore{Spread}(z_score)
         new_pos && continue
 
-        ticker1, ticker2 = ticker2, ticker1
+        asset1, asset2 = asset2, asset1
 
-        curpos1 = current_position(m, ticker1)
-        curpos2 = current_position(m, ticker2)
+        curpos1 = current_position(m, asset1)
+        curpos2 = current_position(m, asset2)
 
-        p1 = current_price(m, ticker1)
-        p2 = current_price(m, ticker2)
+        p1 = current_price(m, asset1)
+        p2 = current_price(m, asset2)
 
         quantity2(n1) = round(Int, n1 * p1 * γ / p2)
 
@@ -247,8 +247,8 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
             else
                 q = cash/p1
             end
-            Entity(m, Purchase(ticker1, round(Int, q)))
-            Entity(m, Sale(ticker2, quantity2(q)))
+            Entity(m, Purchase(asset1, round(Int, q)))
+            Entity(m, Sale(asset2, quantity2(q)))
 
 
         elseif z_score > s.z_thr && (in_bought_leg || curpos1 == 0)
@@ -258,8 +258,8 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
             else
                 q = cash / p1
             end
-            Entity(m, Purchase(ticker2, quantity2(q)))
-            Entity(m, Sale(ticker1, round(Int, q)))
+            Entity(m, Purchase(asset2, quantity2(q)))
+            Entity(m, Sale(asset1, round(Int, q)))
         end
 
         prev_e = prev(e, 1)
@@ -270,12 +270,12 @@ function Overseer.update(s::PairStrat, m::Trading.Trader, ticker_ledgers)
         end
         going_up = z_score - z_comp[prev_e].v > 0
         if z_score > 0 && in_bought_leg && !going_up
-            Entity(m, Sale(ticker1, curpos1))
-            Entity(m, Purchase(ticker2, -curpos2))
+            Entity(m, Sale(asset1, curpos1))
+            Entity(m, Purchase(asset2, -curpos2))
             new_pos = true
         elseif z_score < 0 && in_sold_leg && going_up
-            Entity(m, Purchase(ticker1, -curpos1))
-            Entity(m, Sale(ticker2, curpos2))
+            Entity(m, Purchase(asset1, -curpos1))
+            Entity(m, Sale(asset2, curpos2))
             new_pos = true
         end
     end
@@ -289,8 +289,8 @@ reset!(trader)
 start(trader)
 
 ta = Trading.relative(only_trading(TimeArray(trader)))
-to_plot = merge(ta[:portfolio_value], Trading.relative(rename(bars(broker, "MSFT", sim_start, sim_stop, timeframe=Minute(1))[:c], :MSFT_Close)),
-                    Trading.relative(rename(bars(broker, "AAPL", sim_start, sim_stop, timeframe=Minute(1))[:c], :AAPL_Close)))
+to_plot = merge(ta[:portfolio_value], Trading.relative(rename(bars(broker, Stock("MSFT"), sim_start, sim_stop, timeframe=Minute(1))[:c], :MSFT_Close)),
+                    Trading.relative(rename(bars(broker, Stock("AAPL"), sim_start, sim_stop, timeframe=Minute(1))[:c], :AAPL_Close)))
 
 plot(to_plot)
 ````

@@ -1,26 +1,34 @@
 @component struct Seen{S <: System} end
     
 """
-    TickerLedger
+    AssetLedger
 
-A `TickerLedger` holds the data for a given `ticker` as it arrives. Currently this is bar data in the form of
+A `AssetLedger` holds the data for a given `ticker` as it arrives. Currently this is bar data in the form of
 [`Open`](@ref), [`High`](@ref), [`Low`](@ref), [`Close`](@ref) and [`Volume`](@ref), produced by a [`BarStream`](@ref).
 If certain derived [`Indicator`](@ref Indicators) data is requested, it also holds this as it is produced by the different systems.
 """
-mutable struct TickerLedger <: AbstractLedger
-    ticker::String
+mutable struct AssetLedger <: AbstractLedger
+    asset::Asset
     l::Ledger
-end 
-
-function TickerLedger(ticker::String)
-    l = Ledger(Open, High, Low, Close, Volume, TimeStamp)
-    TickerLedger(ticker, l)
 end
 
-# Overseer.Entity(tl::TickerLedger, args...) = error("You, my friend, are not allowed to add entities to a TickerLedger.")
-_Entity(tl::TickerLedger, args...) = Entity(tl.l, args...)
+function Base.getproperty(t::AssetLedger, s::Symbol)
+    if s == :ticker
+        return t.asset.ticker
+    else
+        return getfield(t, s)
+    end
+end
 
-function new_bar!(tl::TickerLedger, time::TimeStamp, open::Open, high::High, low::Low, close::Close, volume::Volume; interval=Minute(1))
+function AssetLedger(asset::Asset)
+    l = Ledger(Open, High, Low, Close, Volume, TimeStamp)
+    AssetLedger(asset, l)
+end
+
+# Overseer.Entity(tl::AssetLedger, args...) = error("You, my friend, are not allowed to add entities to a AssetLedger.")
+_Entity(tl::AssetLedger, args...) = Entity(tl.l, args...)
+
+function new_bar!(tl::AssetLedger, time::TimeStamp, open::Open, high::High, low::Low, close::Close, volume::Volume; interval=Minute(1))
     tcomp = tl[TimeStamp]
     intval = Millisecond(interval) 
     if length(tcomp) > 1
@@ -49,9 +57,9 @@ function new_bar!(tl::TickerLedger, time::TimeStamp, open::Open, high::High, low
     Entity(tl.l, time, open, high, low, close, volume)
 end
 
-Overseer.ledger(d::TickerLedger) = d.l
+Overseer.ledger(d::AssetLedger) = d.l
 
-function register_strategy!(tl::TickerLedger, strategy::S) where {S<:System} 
+function register_strategy!(tl::AssetLedger, strategy::S) where {S<:System} 
     ensure_component!(tl, Seen{S})
     for c in Overseer.requested_components(strategy)
         ensure_component!(tl, c)
@@ -60,14 +68,14 @@ function register_strategy!(tl::TickerLedger, strategy::S) where {S<:System}
     ensure_systems!(tl)
 end
 
-function register_strategy!(tl::TickerLedger, strategy::S) where {S<:Stage} 
+function register_strategy!(tl::AssetLedger, strategy::S) where {S<:Stage} 
     for s in strategy.steps
         register_strategy!(tl, s)
     end
 end
-register_strategy!(tl::TickerLedger, strategy::Strategy) = register_strategy!(tl, strategy.stage)
+register_strategy!(tl::AssetLedger, strategy::Strategy) = register_strategy!(tl, strategy.stage)
 
-function reset!(tl::TickerLedger, strat::S) where {S}
+function reset!(tl::AssetLedger, strat::S) where {S}
     
     for CT in Overseer.requested_components(strat)
         
@@ -110,7 +118,7 @@ Returns a [`NewEntitiesIterator`](@ref) which iterates through the entities that
 and were not yet seen.
 I.e. each entity in those components will be looped over once and only once when iteratively calling `new_entities`.
 """
-function new_entities(tl::TickerLedger, strategy::S) where {S}
+function new_entities(tl::AssetLedger, strategy::S) where {S}
     comps = map(x -> tl[x], Overseer.requested_components(strategy))
     shortest = comps[findmin(x -> length(x.indices), comps)[2]].indices
     seen_comp = tl[Seen{S}]

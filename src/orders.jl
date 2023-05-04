@@ -1,7 +1,7 @@
 """
-    trades(broker, ticker, start, stop)
+    trades(broker, asset, start, stop)
 
-Returns the trades made for `ticker` between `start` and `stop`.
+Returns the trades made for `asset` between `start` and `stop`.
 When using [`AlpacaBroker`](@ref) see the [Trade Object](https://alpaca.markets/docs/api-references/market-data-api/stock-pricing-data/historical/#trades)
 documentation for further reference.
 
@@ -13,8 +13,8 @@ trades(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:
 ```
 """
 trades(b::AbstractBroker) = broker(b).cache.trade_data
-function trades(broker::AbstractBroker, ticker, args...; kwargs...)
-    return retrieve_data(broker, trades(broker), ticker, args...; section = "trades",
+function trades(broker::AbstractBroker, asset, args...; kwargs...)
+    return retrieve_data(broker, trades(broker), asset, args...; section = "trades",
                          kwargs...)
 end
 
@@ -22,7 +22,7 @@ function failed_order(broker, order, exc)
     t = current_time(broker)
     b = IOBuffer()
     showerror(b, exc)
-    return Order(order.ticker, "", uuid1(), uuid1(), t, t, t, nothing, nothing, nothing, t, 0.0,
+    return Order(order.asset, "", uuid1(), uuid1(), t, t, t, nothing, nothing, nothing, t, 0.0,
                  0.0, "failed\n$(String(take!(b)))", order.quantity, 0.0)
 end
 
@@ -67,13 +67,13 @@ order_side(order::EntityState{Tuple{Component{Sale}}})     = "sell"
 
 function submit_order(broker::HistoricalBroker, order)
     try
-        p = price(broker, broker.clock.time + broker.clock.dtime, order.ticker)
+        p = price(broker, broker.clock.time + broker.clock.dtime, order.asset)
         max_fee = 0.005 * abs(order.quantity) * p
         fee = abs(order.quantity) *
               (p * broker.variable_transaction_fee + broker.fee_per_share) +
               broker.fixed_transaction_fee
         fee = min(fee, max_fee)
-        return Order(order.ticker,
+        return Order(order.asset,
                      order_side(order),
                      uuid1(),
                      uuid1(),
@@ -102,7 +102,7 @@ side(::AlpacaBroker, ::EntityState{Tuple{Component{Purchase}}}) = "buy"
 side(::AlpacaBroker, ::EntityState{Tuple{Component{Sale}}})     = "sell"
 
 function order_body(b::AlpacaBroker, order::EntityState)
-    body = Dict("symbol"        => string(order.ticker),
+    body = Dict("symbol"        => string(order.asset.ticker),
                 "qty"           => string(order.quantity),
                 "side"          => side(b, order),
                 "type"          => string(order.type),
@@ -125,7 +125,7 @@ function parse_order(b::AbstractBroker, resp::HTTP.Response)
 end
 
 function parse_order(::AlpacaBroker, parse_body::JSON3.Object)
-    return Order(parse_body[:symbol],
+    return Order(UnknownAsset(parse_body[:symbol]),
                  parse_body[:side],
                  UUID(parse_body[:id]),
                  UUID(parse_body[:client_order_id]),

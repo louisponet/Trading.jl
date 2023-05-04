@@ -12,7 +12,7 @@ broker = AlpacaBroker(<key_id>, <secret_key>)
 trades(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:31:00"))
 ```
 """
-trades(b::AbstractBroker) = broker(b).cache.trades_data
+trades(b::AbstractBroker) = broker(b).cache.trade_data
 function trades(broker::AbstractBroker, ticker, args...; kwargs...)
     return retrieve_data(broker, trades(broker), ticker, args...; section = "trades",
                          kwargs...)

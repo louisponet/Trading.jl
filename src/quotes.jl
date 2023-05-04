@@ -14,7 +14,7 @@ quotes(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:
 """
 quotes(b::AbstractBroker) = broker(b).cache.quotes_data
 function quotes(broker::AbstractBroker, ticker, args...; kwargs...)
-    return retrieve_data(broker, broker.quote_data, ticker, args...; section = "quotes",
+    return retrieve_data(broker, quotes(broker), ticker, args...; section = "quotes",
                          kwargs...)
 end
 

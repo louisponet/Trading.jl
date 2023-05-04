@@ -1,6 +1,6 @@
-const HistoricalTradeDataDict = Dict{String,TimeArray{Any,2,TimeDate,Matrix{Any}}}
-const HistoricalQuoteDataDict = Dict{String,TimeArray{Any,2,TimeDate,Matrix{Any}}}
-const HistoricalBarDataDict = Dict{Tuple{String,Period},
+const HistoricalTradeDataDict = Dict{Asset,TimeArray{Float64,2,TimeDate,Matrix{Float64}}}
+const HistoricalQuoteDataDict = Dict{Asset,TimeArray{Float64,2,TimeDate,Matrix{Float64}}}
+const HistoricalBarDataDict = Dict{Tuple{Asset,Period},
                                    TimeArray{Float64,2,TimeDate,Matrix{Float64}}}
 
 """

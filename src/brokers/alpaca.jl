@@ -168,39 +168,66 @@ function Base.string(::AlpacaBroker, a::DateTime)
     return string(ZonedDateTime(a, LOCAL_TZ))
 end
 
-function data_fields(b::AlpacaBroker, section::String)
+function data_fields(b::AlpacaBroker, _section)
+    section = string(_section)
     if section == "bars"
         return bar_fields(b)[2:end]
+    elseif section == "quotes"
+        return quote_fields(b)[2:end]
+    elseif section == "trades"
+        return trade_fields(b)[2:end]
     end
 end
 
 bar_fields(::AlpacaBroker) = (:t, :o, :h, :l, :c, :v, :n, :vw)
+# quote_fields(::AlpacaBroker) = (:t, :ax, :ap, :as, :bx, :bp, :bs, :c, :z)
+
+# Do we care about the other ones?
+quote_fields(::AlpacaBroker) = (:t, :ap, :as, :bp, :bs)
+trade_fields(::AlpacaBroker) = (:t, :i, :p, :s)
+
+asset_uri_path(::AlpacaBroker, s::Stock,  section::AbstractString) = "/v2/stocks/$(s.ticker)/$section"
+asset_uri_path(::AlpacaBroker, s::Crypto, section::AbstractString) = "/v1beta3/crypto/us/$section"
+
+function query(broker::AlpacaBroker, start::DateTime, stop::Union{DateTime,Nothing} = nothing, args...; limit = 1000, kwargs...)
+    q = Dict{String,Any}("start" => string(broker, start))
+    if stop !== nothing
+        q["end"] = string(broker, stop)
+    end
+    q["limit"] = limit
+    for (k, v) in kwargs
+        q[string(k)] = string(broker, v)
+    end
+    return q
+end
+
+HTTP.URI(broker::AlpacaBroker, s::Stock, args...; section::AbstractString, kwargs...) =
+    URI(data_url(broker); path = asset_uri_path(broker, s, section),
+                         query = query(broker, args...; kwargs...))
+
+function HTTP.URI(broker::AlpacaBroker, s::Crypto, args...; section::AbstractString, kwargs...)
+    q = query(broker, args...; kwargs...)
+    q["symbols"] = s.ticker
+    return URI(data_url(broker); path = asset_uri_path(broker, s, section),
+                         query = q)
+end
+
 
 function mock_bar(b::AlpacaBroker, ticker, vals)
     return merge((T = "b", S = ticker),
                  NamedTuple(map(x -> x[1] => x[2], zip(bar_fields(b), vals))))
 end
 
-function data_query(broker::AlpacaBroker, symbol, start, stop = nothing, ::Type{T} = Any;
-                    section, limit = 1000, kwargs...) where {T}
-    query = Dict{String,Any}("start" => string(broker, start))
-    if stop !== nothing
-        query["end"] = string(broker, stop)
-    end
-    query["limit"] = limit
-    for (k, v) in kwargs
-        query[string(k)] = string(broker, v)
-    end
+data(broker::AlpacaBroker, asset::Stock, t, section_symbol)  = t[section_symbol]
+data(broker::AlpacaBroker, asset::Crypto, t, section_symbol) = t[section_symbol][asset.ticker]
 
-    make_uri = () -> URI(data_url(broker); path = "/v2/stocks/$symbol/$section",
-                         query = query)
+function data_query(broker::AlpacaBroker, asset::Asset, start::DateTime, stop::Union{DateTime, Nothing} = nothing, args...; section::AbstractString, kwargs...)
 
     out = Dict()
     timestamps = TimeDate[]
 
-    dat_keys = nothing
+    uri = URI(broker, asset, start, stop; section, kwargs...)
     section_symbol = Symbol(section)
-
     while true
 
         #TODO requests are throttling more than they should
@@ -208,7 +235,7 @@ function data_query(broker::AlpacaBroker, symbol, start, stop = nothing, ::Type{
             sleep(1)
         end
 
-        resp = HTTP.get(make_uri(), header(broker))
+        resp = HTTP.get(uri, header(broker))
         @atomic broker.nrequests += 1
 
         @async begin
@@ -226,15 +253,14 @@ function data_query(broker::AlpacaBroker, symbol, start, stop = nothing, ::Type{
                 end
             end
 
-            data = t[section_symbol]
-
-            n_dat = length(data)
-            dat_keys = data_fields(broker, section)
-            t_dat = Dict([k => Vector{T}(undef, n_dat) for k in dat_keys])
+            dat = data(broker, asset, t, section_symbol) 
+            n_dat = length(dat)
+            dat_keys = data_fields(broker, section_symbol)
+            t_dat = Dict([k => Vector{Float64}(undef, n_dat) for k in dat_keys])
             t_timestamps = Vector{TimeDate}(undef, n_dat)
 
             Threads.@threads for i in 1:n_dat
-                d = data[i]
+                d = dat[i]
                 t_timestamps[i] = parse_time(d[:t])
 
                 for k in dat_keys
@@ -252,20 +278,18 @@ function data_query(broker::AlpacaBroker, symbol, start, stop = nothing, ::Type{
             append!(timestamps, t_timestamps)
 
             if haskey(t, :next_page_token) && t[:next_page_token] !== nothing
-                query["page_token"] = t[:next_page_token]
+                uri  = URI(broker, asset, start, stop; section, page_token = t[:next_page_token], kwargs...)
             else
                 break
             end
         else
             @warn """
-            Something went wrong querying $section data for ticker $symbol
+            Something went wrong querying $section data for ticker $(asset.ticker)
             leading to status: $(resp.status)
             """
             break
         end
     end
 
-    delete!(query, "page_token")
-
-    return TimeArray(timestamps, hcat([out[k] for k in dat_keys]...), collect(dat_keys))
+    return TimeArray(timestamps, hcat([out[k] for k in data_fields(broker, section)]...), [data_fields(broker, section)...])
 end

@@ -53,7 +53,7 @@ which performs the actual api calls to retrieve either `bars`, `quotes` or `trad
 This should return a `TimeFrame`.
 
 ### Bars
-The `bars(broker, msg::Vector)` function should be overloaded to be used in [`BarStream`](@ref) to parse incoming bar updates. It should return
+The `bars(broker, msg::Vector)` function should be overloaded to be used in [`DataStream`](@ref) to parse incoming bar updates. It should return
 a `Vector` of `(asset, (datetime, (bar_open, bar_high, bar_low, bar_close, bar_volume)))`:
 ```julia
 function bars(::Union{AlpacaBroker,MockBroker}, msg::AbstractVector)
@@ -64,7 +64,7 @@ function bars(::Union{AlpacaBroker,MockBroker}, msg::AbstractVector)
 end
 ```
 
-The function `subscribe_bars(broker, asset, websocket)` should be overloaded in order to communicate to a [`BarStream`](@ref) which `assets` we want to receive updates for.
+The function `subscribe_bars(broker, asset, websocket)` should be overloaded in order to communicate to a [`DataStream`](@ref) which `assets` we want to receive updates for.
 
 `data_stream_url(broker)` should point to a url from which we can stream bar update data.
 `authenticate_data(broker)` is called just after opening the stream.
@@ -77,7 +77,7 @@ would always be the same.
 Next up is `receive_order(broker, websocket)` which is called by the `trading_task` to listen to Order updates and thus potentially portfolio updates (when filled).
 It should return an [`Order`](@ref).
 
-To be able to open the [`OrderStream`](@ref) `trading_stream_url(broker)` should be overloaded and `authenticate_trading(broker, websocket)` which also sends
+To be able to open the [`TradingStream`](@ref) `trading_stream_url(broker)` should be overloaded and `authenticate_trading(broker, websocket)` which also sends
 the right message to start listening to the updates.
 
 ### Account Details

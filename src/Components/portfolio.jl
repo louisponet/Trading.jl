@@ -34,7 +34,7 @@ Enum representing the lifetime of an order.
 @enumx TimeInForce Day GTC OPG CLS IOC FOK
 function Base.string(t::TimeInForce.T)
     if t == TimeInForce.Day
-        return "Day"
+        return "day"
     elseif t == TimeInForce.GTC
         return "gtc"
     elseif t == TimeInForce.OPG
@@ -64,7 +64,7 @@ See [`OrderType`](@ref) and [`TimeInForce`](@ref) for more information on those 
     asset::Asset
     quantity::Float64
     type::OrderType.T = OrderType.Market
-    time_in_force::TimeInForce.T = TimeInForce.GTC
+    time_in_force::TimeInForce.T = isinteger(quantity) ? TimeInForce.GTC : TimeInForce.Day
 
     price::Float64 = 0.0
     trail_percent::Float64 = 0.0
@@ -90,7 +90,7 @@ See [`OrderType`](@ref) and [`TimeInForce`](@ref) for more information on those 
     asset::Asset
     quantity::Float64
     type::OrderType.T = OrderType.Market
-    time_in_force::TimeInForce.T = TimeInForce.GTC
+    time_in_force::TimeInForce.T = isinteger(quantity) ? TimeInForce.GTC : TimeInForce.Day
 
     price::Float64 = 0.0
     trail_percent::Float64 = 0.0

@@ -24,11 +24,11 @@ There are so far three such functions:
 
 ### Realtime
 The [Broker](@ref Brokers) can be queried for the [`current_price`](@ref) of an asset, and `bar` data can be streamed in 
-by calling [`bar_stream`](@ref), either in realtime from a realtime broker (e.g. [`AlpacaBroker`](@ref)), or faked realtime when using a [`HistoricalBroker`](@ref).
+by calling [`data_stream`](@ref), either in realtime from a realtime broker (e.g. [`AlpacaBroker`](@ref)), or faked realtime when using a [`HistoricalBroker`](@ref).
 
 For example, internally [`start_data`](@ref) essentially looks like:
 ```julia
-bar_stream(trader.broker) do stream
+data_stream(trader.broker) do stream
     for (asset, q) in trader.asset_ledgers
         register!(stream, asset)
     end
@@ -41,11 +41,11 @@ end
 See [`register!`](@ref) and [`receive`](@ref) for further information.
 
 ## Orders
-Orders can be submitted with [`submit_order`](@ref) and updates to them can be streamed in with [`order_stream`](@ref).
+Orders can be submitted with [`submit_order`](@ref) and updates to them can be streamed in with [`trading_stream`](@ref).
 Similarly to [`start_data`](@ref), [`start_trading`](@ref) opens an order stream so order updates can be passed along to the
 [`Order`](@ref) `Component`:
 ```julia
-order_stream(trader.broker) do stream
+trading_stream(trader.broker) do stream
     while !trader.stop_trading
         order = receive(stream)
         # update Order component
@@ -66,11 +66,11 @@ bars
 trades
 quotes
 current_price
-Trading.BarStream
-Trading.bar_stream
-Trading.HTTP.receive(b::Trading.BarStream)
-Trading.register!(b::Trading.BarStream, asset)
+Trading.DataStream
+Trading.data_stream
+Trading.HTTP.receive(b::Trading.DataStream)
+Trading.register!(b::Trading.DataStream, asset)
 Trading.submit_order
-Trading.OrderStream
-Trading.order_stream
+Trading.TradingStream
+Trading.trading_stream
 ```

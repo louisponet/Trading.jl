@@ -1,23 +1,3 @@
-"""
-    trades(broker, asset, start, stop)
-
-Returns the trades made for `asset` between `start` and `stop`.
-When using [`AlpacaBroker`](@ref) see the [Trade Object](https://alpaca.markets/docs/api-references/market-data-api/stock-pricing-data/historical/#trades)
-documentation for further reference.
-
-# Example
-```julia
-broker = AlpacaBroker(<key_id>, <secret_key>)
-
-trades(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:31:00"))
-```
-"""
-trades(b::AbstractBroker) = broker(b).cache.trade_data
-function trades(broker::AbstractBroker, asset, args...; kwargs...)
-    return retrieve_data(broker, trades(broker), asset, args...; section = "trades",
-                         kwargs...)
-end
-
 function failed_order(broker, order, exc)
     t = current_time(broker)
     b = IOBuffer()
@@ -25,6 +5,10 @@ function failed_order(broker, order, exc)
     return Order(order.asset, "", uuid1(), uuid1(), t, t, t, nothing, nothing, nothing, t, 0.0,
                  0.0, "failed\n$(String(take!(b)))", order.quantity, 0.0)
 end
+
+# I don't understand why but fractional stuff is just not allowed... 
+sanitize_quantity(::AlpacaBroker, ::Crypto, quantity) = round(quantity)
+sanitize_quantity(::AlpacaBroker, ::Stock, quantity)  = round(quantity)
 
 """
     submit_order(broker, order::Union{Purchase,Sale})
@@ -36,13 +20,15 @@ function submit_order(broker::AlpacaBroker, order)
     h   = header(broker)
     try
         resp = HTTP.post(uri, h, order_body(broker, order))
-        return parse_order(broker, resp)
+        o = parse_order(broker, resp)
+        o.asset = order.asset
+        return o
     catch e
         if e isa HTTP.Exceptions.StatusError
             msg = JSON3.read(e.response.body)
             
             if msg[:message] == "insufficient day trading buying power"
-                order.quantity = round(0.9 * order.quantity)
+                order.quantity = sanitize_quantity(broker, order.asset, 0.9 * order.quantity)
                 return submit_order(broker, order)
                 
             elseif occursin("insufficient qty available for order", msg[:message])
@@ -107,7 +93,7 @@ function order_body(b::AlpacaBroker, order::EntityState)
                 "side"          => side(b, order),
                 "type"          => string(order.type),
                 "time_in_force" => string(order.time_in_force))
-
+                
     if order.type == OrderType.Limit
         body["limit_price"] = string(order.price)
     end
@@ -151,14 +137,14 @@ function parse_order(::AlpacaBroker, parse_body::JSON3.Object)
                  0.0)
 end
 
-function receive_order(b::AlpacaBroker, ws)
+function receive_trades(b::AlpacaBroker, ws)
     msg = JSON3.read(receive(ws))
     if msg[:stream] == "trade_updates"
         return parse_order(b, msg[:data][:order])
     end
 end
 
-function receive_order(broker::HistoricalBroker, args...)
+function receive_trades(broker::HistoricalBroker, args...)
     sleep(1)
     return nothing
 end
@@ -168,40 +154,40 @@ delete_all_orders!(::HistoricalBroker) = nothing
 delete_all_orders!(t::Trader) = delete_all_orders!(t.broker)
 
 """
-Interface to support executing trades and retrieving account updates. Opened with [`order_stream`](@ref)
+Interface to support executing trades and retrieving account updates. Opened with [`trading_stream`](@ref)
 """
-Base.@kwdef struct OrderStream{B<:AbstractBroker}
+Base.@kwdef struct TradingStream{B<:AbstractBroker}
     broker::B
     ws::Union{Nothing,WebSocket} = nothing
 end
 
-OrderStream(b::AbstractBroker; kwargs...) = OrderStream(; broker = b, kwargs...)
+TradingStream(b::AbstractBroker; kwargs...) = TradingStream(; broker = b, kwargs...)
 
-HTTP.receive(order_link::OrderStream) = receive_order(order_link.broker, order_link.ws)
-WebSockets.isclosed(order_link::OrderStream) = order_link.ws === nothing || order_link.ws.readclosed || order_link.ws.writeclosed
-WebSockets.isclosed(order_link::OrderStream{<:HistoricalBroker}) = false
+HTTP.receive(trading_link::TradingStream) = receive_trades(trading_link.broker, trading_link.ws)
+WebSockets.isclosed(trading_link::TradingStream) = trading_link.ws === nothing || trading_link.ws.readclosed || trading_link.ws.writeclosed
+WebSockets.isclosed(trading_link::TradingStream{<:HistoricalBroker}) = false
 
 """
-    order_stream(f::Function, broker::AbstractBroker)
+    trading_stream(f::Function, broker::AbstractBroker)
 
-Creates an [`OrderStream`](@ref) to stream order data.
+Creates an [`TradingStream`](@ref) to stream order data.
 Uses the same semantics as a standard `HTTP.WebSocket`.
 
 # Example
 ```julia
 broker = AlpacaBroker(<key_id>, <secret_key>)
 
-order_stream(broker) do stream
+trading_stream(broker) do stream
     order = receive(stream)
 end
 ```
 """
-function order_stream(f::Function, broker::AbstractBroker)
+function trading_stream(f::Function, broker::AbstractBroker)
     HTTP.open(trading_stream_url(broker)) do ws
         authenticate_trading(broker, ws)
         @info "Authenticated trading"
         try
-            f(OrderStream(broker, ws))
+            f(TradingStream(broker, ws))
         catch e
             showerror(stdout, e, catch_backtrace())
             if !(e isa InterruptException)
@@ -211,4 +197,4 @@ function order_stream(f::Function, broker::AbstractBroker)
     end
 end
 
-order_stream(f::Function, broker::HistoricalBroker) = f(OrderStream(broker, nothing))
+trading_stream(f::Function, broker::HistoricalBroker) = f(TradingStream(broker, nothing))

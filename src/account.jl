@@ -64,7 +64,7 @@ function fill_account!(trader::Trader)
         
         delete!(current_positions, p[1])
         
-        id = findfirst(x -> x.asset.ticker == p[1], trader[Position])
+        id = findfirst(x -> x.asset == p[1], trader[Position])
         if id === nothing
             Entity(trader.l, Position(p...))
         else

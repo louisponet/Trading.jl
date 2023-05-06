@@ -45,7 +45,7 @@ function start(trader::Trader{<:HistoricalBroker})
 end
 
 function bar_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
-    bar_stream(trader.broker, T) do stream
+    data_stream(trader.broker, T) do stream
         for (asset, q) in trader.asset_ledgers
             if occursin("_", asset.ticker)
                 continue
@@ -104,7 +104,7 @@ end
     start_data(trader; interval = Minute(1))
 
 Starts the `trader.data_tasks`.
-It opens a [`BarStream`](@ref) for each [`Asset`](@ref) Class, and registers the [`AssetLedgers`](@ref AssetLedger) to it, in order to [`receive`](@ref) bar updates.
+It opens a [`DataStream`](@ref) for each [`Asset`](@ref) Class, and registers the [`AssetLedgers`](@ref AssetLedger) to it, in order to [`receive`](@ref) bar updates.
 
 `interval`: signifies the desired interval of bar updates. If a bar for a given asset arrives after more than `interval`,
             bars will be interpolated between the last and new bar so the time interval between adjacent bars is always `interval`.
@@ -153,12 +153,12 @@ end
 """
     start_trading(trader)
 
-Starts the trading task. This opens a [`OrderStream`](@ref) to `trader.broker` that listens to portfolio and order updates .
+Starts the trading task. This opens a [`TradingStream`](@ref) to `trader.broker` that listens to portfolio and order updates .
 """
 function start_trading(trader::Trader)
     order_comp = trader[Order]
     broker = trader.broker
-    return trader.trading_task = Threads.@spawn @stoppable trader.stop_trading order_stream(broker) do stream
+    return trader.trading_task = Threads.@spawn @stoppable trader.stop_trading trading_stream(broker) do stream
         trader.is_trading = true
         
         while !trader.stop_trading

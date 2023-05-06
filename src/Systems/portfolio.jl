@@ -35,8 +35,6 @@ function Overseer.update(::Purchaser, l::AbstractLedger)
             quantity = e.quantity
         end
 
-        e.quantity = round(quantity)
-
         cash.cash -= tot_cost
 
         submit_order(l, e)
@@ -80,7 +78,6 @@ function Overseer.update(::Seller, l::AbstractLedger)
                 e.quantity = position.quantity
             end
         end
-        e.quantity = round(e.quantity)
         submit_order(l, e)
     end
 end

@@ -26,7 +26,9 @@ using PrettyTables
 using Statistics
 
 include("utils.jl")
-
+include("rb_tree.jl")
+include("orderbook.jl")
+include("tree_component.jl")
 include("assets.jl")
 include("Components/core.jl")
 include("Components/indicators.jl")
@@ -41,9 +43,9 @@ include("account.jl")
 include("running.jl")
 include("bars.jl")
 include("orders.jl")
+include("trades.jl")
 include("quotes.jl")
 include("time.jl")
-include("orderbook.jl")
 
 include("Systems/core.jl")
 include("Systems/indicators.jl")

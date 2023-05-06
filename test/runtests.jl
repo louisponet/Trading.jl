@@ -9,11 +9,10 @@ using Trading.Portfolio
 
 
 @testset "OrderBook" begin
+    ob = Trading.OrderBook()
 
-    ob = Trading.OrderBook("AAPL")
-
-    o1 = Trading.register_ask!(ob, 1, 100.0, 100)
-    o2 = Trading.register_ask!(ob, 2, 100.0, 100)
+    o1 = Trading.register_ask!(ob, 100.0, 100, 1)
+    o2 = Trading.register_ask!(ob, 100.0, 100, 2)
 
     @test Trading.search_node(ob.asks, 100.0).data == Trading.Limit(100.0)
     @test length(ob.asks) == 1

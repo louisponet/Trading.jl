@@ -4,12 +4,13 @@
     AssetLedger
 
 A `AssetLedger` holds the data for a given `ticker` as it arrives. Currently this is bar data in the form of
-[`Open`](@ref), [`High`](@ref), [`Low`](@ref), [`Close`](@ref) and [`Volume`](@ref), produced by a [`BarStream`](@ref).
+[`Open`](@ref), [`High`](@ref), [`Low`](@ref), [`Close`](@ref) and [`Volume`](@ref), produced by a [`DataStream`](@ref).
 If certain derived [`Indicator`](@ref Indicators) data is requested, it also holds this as it is produced by the different systems.
 """
 mutable struct AssetLedger <: AbstractLedger
     asset::Asset
     l::Ledger
+    orderbook::OrderBook
 end
 
 function Base.getproperty(t::AssetLedger, s::Symbol)
@@ -22,7 +23,7 @@ end
 
 function AssetLedger(asset::Asset)
     l = Ledger(Open, High, Low, Close, Volume, TimeStamp)
-    AssetLedger(asset, l)
+    AssetLedger(asset, l, OrderBook())
 end
 
 # Overseer.Entity(tl::AssetLedger, args...) = error("You, my friend, are not allowed to add entities to a AssetLedger.")
@@ -134,7 +135,7 @@ function Base.iterate(it::NewEntitiesIterator{S}, state=length(it.seen_comp)+1) 
     
     it.seen_comp[e] = S()
     
-    return EntityState(e, it.components), t[2]
+    return EntityState(e, it.components...), t[2]
 end 
 
 """
@@ -143,19 +144,21 @@ end
 Returns the entity that is `i` steps in the past.
 """
 Base.@propagate_inbounds function prev(e::EntityState, i::Int)
-    curid = Entity(e).id
+    c = e.components[1]
+    
+    curid = c.indices[Entity(e).id]
     
     found_entities = 0
-    while curid > 0
+    while curid > 1
         curid -= 1
         
-        te = Entity(curid)
+        te = Entity(c, curid)
         
-        if all(c -> te in c, e.components)
+        if all(comp -> te in comp, e.components)
             found_entities += 1
             
             if found_entities == i
-                return EntityState(te, e.components)
+                return EntityState(te, e.components...)
             end
             
         end

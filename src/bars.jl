@@ -52,13 +52,14 @@ function subscribe_bars(dp::HistoricalBroker, asset::Asset, start = nothing,
     return nothing
 end
 
-function receive_bars(b::AbstractBroker, ws)
-    return bars(b, JSON3.read(receive(ws)))
+function receive_data(b::AbstractBroker, ws)
+    msg = JSON3.read(receive(ws))
+    return bars(b, msg)
 end
 
 last_time(dp::HistoricalBroker) = maximum(x -> timestamp(x)[end], values(bars(dp)))
 
-function receive_bars(dp::HistoricalBroker, args...)
+function receive_data(dp::HistoricalBroker, args...)
     wait(dp.send_bars)
     reset(dp.send_bars)
     curt = dp.clock.time
@@ -81,13 +82,13 @@ function receive_bars(dp::HistoricalBroker, args...)
 end
 
 """
-    BarStream
+    DataStream
 
 Supplies a stream of bars from a broker.
-Can be created by calling [`bar_stream`](@ref) on an [`AbstractBroker`](@ref).
+Can be created by calling [`data_stream`](@ref) on an [`AbstractBroker`](@ref).
 See [`receive`](@ref) and [`register!`](@ref) for more information.
 """
-struct BarStream{B<:AbstractBroker,W}
+struct DataStream{B<:AbstractBroker,W}
     broker::B
     ws::W
 end
@@ -97,36 +98,40 @@ end
 
 Blocking function which will return new bars as soon as they are available.
 """
-HTTP.receive(b::BarStream) = receive_bars(b.broker, b.ws)
+HTTP.receive(b::DataStream) = receive_data(b.broker, b.ws)
 
-WebSockets.isclosed(b::BarStream) = b.ws === nothing || b.ws.readclosed || b.ws.writeclosed
-function WebSockets.isclosed(b::BarStream{<:HistoricalBroker})
+WebSockets.isclosed(b::DataStream) = b.ws === nothing || b.ws.readclosed || b.ws.writeclosed
+function WebSockets.isclosed(b::DataStream{<:HistoricalBroker})
     return b.broker.clock.time > last_time(b.broker)
 end
 
 """
     register!(barstream, asset)
 
-Register a asset to the [`BarStream`](@ref) so that [`receive`](@ref) will also
+Register a asset to the [`DataStream`](@ref) so that [`receive`](@ref) will also
 return updates with new bars for `asset`.
 """
-register!(b::BarStream, asset) = subscribe_bars(b.broker, asset, b.ws)
+function register!(b::DataStream, asset)
+    subscribe_bars(b.broker, asset, b.ws)
+    subscribe_trades(b.broker, asset, b.ws)
+    subscribe_quotes(b.broker, asset, b.ws)
+end
 
 """
-    bar_stream(f::Function, broker)
+    data_stream(f::Function, broker)
 
-Open a bar stream, calls function `f` with a [`BarStream`](@ref) object.
-Call [`receive`](@ref) on the [`BarStream`](@ref) to get new bars streamed in,
+Open a bar stream, calls function `f` with a [`DataStream`](@ref) object.
+Call [`receive`](@ref) on the [`DataStream`](@ref) to get new bars streamed in,
 and [`register!`](@ref) to register assets for which to receive bar updates for.
 """
-function bar_stream(func::Function, broker::AbstractBroker, ::Type{T}) where {T<:Asset}
-    HTTP.open(bar_stream_url(broker, T)) do ws
+function data_stream(func::Function, broker::AbstractBroker, ::Type{T}) where {T<:Asset}
+    HTTP.open(data_stream_url(broker, T)) do ws
         if !authenticate_data(broker, ws)
             error("couldn't authenticate")
         end
 
         try
-            return func(BarStream(broker, ws))
+            return func(DataStream(broker, ws))
         catch e
             showerror(stdout, e, catch_backtrace())
             if !(e isa InterruptException)
@@ -136,9 +141,9 @@ function bar_stream(func::Function, broker::AbstractBroker, ::Type{T}) where {T<
     end
 end
 
-function bar_stream(func::Function, broker::HistoricalBroker, ::Type{<:Asset})
+function data_stream(func::Function, broker::HistoricalBroker, ::Type{<:Asset})
     try
-        return func(BarStream(broker, nothing))
+        return func(DataStream(broker, nothing))
     catch e
         if !(e isa InterruptException)
             rethrow()

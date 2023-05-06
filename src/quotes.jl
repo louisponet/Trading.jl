@@ -23,13 +23,16 @@ function parse_quote(b::AlpacaBroker, q)
 end
 
 function latest_quote(b::AlpacaBroker, asset::Asset)
+    if asset isa UnknownAsset
+        return nothing
+    end
     resp = HTTP.get(quote_url(b, asset), header(b))
 
     if resp.status != 200
         error("something went wrong while asking latest quote")
     end
-
-    return parse_quote(b, JSON3.read(resp.body)[:quote])
+    body = JSON3.read(resp.body)
+    return haskey(body, :quote) ? parse_quote(b, body[:quote]) : parse_quote(b, body[:quotes][asset.ticker])
 end
 
 function latest_quote(broker::HistoricalBroker, asset)
@@ -42,6 +45,15 @@ function latest_quote(broker::HistoricalBroker, asset)
     return parse_quote(broker.broker,
                        NamedTuple([s => v for (s, v) in zip(colnames(q), values(q))]))
 end
+
+function subscribe_quotes(::AlpacaBroker, asset::Asset, ws::WebSocket)
+    return send(ws, JSON3.write(Dict("action" => "subscribe",
+                                     "quotes" => [asset.ticker])))
+end
+function subscribe_quotes(::HistoricalBroker, asset::Asset, ws)
+    nothing
+end
+
 
 # TODO requires :c , :o etc
 function price(broker::HistoricalBroker, price_t, asset)

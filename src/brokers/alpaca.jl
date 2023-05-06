@@ -146,13 +146,14 @@ function header(b::AlpacaBroker)
     return ["APCA-API-KEY-ID" => b.key_id, "APCA-API-SECRET-KEY" => b.secret_key]
 end
 
-bar_stream_url(::AlpacaBroker, ::Type{Stock})    = URI("wss://stream.data.alpaca.markets/v2/iex")
-bar_stream_url(::AlpacaBroker, ::Type{Crypto})   = URI("wss://stream.data.alpaca.markets/v1beta3/crypto/us")
+data_stream_url(::AlpacaBroker, ::Type{Stock})    = URI("wss://stream.data.alpaca.markets/v2/iex")
+data_stream_url(::AlpacaBroker, ::Type{Crypto})   = URI("wss://stream.data.alpaca.markets/v1beta3/crypto/us")
 trading_stream_url(::AlpacaBroker)         = URI("wss://paper-api.alpaca.markets/stream")
 trading_url(::AlpacaBroker)                = URI("https://paper-api.alpaca.markets")
 order_url(b::AlpacaBroker)                 = URI(trading_url(b); path = "/v2/orders")
 data_url(::AlpacaBroker)                   = URI("https://data.alpaca.markets")
-quote_url(b::AlpacaBroker, asset::Asset) = URI(data_url(b); path = "/v2/stocks/$(asset.ticker)/quotes/latest")
+quote_url(b::AlpacaBroker, asset::Stock) = URI(data_url(b); path = "/v2/stocks/$(asset.ticker)/quotes/latest")
+quote_url(b::AlpacaBroker, asset::Crypto) = URI(data_url(b); path = "/v1beta3/crypto/us/latest/quotes", query = Dict("symbols"=>asset.ticker))
 
 function Base.string(::AlpacaBroker, timeframe::Period)
     if timeframe isa Minute

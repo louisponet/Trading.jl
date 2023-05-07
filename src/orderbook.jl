@@ -17,125 +17,22 @@ o2 = OrderBookEntry(100, 2, l1, o1)
 o3 = OrderBookEntry(100, 3, l1, o1, o2)
 # o3 has o1 as prev, o2 as next, and o1 has o3 as next, o2 has o3 as prev now
 """
-mutable struct OrderBookEntry{L}
+struct OrderBookEntry{L}
     quantity::Float64
     client::ClientID
-    prev::OrderBookEntry{L}
-    next::OrderBookEntry{L}
     limit::L
-
-    function OrderBookEntry{L}() where {L}
-        out = new{L}()
-        out.prev = out
-        out.next = out
-        return out
-    end
 end
-
-"""
-Represents a price level in an [`OrderBook`](@ref) the `head` represents the first submitted order and the
-tail the last one. These are stored in a [`Tree`](@ref).
-"""
-mutable struct Limit
-    price::Float64
-    head::OrderBookEntry{Limit}
-    tail::OrderBookEntry{Limit}
-end
-
-const EMPTY_ORDERBOOK_ENTRY = OrderBookEntry{Limit}()
-
-function OrderBookEntry(quantity::Number, client::ClientID, limit::Limit,
-                        prev::OrderBookEntry{Limit} = EMPTY_ORDERBOOK_ENTRY,
-                        next::OrderBookEntry{Limit} = EMPTY_ORDERBOOK_ENTRY)
-                        
-    out = OrderBookEntry{Limit}()
-    out.quantity = quantity
-    out.client   = client
-    out.limit    = limit
-    out.prev     = prev
-    
-    if prev !== EMPTY_ORDERBOOK_ENTRY
-        out.prev.next = out
-    end
-        
-    out.next = next
-    if next !== EMPTY_ORDERBOOK_ENTRY
-        out.next.prev = out
-    end
-        
-    return out
-end
-
-function Base.delete!(o::OrderBookEntry)
-    o.next.prev = o.prev
-    o.prev.next = o.next
-    return o
-end
-
-Limit(price::Float64) = Limit(price, EMPTY_ORDERBOOK_ENTRY, EMPTY_ORDERBOOK_ENTRY)
-
-Base.convert(::Type{Limit}, price::Float64) = Limit(price)
-Base.isempty(l::Limit) = l.head === EMPTY_ORDERBOOK_ENTRY
-
-function Base.length(l::Limit)
-    head = l.head
-    count = 0
-    while head !== EMPTY_ORDERBOOK_ENTRY
-        count += 1
-        head = head.next
-    end
-    return count
-end
-
-function Base.haskey(l::Limit, o::OrderBookEntry)
-    return o.limit == l
-end
-
-function Base.delete!(l::Limit, o::OrderBookEntry)
-    @assert haskey(l, o) ArgumentError("Limit doesn't contain OrderBookEntry")
-
-    if l.head === o
-        l.head = o.next
-    end
-    if l.tail === o
-        l.tail = o.prev
-    end
-end
-
-function Base.pop!(l::Limit)
-    out = l.tail
-    l.tail = out.prev
-    return out
-end
-
-function Base.push!(l::Limit, o::OrderBookEntry)
-    if isempty(l)
-        return l.tail = l.head = o
-    end
-    o.prev = l.tail
-    l.tail.next = o
-    return l.tail = o
-end
-
-Base.:(<)(l1::Limit, l2::Limit) = l1.price < l2.price
-Base.:(==)(l1::Limit, l2::Limit) = l1.price == l2.price
-
-Base.:(<)(l1::Float64, l2::Limit) = l1 < l2.price
-Base.:(==)(l1::Float64, l2::Limit) = l1 == l2.price
-
-Base.:(<)(l1::Limit, l2::Float64) = l1.price < l2
-Base.:(==)(l1::Limit, l2::Float64) = l1.price == l2
 
 """
 Represents the orderbook of an [`Asset`](@ref) with two red-black trees of [`Limit`](@ref) nodes representing the
 bids and the asks.
 It is kept in the [`AssetLedger`](@ref) of the [`Asset`](@ref)
 """
-mutable struct OrderBook
-    bids::Tree{Limit}
-    asks::Tree{Limit}
+mutable struct OrderBook{T <: OrderBookEntry}
+    bids::Tree{LinkedList{T}}
+    asks::Tree{LinkedList{T}}
     order_count::Int
-    order_id_to_entry::Dict{OrderID,OrderBookEntry{Limit}}
+    order_id_to_entry::Dict{OrderID,T}
 
     function OrderBook()
         return new(Tree{Limit}(), Tree{Limit}(), 0,

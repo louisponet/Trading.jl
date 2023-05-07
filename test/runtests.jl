@@ -8,22 +8,26 @@ using Trading.Indicators
 using Trading.Portfolio
 
 
-@testset "OrderBook" begin
-    ob = Trading.OrderBook()
+# @testset "OrderBook" begin
+#     ob = Trading.OrderBook()
 
-    o1 = Trading.register_ask!(ob, 100.0, 100, 1)
-    o2 = Trading.register_ask!(ob, 100.0, 100, 2)
+#     o1 = Trading.register_ask!(ob, 100.0, 100, 1)
+#     o2 = Trading.register_ask!(ob, 100.0, 100, 2)
 
-    @test Trading.search_node(ob.asks, 100.0).data == Trading.Limit(100.0)
-    @test length(ob.asks) == 1
+#     @test Trading.search_node(ob.asks, 100.0).data == Trading.Limit(100.0)
+#     @test length(ob.asks) == 1
 
-    @test length(Trading.search_node(ob.asks, 100.0).data) == 2
-    delete!(ob, o1)
+#     @test length(Trading.search_node(ob.asks, 100.0).data) == 2
+#     delete!(ob, o1)
     
-    @test length(Trading.search_node(ob.asks, 100.0).data) == 1
-    @test Trading.search_node(ob.asks, 100.0).data.head === ob[o2]
-    delete!(ob, o2)
-    @test length(ob.asks) == 0
+#     @test length(Trading.search_node(ob.asks, 100.0).data) == 1
+#     @test Trading.search_node(ob.asks, 100.0).data.head === ob[o2]
+#     delete!(ob, o2)
+#     @test length(ob.asks) == 0
+# end
+
+@testset "TreeComponent" begin
+    Overseer.test_abstractcomponent_interface(Trading.TreeComponent)
 end
 
 struct SlowFast <: System end

@@ -10,7 +10,7 @@ If certain derived [`Indicator`](@ref Indicators) data is requested, it also hol
 mutable struct AssetLedger <: AbstractLedger
     asset::Asset
     l::Ledger
-    orderbook::OrderBook
+    # orderbook::OrderBook
 end
 
 function Base.getproperty(t::AssetLedger, s::Symbol)
@@ -23,7 +23,7 @@ end
 
 function AssetLedger(asset::Asset)
     l = Ledger(Open, High, Low, Close, Volume, TimeStamp)
-    AssetLedger(asset, l, OrderBook())
+    AssetLedger(asset, l)
 end
 
 # Overseer.Entity(tl::AssetLedger, args...) = error("You, my friend, are not allowed to add entities to a AssetLedger.")

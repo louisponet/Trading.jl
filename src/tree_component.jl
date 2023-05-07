@@ -1,7 +1,7 @@
 using Overseer: EntityState, AbstractEntity
 using Base: RefArray
 
-struct EntityPtr{RT <: Ref}
+mutable struct EntityPtr{RT <: Ref}
     e::Entity
     ptr::RT
 end
@@ -10,12 +10,25 @@ EntityPtr(e::AbstractEntity, c::AbstractComponent) = EntityPtr(Entity(e), Ref(c,
 Base.:(<)(en1::EntityPtr, en2::EntityPtr) = en1.ptr[] < en2.ptr[]
 Base.:(==)(en1::EntityPtr, en2::EntityPtr) = en1.ptr[] == en2.ptr[]
 
-Base.:(<)(en1::EntityPtr, v) = en1.ptr[] < v
 Base.:(<)(v, en1::EntityPtr) = v < en1.ptr[]
 
-Base.:(==)(en1::EntityPtr, v) = en1.ptr[] == v
 Base.:(==)(v, en1::EntityPtr) = en1.ptr[] == v
 
+Base.:(==)(en1::EntityPtr, e::AbstractEntity) = en1.e == Entity(e)
+Base.:(==)(e::AbstractEntity, e1::EntityPtr) = e1.e == Entity(e)
+
+function Base.show(io::IO, m::MIME"text/plain", e::EntityPtr)
+    print(io, "EntityPtr(")
+    show(io, m, e.e)
+    print(io, ", ")  
+    show(io, m, e.ptr[])
+    print(io, ")")
+end
+
+function Base.show(io::IO, e::EntityPtr)
+    show(io,  e.e)
+end
+    
 mutable struct ListNode{T}
     data::T
     next::ListNode{T}
@@ -34,6 +47,11 @@ mutable struct ListNode{T}
         out.next = out
         out.prev = out
         return out
+    end
+end
+function Base.show(io::IO, node::ListNode)
+    if isdefined(node, :data)
+        print(io, "ListNode(", node.data, ")")
     end
 end
 
@@ -80,6 +98,16 @@ mutable struct LinkedList{T}
         out.tail = out.nil
         return out
     end
+    
+    function LinkedList(node::ListNode{T}) where {T}
+        out = new{T}()
+        out.nil = ListNode{T}()
+        out.head = node
+        out.tail = node
+        node.prev = out.nil
+        node.next = out.nil
+        return out
+    end
 end
 
 function LinkedList(vals::T...) where {T}
@@ -104,17 +132,29 @@ end
 
 function Base.haskey(l::LinkedList, o)
     node = l.head
-    while node !== l.tail && node.data != o
+    while true
         if node.data == o
             return true
+        elseif node === l.tail
+            return false
         end
         node = node.next
     end
-    
-    return false 
 end
 
-function Base.delete!(l::LinkedList, o::ListNode)
+function Base.getindex(l::LinkedList, d)
+    node = l.head
+    while true
+        if node.data == d
+            return node
+        elseif node.data === l.tail
+            return nothing
+        end
+        node = node.next
+    end
+end
+
+function Base.delete!(l::LinkedList{T}, o::ListNode{T}) where {T}
     if l.head === o
         l.head = o.next
     end
@@ -123,12 +163,14 @@ function Base.delete!(l::LinkedList, o::ListNode)
     end
 end
 
-function Base.delete!(l::LinkedList{T}, d::T) where {T}
+function Base.delete!(l::LinkedList, d)
     node = l.head
-    while node != d
+    while true
         
         if node === l.nil
             return
+        elseif node == d
+            break
         end
             
         node = node.next
@@ -159,8 +201,11 @@ function Base.push!(l::LinkedList, d::ListNode)
         return 
     end
     d.prev = l.tail
+    d.next = l.nil
+    
     l.tail.next = d
     l.tail = d
+    
     return l
 end
 
@@ -191,8 +236,38 @@ Base.:(==)(l1::LinkedList, l2::LinkedList) = l1.head == l2.head
 Base.:(<)(l1, l2::LinkedList) = l1 < l2.head
 Base.:(==)(l1, l2::LinkedList) = l1 == l2.head
 
-Base.:(<)(l1::LinkedList, l2) = l1.head < l2
-Base.:(==)(l1::LinkedList, l2) = l1.head == l2
+function Base.show(io::IO, m::MIME"text/plain", l::LinkedList{T}) where {T}
+    if !isempty(l)
+        node = l.head
+        while true
+            show(io, m, node)
+            if node !== l.tail
+                print(io, " -> ")
+            else
+                break
+            end
+            node = node.next
+        end
+    else
+        println(io, "LinkedList()")
+    end
+end
+function Base.show(io::IO, l::LinkedList{T}) where {T}
+    if !isempty(l)
+        node = l.head
+        while true
+            show(io, node)
+            if node !== l.tail
+                print(io, " -> ")
+            else
+                break
+            end
+            node = node.next
+        end
+    else
+        println(io, "LinkedList()")
+    end
+end
 
 const ComponentRef{T} = RefArray{T, Component{T}, Nothing}
 const PooledComponentRef{T} = RefArray{T, PooledComponent{T}, Nothing}
@@ -214,38 +289,63 @@ end
 TreeComponent{T}() where {T} = TreeComponent{T}(Component{T}(), Tree{LinkedList{EntityPtr{ComponentRef{T}}}}())
 Overseer.component(t::TreeComponent) = t.c
 
-function Base.setindex!(t::TreeComponent, v, e::Overseer.AbstractEntity)
+function Base.empty!(t::TreeComponent)
+    empty!(t.tree)
+    empty!(t.c)
+    return t
+end
+
+    
+function Base.setindex!(t::TreeComponent{T}, v::T, e::Overseer.AbstractEntity) where {T}
     if e in t
+        old_v = @inbounds t[e]
+        
+        old_v == v && return t
+        
+        old_entity_list = search_node(t.tree, old_v).data
+        
+        if length(old_entity_list) == 1
+            delete!(t.tree, old_entity_list)
+        end
+        node = delete!(old_entity_list, e)
+        
         @inbounds setindex!(t.c, v, e)
+        
     else
+        
         out = setindex!(t.c, v, e)
-        push!(t.tree, LinkedList(EntityPtr(Entity(e), Ref(t.c, e))))
+        node = ListNode(EntityPtr(Entity(e), Ref(t.c, e)))
+        
     end
+    new_entity_list = search_node(t.tree, v)
+
+    if new_entity_list === nothing
+
+        new_entity_list = LinkedList(node)
+        push!(t.tree, new_entity_list)
+    else
+        push!(new_entity_list.data, node)
+    end
+
     return t
 end
 
 function Base.getindex(t::TreeComponent{T}, v::T) where {T}
     node = search_node(t.tree, v)
     if node.data == v
-        return EntityState(node.data.e, node.data.ptr[])
+        return node.data
     end
     return nothing
 end
 
 function Base.ceil(t::TreeComponent, v)
     node = ceil(t.tree, v)
-    
-    node.data === nothing && return nothing
-    
-    return EntityState(node.data.e, node.data.ptr[])
+    return node.data
 end
 
 function Base.floor(t::TreeComponent, v)
     node = floor(t.tree, v)
-    
-    node.data === nothing && return nothing
-    
-    return EntityState(node.data.e, node.data.ptr[])
+    return node.data
 end
 macro tree_component(typedef)
     return esc(Trading._tree_component(typedef, __module__))
@@ -258,3 +358,29 @@ function _tree_component(typedef, mod)
         Overseer.component_type(::Type{T}) where {T<:$tn} = Trading.TreeComponent{T}
     end
 end
+
+Base.@propagate_inbounds function Base.pop!(t::TreeComponent, e::AbstractEntity)
+    
+    old_v = t.c[e]
+    old_entity_list = search_node(t.tree, old_v).data
+    
+    # We need to set the ref of the current last entity to point to the position of the
+    # one we're removing becuase that's how pop works
+    if length(t.c) > 1
+        curlast = last_entity(t.c)
+        last_list = search_node(t.tree, t[curlast]).data
+        entitynode = last_list[curlast]
+        entitynode.ptr = Ref(t.c, e)
+    end
+    
+    if length(old_entity_list) == 1
+        delete!(t.tree, old_entity_list)
+    end
+    
+    pop!(t.c, e)
+    node = delete!(old_entity_list, e)
+
+    return EntityState(Entity(e), old_v)
+end
+
+Base.@propagate_inbounds Base.pop!(t::TreeComponent) = pop!(t, last_entity(t))

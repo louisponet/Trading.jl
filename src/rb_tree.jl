@@ -39,14 +39,20 @@ Returns the last visited node, while traversing through in binary-search-tree fa
 """
 function search_node(tree::Tree, d)
     node = tree.root
-    while node !== tree.nil && d != node.data
+    while node !== tree.nil
+        
+        if d == node.data
+            return node
+        end
+        
         if d < node.data
             node = node.left_child
         else
             node = node.right_child
         end
+        
     end
-    return node
+    return nothing
 end
 
 """
@@ -55,8 +61,7 @@ end
 Returns true if `key` is present in the `tree`, else returns false.
 """
 function Base.haskey(tree::Tree, d)
-    node = search_node(tree, d)
-    return node.data == d
+    return search_node(tree, d) !== nothing
 end
 
 """
@@ -423,7 +428,7 @@ Base.in(key, tree::Tree) = haskey(tree, key)
 
 Gets the key present at index `ind` of the tree. Indexing is done in increasing order of key.
 """
-function Base.getindex(tree::Tree, ind)
+function Base.getindex(tree::Tree{T}, ind) where {T}
     @boundscheck (1 <= ind <= tree.count) ||
                  throw(ArgumentError("$ind should be in between 1 and $(tree.count)"))
     function traverse_tree_inorder(node::TreeNode)
@@ -432,10 +437,32 @@ function Base.getindex(tree::Tree, ind)
             right = traverse_tree_inorder(node.right_child)
             append!(push!(left, node.data), right)
         else
-            return Limit[]
+            return T[]
         end
     end
     arr = traverse_tree_inorder(tree.root)
     return @inbounds arr[ind]
 end
 
+function Base.empty!(tree::Tree)
+    tree.root=tree.nil
+    tree.count = 0
+end
+
+function Base.show(io::IO, m::MIME"text/plain", node::TreeNode, space = 0)
+    if node.data !== nothing
+        space = space + 10;
+        show(io, m, node.right_child, space)
+        println(io)
+        for  i = 11:space
+            print(io, " ")
+        end
+        println(io, "$(node.data) $(node.color ? "R" : "B")")
+        show(io, m, node.left_child, space)
+    end
+end
+    
+function Base.show(io::IO, m::MIME"text/plain", tree::Tree)
+    show(io, m, tree.root)
+end
+       

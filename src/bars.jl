@@ -54,7 +54,7 @@ end
 
 function receive_data(b::AbstractBroker, ws)
     msg = JSON3.read(receive(ws))
-    return bars(b, msg)
+    return (bars = bars(b, msg), quotes = quotes(b,msg), trades=trades(b,msg))
 end
 
 last_time(dp::HistoricalBroker) = maximum(x -> timestamp(x)[end], values(bars(dp)))

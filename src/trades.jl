@@ -1,3 +1,8 @@
+@tree_component struct Trade
+    price::Float64
+    quantity::Float64
+end
+
 """
     trades(broker, asset, start, stop)
 
@@ -17,6 +22,13 @@ function trades(broker::AbstractBroker, asset, args...; kwargs...)
     return retrieve_data(broker, trades(broker), asset, args...; section = "trades",
                          kwargs...)
 end
+function trades(::Union{AlpacaBroker,MockBroker}, msg::AbstractVector)
+    return map(filter(x -> x[:T] == "t", msg)) do t
+        asset = t[:S]
+        return asset, (parse_time(t[:t]), Trade(t[:p], t[:s]))
+    end
+end
+
 
 function subscribe_trades(::AlpacaBroker, asset::Asset, ws::WebSocket)
     return send(ws, JSON3.write(Dict("action" => "subscribe",

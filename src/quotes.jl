@@ -1,3 +1,16 @@
+@tree_component struct Ask
+    price::Float64
+    quantity::Float64
+end
+
+@tree_component struct Bid
+    price::Float64
+    quantity::Float64
+end
+
+Base.:(<)(t1::T, t2::T) where {T<:Union{Trade,Ask,Bid}} = t1.price < t2.price
+Base.:(==)(t1::T, t2::T) where {T<:Union{Trade,Ask,Bid}} = t1.price == t2.price
+
 """
     quotes(broker, asset, start, stop)
 
@@ -17,6 +30,14 @@ function quotes(broker::AbstractBroker, asset, args...; kwargs...)
     return retrieve_data(broker, quotes(broker), asset, args...; section = "quotes",
                          kwargs...)
 end
+
+function quotes(::Union{AlpacaBroker,MockBroker}, msg::AbstractVector)
+    return map(filter(x -> x[:T] == "q", msg)) do q
+        asset = q[:S]
+        return asset, (parse_time(q[:t]), Ask(q[:ap], q[:as]), Bid(q[:bp], q[:bs]))
+    end
+end
+
 
 function parse_quote(b::AlpacaBroker, q)
     return (ask_price = q[:ap], bid_price = q[:bp])

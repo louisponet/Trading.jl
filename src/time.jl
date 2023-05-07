@@ -3,26 +3,12 @@ using TimeZones
 const LOCAL_TZ = tz"Europe/Zurich"
 
 function parse_time(str)
-    date, time = split(str, 'T')
-    decimals_TZ = match(r"\.(\d+)([^\d]*.*)", time)
-    if decimals_TZ !== nothing
-        if !isempty(decimals_TZ.captures[2])
-            tz = TimeZone(decimals_TZ.captures[2])
-        else
-            tz = LOCAL_TZ
-        end
-
-        return DateTime(astimezone(ZonedDateTime(DateTime(date * "T" * time[1:12]), tz),
-                                   LOCAL_TZ))
-    else
-        TZ = match(r"(.*:\d\d)([^\d:]*.*)", str)
-        if !isempty(TZ.captures[2])
-            tz = TimeZone(TZ.captures[2])
-        else
-            tz = LOCAL_TZ
-        end
-        DateTime(astimezone(ZonedDateTime(DateTime(TZ.captures[1]), tz), LOCAL_TZ))
+    m = match(r"(.*:\d\d[\.\d]*)([^\d:]*.*)", str)
+    if m === nothing
+        ArgumentError("Invalid Datetime String $str")
     end
+    datestr = m.captures[1]
+    DateTime(astimezone(ZonedDateTime(DateTime(datestr[1:min(length(datestr), 23)]), TimeZone(m.captures[2])), LOCAL_TZ))
 end
 
 """

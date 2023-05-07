@@ -10,7 +10,6 @@ If certain derived [`Indicator`](@ref Indicators) data is requested, it also hol
 mutable struct AssetLedger <: AbstractLedger
     asset::Asset
     l::Ledger
-    # orderbook::OrderBook
 end
 
 function Base.getproperty(t::AssetLedger, s::Symbol)
@@ -22,7 +21,7 @@ function Base.getproperty(t::AssetLedger, s::Symbol)
 end
 
 function AssetLedger(asset::Asset)
-    l = Ledger(Open, High, Low, Close, Volume, TimeStamp)
+    l = Ledger(Open, High, Low, Close, Volume, TimeStamp, Ask, Bid, Trade)
     AssetLedger(asset, l)
 end
 
@@ -32,7 +31,7 @@ _Entity(tl::AssetLedger, args...) = Entity(tl.l, args...)
 function new_bar!(tl::AssetLedger, time::TimeStamp, open::Open, high::High, low::Low, close::Close, volume::Volume; interval=Minute(1))
     tcomp = tl[TimeStamp]
     intval = Millisecond(interval) 
-    if length(tcomp) > 1
+    if length(tl[Open]) > 1
         
         last_t = tcomp[end].t
         cur_dt =  time.t - last_t

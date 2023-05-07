@@ -59,11 +59,11 @@ function bar_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
         while !trader.stop_data
 
             try
-                bars = receive(stream)
+                data = receive(stream)
                 
                 updated_tickers = Set{String}()
                 
-                for (ticker, tbar) in bars
+                for (ticker, tbar) in data.bars
                     time, bar = tbar
                     
                     new_bar!(trader.asset_ledgers[T(ticker)],
@@ -75,6 +75,18 @@ function bar_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
                              Volume(round(Int, bar[5]));
                              interval = interval)
                              
+                    push!(updated_tickers, ticker)
+                end
+                for (ticker, q) in data.quotes
+                    l = trader.asset_ledgers[T(ticker)]
+                    t = TimeStamp(first(q))
+                    Entity(l, t, q[2])
+                    Entity(l, t, q[3])
+                    push!(updated_tickers, ticker)
+                end
+                
+                for (ticker, q) in data.trades
+                    Entity(trader.asset_ledgers[T(ticker)],  TimeStamp(first(q)), last(q))
                     push!(updated_tickers, ticker)
                 end
 

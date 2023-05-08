@@ -23,7 +23,10 @@ end
 
 function AssetLedger(asset::Asset)
     l = Ledger(Open, High, Low, Close, Volume, TimeStamp, Ask, Bid, Trade)
-    return AssetLedger(asset, l, (TimeStamp(), Ask(0,0), Bid(0,0)))
+    out = AssetLedger(asset, l, (TimeStamp(), Ask(0,0), Bid(0,0)))
+    register_strategy!(out, OrderBookMaintainer())
+    push!(out, Stage(:main, [OrderBookMaintainer()]))
+    return out
 end
 
 # Overseer.Entity(tl::AssetLedger, args...) = error("You, my friend, are not allowed to add entities to a AssetLedger.")
@@ -121,7 +124,7 @@ I.e. each entity in those components will be looped over once and only once when
 """
 function new_entities(tl::AssetLedger, strategy::S) where {S}
     comps = map(x -> tl[x], Overseer.requested_components(strategy))
-    shortest = comps[findmin(x -> length(x.indices), comps)[2]].indices
+    shortest = Overseer.indices(comps[findmin(x -> length(Overseer.indices(x)), comps)[2]])
     seen_comp = tl[Seen{S}]
     return NewEntitiesIterator(shortest, seen_comp, comps)
 end

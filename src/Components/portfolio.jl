@@ -49,6 +49,11 @@ function Base.string(t::TimeInForce.T)
 end
 
 """
+Enum representing the Side of a transaction.
+"""
+@enumx Side Buy Sell
+
+"""
     Purchase(asset, quantity;
              type          = OrderType.Market,
              time_in_force = TimeInForce.GTC,
@@ -196,6 +201,7 @@ TimeSeries.colnames(::Type{PortfolioSnapshot}) = ["PortfolioSnapshot_value"]
 @tree_component struct Trade
     price::Float64
     quantity::Float64
+    side::Side.T
 end
 
 @tree_component struct Ask

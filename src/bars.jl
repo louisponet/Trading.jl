@@ -52,9 +52,42 @@ function subscribe_bars(dp::HistoricalBroker, asset::Asset, start = nothing,
     return nothing
 end
 
+subscribe_orderbook(::AlpacaBroker, asset::Stock, ws::WebSocket) = nothing
+
+function subscribe_orderbook(::AlpacaBroker, asset::Crypto, ws::WebSocket)
+    return send(ws, JSON3.write(Dict("action" => "subscribe",
+                                     "orderbooks" => [asset.ticker])))
+end
+
+subscribe_orderbook(::HistoricalBroker, args...) = nothing
+
+function orderbook(::AlpacaBroker, msg)
+    bids = Tuple{String, Tuple{DateTime, Bid}}[]
+    asks = Tuple{String, Tuple{DateTime, Ask}}[]
+    for m in msg
+        
+        m[:T] != "o" && continue
+        
+        asset = m[:S]
+        time = parse_time(m[:t])
+        
+        for bid in m[:b]
+            bid[:s] == 0 && continue
+            push!(bids, (asset, (time, Bid(bid[:p], bid[:s]))))
+        end
+        
+        for ask in m[:a]
+            ask[:s] == 0 && continue
+            push!(asks, (asset, (time, Ask(ask[:p], ask[:s]))))
+        end
+    end
+
+    return (bids = bids, asks=asks)
+end
+
 function receive_data(b::AbstractBroker, ws)
     msg = JSON3.read(receive(ws))
-    return (bars = bars(b, msg), quotes = quotes(b,msg), trades=trades(b,msg))
+    return (bars = bars(b, msg), quotes = quotes(b,msg), trades=trades(b,msg), orderbook(b, msg)...)
 end
 
 last_time(dp::HistoricalBroker) = maximum(x -> timestamp(x)[end], values(bars(dp)))
@@ -79,7 +112,11 @@ function receive_data(dp::HistoricalBroker, args...)
     end
     dp.last = dp.clock.time
     
-    return (bars = msg, quotes = Tuple{String,Tuple{DateTime,Ask, Bid}}[], trades = Tuple{String, Tuple{DateTime, Trade}}[])
+    return (bars = msg,
+            quotes = Tuple{String,Tuple{DateTime, Ask, Bid}}[],
+            trades = Tuple{String, Tuple{DateTime, Trade}}[],
+            bids = Tuple{String, Tuple{DateTime, Bid}}[],
+            asks = Tuple{String, Tuple{DateTime, Ask}}[])
 end
 
 """
@@ -116,6 +153,7 @@ function register!(b::DataStream, asset)
     subscribe_bars(b.broker, asset, b.ws)
     subscribe_trades(b.broker, asset, b.ws)
     subscribe_quotes(b.broker, asset, b.ws)
+    subscribe_orderbook(b.broker, asset, b.ws)
 end
 
 """

@@ -20,7 +20,7 @@ end
 function trades(::Union{AlpacaBroker,MockBroker}, msg::AbstractVector)
     return map(filter(x -> x[:T] == "t", msg)) do t
         asset = t[:S]
-        return asset, (parse_time(t[:t]), Trade(t[:p], t[:s]))
+        return asset, (parse_time(t[:t]), Trade(t[:p], t[:s], t[:tks] == "B" ? Side.Buy : Side.Sell))
     end
 end
 

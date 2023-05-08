@@ -17,6 +17,14 @@ Base.:(==)(v, en1::EntityPtr) = en1.ptr[] == v
 Base.:(==)(en1::EntityPtr, e::AbstractEntity) = en1.e == Entity(e)
 Base.:(==)(e::AbstractEntity, e1::EntityPtr) = e1.e == Entity(e)
 
+function Base.getproperty(e::EntityPtr, s::Symbol)
+    if s in (:e, :ptr)
+        return getfield(e, s)
+    else
+        return getproperty(e.ptr[], s)
+    end
+end
+
 function Base.show(io::IO, m::MIME"text/plain", e::EntityPtr)
     print(io, "EntityPtr(")
     show(io, m, e.e)
@@ -121,37 +129,36 @@ end
 Base.isempty(l::LinkedList) = l.head === l.nil
 
 function Base.length(l::LinkedList)
-    head = l.head
     count = 0
-    while head !== l.nil
+    for node in l
         count += 1
-        head = head.next
     end
     return count
 end
 
 function Base.haskey(l::LinkedList, o)
-    node = l.head
-    while true
+    for node in l
         if node.data == o
             return true
-        elseif node === l.tail
-            return false
         end
-        node = node.next
     end
+    return false
 end
 
 function Base.getindex(l::LinkedList, d)
-    node = l.head
-    while true
+    for node in l
         if node.data == d
             return node
-        elseif node.data === l.tail
-            return nothing
         end
-        node = node.next
     end
+    return BoundsError(l, d)
+end
+
+Base.eltype(l::LinkedList{T}) where {T} = T
+
+function Base.iterate(l::LinkedList, state = l.head)
+    state === l.nil && return nothing
+    return state, state.next
 end
 
 function Base.delete!(l::LinkedList{T}, o::ListNode{T}) where {T}
@@ -164,18 +171,7 @@ function Base.delete!(l::LinkedList{T}, o::ListNode{T}) where {T}
 end
 
 function Base.delete!(l::LinkedList, d)
-    node = l.head
-    while true
-        
-        if node === l.nil
-            return
-        elseif node == d
-            break
-        end
-            
-        node = node.next
-    end
-
+    node = l[d]
     delete!(node)
     delete!(l, node)
     return node
@@ -224,11 +220,6 @@ function Base.pushfirst!(l::LinkedList, d::ListNode)
     return l
 end
 Base.pushfirst!(l::LinkedList{T}, d::T) where {T} = pushfirst!(l, ListNode(d))
-
-function Base.iterate(l::LinkedList, state=l.head)
-    state === l.nil && return nothing
-    return state, state.next
-end
 
 Base.:(<)(l1::LinkedList, l2::LinkedList) = l1.head < l2.head
 Base.:(==)(l1::LinkedList, l2::LinkedList) = l1.head == l2.head
@@ -332,7 +323,8 @@ end
 
 function Base.getindex(t::TreeComponent{T}, v::T) where {T}
     node = search_node(t.tree, v)
-    if node.data == v
+    
+    if node !== nothing && v == node.data
         return node.data
     end
     return nothing
@@ -340,11 +332,17 @@ end
 
 function Base.ceil(t::TreeComponent, v)
     node = ceil(t.tree, v)
+    
+    node === nothing && return nothing
+    
     return node.data
 end
 
 function Base.floor(t::TreeComponent, v)
     node = floor(t.tree, v)
+
+    node === nothing && return nothing
+    
     return node.data
 end
 macro tree_component(typedef)
@@ -359,10 +357,10 @@ function _tree_component(typedef, mod)
     end
 end
 
-Base.@propagate_inbounds function Base.pop!(t::TreeComponent, e::AbstractEntity)
-    
-    old_v = t.c[e]
-    old_entity_list = search_node(t.tree, old_v).data
+Base.@propagate_inbounds function Base.pop!(t::TreeComponent, e::AbstractEntity;
+                                            v = t.c[e],
+                                            list = search_node(t.tree, v).data,
+                                            list_len = length(list))
     
     # We need to set the ref of the current last entity to point to the position of the
     # one we're removing becuase that's how pop works
@@ -373,14 +371,14 @@ Base.@propagate_inbounds function Base.pop!(t::TreeComponent, e::AbstractEntity)
         entitynode.ptr = Ref(t.c, e)
     end
     
-    if length(old_entity_list) == 1
-        delete!(t.tree, old_entity_list)
+    if list_len == 1
+        delete!(t.tree, list)
     end
     
     pop!(t.c, e)
-    node = delete!(old_entity_list, e)
+    node = delete!(list, e)
 
-    return EntityState(Entity(e), old_v)
+    return EntityState(Entity(e), v)
 end
 
 Base.@propagate_inbounds Base.pop!(t::TreeComponent) = pop!(t, last_entity(t))

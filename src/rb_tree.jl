@@ -338,23 +338,26 @@ end
 
 function Base.ceil(tree::Tree, d)
     node = tree.root
-    while node !== tree.nil
-        if node.data < d
-            node = node.right_child
-        else
+    while true
+        if node === tree.nil
+            return nothing
+        elseif d <= node.data
             if node.left_child === tree.nil
                 return node
             end
             node = node.left_child
+        else
+            node = node.right_child
         end
     end
-    return node
 end
 
 function Base.floor(tree::Tree, d)
     node = tree.root
-    while node !== tree.nil
-        if node.data > d
+    while true
+        if node === tree.nil
+            return nothing
+        elseif d < node.data
             node = node.left_child
         else
             if node.right_child === tree.nil
@@ -363,7 +366,6 @@ function Base.floor(tree::Tree, d)
             node = node.right_child
         end
     end
-    return node
 end
 
 """

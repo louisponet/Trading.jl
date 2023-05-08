@@ -88,6 +88,15 @@ function data_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
                     Entity(trader.asset_ledgers[T(ticker)],  TimeStamp(first(q)), last(q))
                     push!(updated_tickers, ticker)
                 end
+                
+                for (ticker, a) in data.asks
+                    Entity(trader.asset_ledgers[T(ticker)],  TimeStamp(first(a)), last(a))
+                    push!(updated_tickers, ticker)
+                end
+                for (ticker, b) in data.bids
+                    Entity(trader.asset_ledgers[T(ticker)],  TimeStamp(first(b)), last(b))
+                    push!(updated_tickers, ticker)
+                end
 
                 @sync for ticker in updated_tickers
                     Threads.@spawn begin

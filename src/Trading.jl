@@ -49,6 +49,7 @@ include("time.jl")
 include("Systems/core.jl")
 include("Systems/indicators.jl")
 include("Systems/portfolio.jl")
+include("Systems/asset_ledger.jl")
 
 export Stock, Crypto
 export Trader, BackTester, start, stop, stop_main, stop_trading, stop_data

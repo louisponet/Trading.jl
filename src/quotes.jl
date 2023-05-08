@@ -1,16 +1,3 @@
-@tree_component struct Ask
-    price::Float64
-    quantity::Float64
-end
-
-@tree_component struct Bid
-    price::Float64
-    quantity::Float64
-end
-
-Base.:(<)(t1::T, t2::T) where {T<:Union{Trade,Ask,Bid}} = t1.price < t2.price
-Base.:(==)(t1::T, t2::T) where {T<:Union{Trade,Ask,Bid}} = t1.price == t2.price
-
 """
     quotes(broker, asset, start, stop)
 
@@ -122,4 +109,12 @@ function current_price(broker::AlpacaBroker, asset)
     return dat === nothing ? nothing : (dat[1] + dat[2]) / 2
 end
 
-current_price(t::Trader, asset) = current_price(t.broker, asset)
+function current_price(t::Trader, asset)
+    l = get(t.asset_ledgers, asset, nothing)
+    if l !== nothing && l.latest_quote[2].price != 0 
+        q = l.latest_quote
+        return (q[2].price + q[3].price) / 2
+    else
+        return current_price(t.broker, asset)
+    end
+end

@@ -1,8 +1,3 @@
-@tree_component struct Trade
-    price::Float64
-    quantity::Float64
-end
-
 """
     trades(broker, asset, start, stop)
 

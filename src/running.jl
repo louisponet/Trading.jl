@@ -44,7 +44,7 @@ function start(trader::Trader{<:HistoricalBroker})
     return trader
 end
 
-function bar_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
+function data_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
     data_stream(trader.broker, T) do stream
         for (asset, q) in trader.asset_ledgers
             if occursin("_", asset.ticker)
@@ -77,11 +77,10 @@ function bar_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
                              
                     push!(updated_tickers, ticker)
                 end
+                
                 for (ticker, q) in data.quotes
                     l = trader.asset_ledgers[T(ticker)]
-                    t = TimeStamp(first(q))
-                    Entity(l, t, q[2])
-                    Entity(l, t, q[3])
+                    l.latest_quote = (TimeStamp(first(q)), q[2], q[3])
                     push!(updated_tickers, ticker)
                 end
                 
@@ -124,7 +123,7 @@ It opens a [`DataStream`](@ref) for each [`Asset`](@ref) Class, and registers th
 function start_data(trader::Trader; interval = Minute(1), kwargs...)
     for T in unique(map(x->typeof(x.asset), values(trader.asset_ledgers)))
         if !haskey(trader.data_tasks, T) || istaskdone(trader.data_tasks[T])
-            trader.data_tasks[T] = Threads.@spawn @stoppable trader.stop_data bar_task(trader, T; interval=interval, kwargs...)
+            trader.data_tasks[T] = Threads.@spawn @stoppable trader.stop_data data_task(trader, T; interval=interval, kwargs...)
         end
     end
 end

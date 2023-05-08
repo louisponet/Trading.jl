@@ -78,7 +78,8 @@ function receive_data(dp::HistoricalBroker, args...)
         end
     end
     dp.last = dp.clock.time
-    return msg
+    
+    return (bars = msg, quotes = Tuple{String,Tuple{DateTime,Ask, Bid}}[], trades = Tuple{String, Tuple{DateTime, Trade}}[])
 end
 
 """

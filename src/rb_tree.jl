@@ -336,15 +336,15 @@ function maximum_node(tree::Tree, node::TreeNode = tree.root)
     return node
 end
 
-function Base.ceil(tree::Tree, d)
-    node = tree.root
+function Base.ceil(tree::Tree, d, node=tree.root)
+    best_node = nothing
     while true
         if node === tree.nil
-            return nothing
-        elseif d <= node.data
-            if node.left_child === tree.nil
-                return node
-            end
+            return best_node
+        elseif d == node.data
+            return node
+        elseif d < node.data
+            best_node = node
             node = node.left_child
         else
             node = node.right_child
@@ -352,17 +352,17 @@ function Base.ceil(tree::Tree, d)
     end
 end
 
-function Base.floor(tree::Tree, d)
-    node = tree.root
+function Base.floor(tree::Tree, d, node=tree.root)
+    best_node = nothing
     while true
         if node === tree.nil
-            return nothing
+            return best_node
+        elseif d == node.data
+            return node
         elseif d < node.data
             node = node.left_child
         else
-            if node.right_child === tree.nil
-                return node
-            end
+            best_node = node
             node = node.right_child
         end
     end

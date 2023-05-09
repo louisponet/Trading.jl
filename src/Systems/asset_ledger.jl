@@ -86,12 +86,17 @@ function clear_till_center!(l, comp::TreeComponent{Bid}, v::Bid)
         n = length(limit)
         
         node = limit.head
-        while node !== limit.nil
+        while true
             @info "removed $(node.e) with price $(node.price) while clearing Bid till center on trade price $(v.price)"
             pop!(comp, node.e, list = limit, list_len = n, v=tv)
             delete!(l, node.e)
-            node = node.next
+            
             n -= 1
+            if n == 0
+                break
+            end
+            
+            node = node.next
         end
         
         limit = ceil(comp, v)
@@ -106,12 +111,17 @@ function clear_till_center!(l, comp::TreeComponent{Ask}, v::Ask)
         n = length(limit)
         
         node = limit.head
-        while node !== limit.nil
+        while true
             @info "removed $(node.e) with price $(node.price) while clearing Ask till center on trade price $(v.price)"
             pop!(comp, node.e, list = limit, list_len = n, v=tv)
             delete!(l, node.e)
-            node = node.next
+            
             n -= 1
+            if n == 0
+                break
+            end
+            
+            node = node.next
         end
         
         limit = floor(comp, v)

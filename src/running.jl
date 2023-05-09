@@ -109,6 +109,7 @@ function data_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
                 if !(e isa InvalidStateException) && !(e isa EOFError) &&
                    !(e isa InterruptException) && !(e == HTTP.WebSockets.WebSocketError(HTTP.WebSockets.CloseFrameBody(1006, "WebSocket connection is closed")))
                     showerror(stdout, e, catch_backtrace())
+                    return
                 else
                     @info "Issue with $T data stream"
                     return
@@ -143,6 +144,7 @@ end
 Starts the `trader.main_task`. This periodically executes the core systems of the [`Trader`](@ref), with at least `sleep_time` between executions.
 """
 function start_main(trader::Trader; sleep_time = 1, kwargs...)
+    data_started = false
     return trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
         while !trader.stop_main
             curt = time()
@@ -151,7 +153,8 @@ function start_main(trader::Trader; sleep_time = 1, kwargs...)
                 start_trading(trader; kwargs...)
             end
 
-            start_data(trader; kwargs...)
+            !data_started && start_data(trader; kwargs...)
+            data_started = true
             
             try
                 update(trader)

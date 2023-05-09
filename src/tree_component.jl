@@ -240,7 +240,7 @@ function Base.show(io::IO, m::MIME"text/plain", l::LinkedList{T}) where {T}
             node = node.next
         end
     else
-        println(io, "LinkedList()")
+        println(io, "$(length(l))")
     end
 end
 function Base.show(io::IO, l::LinkedList{T}) where {T}
@@ -256,7 +256,7 @@ function Base.show(io::IO, l::LinkedList{T}) where {T}
             node = node.next
         end
     else
-        println(io, "LinkedList()")
+        println(io, "$(length(l))")
     end
 end
 

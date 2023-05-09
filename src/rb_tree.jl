@@ -378,7 +378,7 @@ function Base.delete!(tree::Tree, d)
     node = tree.root
 
     while node !== tree.nil
-        if node.data == d
+        if d == node.data
             z = node
         end
 

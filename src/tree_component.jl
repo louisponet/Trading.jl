@@ -38,83 +38,91 @@ function Base.show(io::IO, e::EntityPtr)
 end
     
 mutable struct ListNode{T}
-    data::T
-    next::ListNode{T}
-    prev::ListNode{T}
+    _data::T
+    _next::ListNode{T}
+    _prev::ListNode{T}
 
     function ListNode{T}() where {T}
         out = new{T}()
-        out.next = out
-        out.prev = out
+        out._next = out
+        out._prev = out
         return out
     end
     
     function ListNode(data::T) where {T}
         out = new{T}()
-        out.data = data
-        out.next = out
-        out.prev = out
+        out._data = data
+        out._next = out
+        out._prev = out
         return out
     end
 end
 function Base.show(io::IO, node::ListNode)
     if isdefined(node, :data)
-        print(io, "ListNode(", node.data, ")")
+        print(io, "ListNode(", node._data, ")")
     end
 end
 
 function Base.getproperty(node::ListNode, s::Symbol)
-    if s in (:next, :prev, :data)
+    if s in (:_next, :_prev, :_data)
         return getfield(node, s)
     else
-        return getproperty(node.data, s)
+        return getproperty(getfield(node, :_data), s)
     end
 end
 
 function Base.setproperty!(node::ListNode, s::Symbol, v)
-    if s in (:next, :prev, :data)
+    if s in (:_next, :_prev, :_data)
         return setfield!(node, s, v)
     else
-        return setproperty!(node.data, s, v)
+        return setproperty!(getfield(node,:_data), s, v)
     end
 end
 
 function Base.delete!(node::ListNode)
-    node.next.prev = node.prev
-    node.prev.next = node.next
+    node._next._prev = node._prev
+    node._prev._next = node._next
     return node
 end
 
-Base.:(<)(l1::ListNode, l2::ListNode) = l1.data < l2.data
-Base.:(==)(l1::ListNode, l2::ListNode) = l1.data == l2.data
+Base.:(<)(l1::ListNode, l2::ListNode) = l1._data < l2._data
+Base.:(==)(l1::ListNode, l2::ListNode) = l1._data == l2._data
 
-Base.:(<)(l1, l2::ListNode) = l1 < l2.data
-Base.:(==)(l1, l2::ListNode) = l1 == l2.data
+Base.:(<)(l1, l2::ListNode) = l1 < l2._data
+Base.:(==)(l1, l2::ListNode) = l1 == l2._data
 
-Base.:(<)(l1::ListNode, l2) = l1.data < l2
-Base.:(==)(l1::ListNode, l2) = l1.data == l2
+Base.:(<)(l1::ListNode, l2) = l1._data < l2
+Base.:(==)(l1::ListNode, l2) = l1._data == l2
 
 mutable struct LinkedList{T}
-    head::ListNode{T}
-    tail::ListNode{T}
-    nil::ListNode{T}
+    _head::ListNode{T}
+    _tail::ListNode{T}
+    _nil::ListNode{T}
     
     function LinkedList{T}() where {T}
         out = new{T}()
-        out.nil = ListNode{T}()
-        out.head = out.nil
-        out.tail = out.nil
+        out._nil = ListNode{T}()
+        out._head = out._nil
+        out._tail = out._nil
         return out
     end
     
     function LinkedList(node::ListNode{T}) where {T}
         out = new{T}()
-        out.nil = ListNode{T}()
-        out.head = node
-        out.tail = node
-        node.prev = out.nil
-        node.next = out.nil
+        out._nil = ListNode{T}()
+        out._head = node
+        out._tail = node
+        node._prev = out._nil
+        node._next = out._nil
         return out
+    end
+end
+
+function Base.getproperty(n::LinkedList, s::Symbol)
+    if s in (:_head, :_tail, :_nil)
+        return getfield(n, s)
+    else
+        return getproperty(getfield(n, :_head), s)
     end
 end
 
@@ -126,7 +134,7 @@ function LinkedList(vals::T...) where {T}
     return out
 end
 
-Base.isempty(l::LinkedList) = l.head === l.nil
+Base.isempty(l::LinkedList) = l._head === l._nil
 
 function Base.length(l::LinkedList)
     count = 0
@@ -138,7 +146,7 @@ end
 
 function Base.haskey(l::LinkedList, o)
     for node in l
-        if node.data == o
+        if node._data == o
             return true
         end
     end
@@ -147,7 +155,7 @@ end
 
 function Base.getindex(l::LinkedList, d)
     for node in l
-        if node.data == d
+        if node._data == d
             return node
         end
     end
@@ -156,17 +164,17 @@ end
 
 Base.eltype(l::LinkedList{T}) where {T} = T
 
-function Base.iterate(l::LinkedList, state = l.head)
-    state === l.nil && return nothing
-    return state, state.next
+function Base.iterate(l::LinkedList, state = l._head)
+    state === l._nil && return nothing
+    return state, state._next
 end
 
 function Base.delete!(l::LinkedList{T}, o::ListNode{T}) where {T}
-    if l.head === o
-        l.head = o.next
+    if l._head === o
+        l._head = o._next
     end
-    if l.tail === o
-        l.tail = o.prev
+    if l._tail === o
+        l._tail = o._prev
     end
 end
 
@@ -178,29 +186,29 @@ function Base.delete!(l::LinkedList, d)
 end
 
 function Base.pop!(l::LinkedList)
-    out = l.tail
-    l.tail = out.prev
+    out = l._tail
+    l._tail = out._prev
     return out
 end
 
 function Base.popfirst!(l::LinkedList)
-    out = l.head
-    l.head = out.next
+    out = l._head
+    l._head = out._next
     return out
 end
 
 function Base.push!(l::LinkedList, d::ListNode)
     if isempty(l)
-        l.tail = l.head = d
-        d.prev = l.nil
-        d.next = l.nil
+        l._tail = l._head = d
+        d._prev = l._nil
+        d._next = l._nil
         return 
     end
-    d.prev = l.tail
-    d.next = l.nil
+    d._prev = l._tail
+    d._next = l._nil
     
-    l.tail.next = d
-    l.tail = d
+    l._tail._next = d
+    l._tail = d
     
     return l
 end
@@ -209,35 +217,35 @@ Base.push!(l::LinkedList{T}, d::T) where {T} = push!(l, ListNode(d))
 
 function Base.pushfirst!(l::LinkedList, d::ListNode)
     if isempty(l)
-        l.tail = l.head = d
-        d.prev = l.nil
-        d.next = l.nil
+        l._tail = l._head = d
+        d._prev = l._nil
+        d._next = l._nil
         return 
     end
-    d.next = l.head
-    l.head.prev = d
-    l.head = d
+    d._next = l._head
+    l._head._prev = d
+    l._head = d
     return l
 end
 Base.pushfirst!(l::LinkedList{T}, d::T) where {T} = pushfirst!(l, ListNode(d))
 
-Base.:(<)(l1::LinkedList, l2::LinkedList) = l1.head < l2.head
-Base.:(==)(l1::LinkedList, l2::LinkedList) = l1.head == l2.head
+Base.:(<)(l1::LinkedList, l2::LinkedList) = l1._head < l2._head
+Base.:(==)(l1::LinkedList, l2::LinkedList) = l1._head == l2._head
 
-Base.:(<)(l1, l2::LinkedList) = l1 < l2.head
-Base.:(==)(l1, l2::LinkedList) = l1 == l2.head
+Base.:(<)(l1, l2::LinkedList) = l1 < l2._head
+Base.:(==)(l1, l2::LinkedList) = l1 == l2._head
 
 function Base.show(io::IO, m::MIME"text/plain", l::LinkedList{T}) where {T}
     if !isempty(l)
-        node = l.head
+        node = l._head
         while true
             show(io, m, node)
-            if node !== l.tail
+            if node !== l._tail
                 print(io, " -> ")
             else
                 break
             end
-            node = node.next
+            node = node._next
         end
     else
         println(io, "$(length(l))")
@@ -245,15 +253,15 @@ function Base.show(io::IO, m::MIME"text/plain", l::LinkedList{T}) where {T}
 end
 function Base.show(io::IO, l::LinkedList{T}) where {T}
     if !isempty(l)
-        node = l.head
+        node = l._head
         while true
             show(io, node)
-            if node !== l.tail
+            if node !== l._tail
                 print(io, " -> ")
             else
                 break
             end
-            node = node.next
+            node = node._next
         end
     else
         println(io, "$(length(l))")
@@ -293,7 +301,7 @@ function Base.setindex!(t::TreeComponent{T}, v::T, e::Overseer.AbstractEntity) w
         
         old_v == v && return t
         
-        old_entity_list = search_node(t.tree, old_v).data
+        old_entity_list = search_node(t.tree, old_v)._data
         
         if length(old_entity_list) == 1
             delete!(t.tree, old_entity_list)
@@ -315,7 +323,7 @@ function Base.setindex!(t::TreeComponent{T}, v::T, e::Overseer.AbstractEntity) w
         new_entity_list = LinkedList(node)
         push!(t.tree, new_entity_list)
     else
-        push!(new_entity_list.data, node)
+        push!(new_entity_list._data, node)
     end
 
     return t
@@ -324,8 +332,8 @@ end
 function Base.getindex(t::TreeComponent{T}, v::T) where {T}
     node = search_node(t.tree, v)
     
-    if node !== nothing && v == node.data
-        return node.data
+    if node !== nothing && v == node._data
+        return node._data
     end
     return nothing
 end
@@ -335,7 +343,7 @@ function Base.ceil(t::TreeComponent, v)
     
     node === nothing && return nothing
     
-    return node.data
+    return node._data
 end
 
 function Base.floor(t::TreeComponent, v)
@@ -343,7 +351,7 @@ function Base.floor(t::TreeComponent, v)
 
     node === nothing && return nothing
     
-    return node.data
+    return node._data
 end
 macro tree_component(typedef)
     return esc(Trading._tree_component(typedef, __module__))
@@ -359,14 +367,14 @@ end
 
 Base.@propagate_inbounds function Base.pop!(t::TreeComponent, e::AbstractEntity;
                                             v = t.c[e],
-                                            list = search_node(t.tree, v).data,
+                                            list = search_node(t.tree, v)._data,
                                             list_len = length(list))
     
     # We need to set the ref of the current last entity to point to the position of the
     # one we're removing becuase that's how pop works
     if length(t.c) > 1
         curlast = last_entity(t.c)
-        last_list = search_node(t.tree, t[curlast]).data
+        last_list = search_node(t.tree, t[curlast])._data
         entitynode = last_list[curlast]
         entitynode.ptr = Ref(t.c, e)
     end

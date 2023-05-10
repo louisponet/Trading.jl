@@ -1,9 +1,9 @@
 mutable struct TreeNode{T}
-    color::Bool
-    data::Union{T,Nothing}
-    left_child::Union{Nothing,TreeNode{T}}
-    right_child::Union{Nothing,TreeNode{T}}
-    parent::Union{Nothing,TreeNode{T}}
+    _color::Bool
+    _data::Union{T,Nothing}
+    _left_child::Union{Nothing,TreeNode{T}}
+    _right_child::Union{Nothing,TreeNode{T}}
+    _parent::Union{Nothing,TreeNode{T}}
 
     TreeNode{T}() where {T} = new{T}(true, nothing, nothing, nothing, nothing)
 
@@ -12,15 +12,29 @@ end
 
 function create_null_node(::Type{T}) where {T}
     node = TreeNode{T}()
-    node.color = false
+    node._color = false
     return node
+end
+
+function Base.getproperty(n::TreeNode, s::Symbol)
+    if s in (:_color, :_data, :_left_child, :_right_child, :_parent)
+        return getfield(n, s)
+    else
+        return getproperty(getfield(n, :_data), s)
+    end
+end
+function Base.setproperty!(n::TreeNode, v, s::Symbol)
+    if s in (:_color, :_data, :_left_child, :_right_child, :_parent)
+        return setfield!(n, v, s)
+    else
+        return setproperty!(getfield(n, :_data), v, s)
+    end
 end
 
 mutable struct Tree{T}
     root::TreeNode{T}
     nil::TreeNode{T}
     count::Int
-
     function Tree{T}() where {T}
         rb = new{T}()
         rb.nil = create_null_node(T)
@@ -41,14 +55,14 @@ function search_node(tree::Tree, d)
     node = tree.root
     while node !== tree.nil
         
-        if d == node.data
+        if d == node._data
             return node
         end
         
-        if d < node.data
-            node = node.left_child
+        if d < node._data
+            node = node._left_child
         else
-            node = node.right_child
+            node = node._right_child
         end
         
     end
@@ -75,20 +89,20 @@ function insert_node!(tree::Tree, node::TreeNode)
 
     while x !== tree.nil
         y = x
-        if node.data < x.data
-            x = x.left_child
+        if node._data < x._data
+            x = x._left_child
         else
-            x = x.right_child
+            x = x._right_child
         end
     end
 
-    node.parent = y
+    node._parent = y
     if y === nothing
         tree.root = node
-    elseif node.data < y.data
-        y.left_child = node
+    elseif node._data < y._data
+        y._left_child = node
     else
-        y.right_child = node
+        y._right_child = node
     end
 end
 
@@ -98,21 +112,21 @@ end
 Performs a left-rotation on `node_x` and updates `tree.root`, if required.
 """
 function left_rotate!(tree::Tree, x::TreeNode)
-    y = x.right_child
-    x.right_child = y.left_child
-    if y.left_child !== tree.nil
-        y.left_child.parent = x
+    y = x._right_child
+    x._right_child = y._left_child
+    if y._left_child !== tree.nil
+        y._left_child._parent = x
     end
-    y.parent = x.parent
-    if x.parent === nothing
+    y._parent = x._parent
+    if x._parent === nothing
         tree.root = y
-    elseif x == x.parent.left_child
-        x.parent.left_child = y
+    elseif x == x._parent._left_child
+        x._parent._left_child = y
     else
-        x.parent.right_child = y
+        x._parent._right_child = y
     end
-    y.left_child = x
-    return x.parent = y
+    y._left_child = x
+    return x._parent = y
 end
 
 """
@@ -121,21 +135,21 @@ end
 Performs a right-rotation on `node_x` and updates `tree.root`, if required.
 """
 function right_rotate!(tree::Tree, x::TreeNode)
-    y = x.left_child
-    x.left_child = y.right_child
-    if y.right_child !== tree.nil
-        y.right_child.parent = x
+    y = x._left_child
+    x._left_child = y._right_child
+    if y._right_child !== tree.nil
+        y._right_child._parent = x
     end
-    y.parent = x.parent
-    if x.parent === nothing
+    y._parent = x._parent
+    if x._parent === nothing
         tree.root = y
-    elseif x == x.parent.left_child
-        x.parent.left_child = y
+    elseif x == x._parent._left_child
+        x._parent._left_child = y
     else
-        x.parent.right_child = y
+        x._parent._right_child = y
     end
-    y.right_child = x
-    return x.parent = y
+    y._right_child = x
+    return x._parent = y
 end
 
 """
@@ -144,54 +158,54 @@ end
 This method is called to fix the property of having no two adjacent nodes of red color in the `tree`.
 """
 function fix_insert!(tree::Tree, node::TreeNode)
-    parent = nothing
+    _parent = nothing
     grand_parent = nothing
     # for root node, we need to change the color to black
     # other nodes, we need to maintain the property such that
     # no two adjacent nodes are red in color
-    while node != tree.root && node.parent.color
-        parent = node.parent
-        grand_parent = parent.parent
+    while node != tree.root && node._parent._color
+        _parent = node._parent
+        grand_parent = _parent._parent
 
-        if (parent == grand_parent.left_child) # parent is the leftChild of grand_parent
-            uncle = grand_parent.right_child
+        if (_parent == grand_parent._left_child) # _parent is the leftChild of grand_parent
+            uncle = grand_parent._right_child
 
-            if uncle.color # uncle is red in color
-                grand_parent.color = true
-                parent.color = false
-                uncle.color = false
+            if uncle._color # uncle is red in color
+                grand_parent._color = true
+                _parent._color = false
+                uncle._color = false
                 node = grand_parent
             else  # uncle is black in color
-                if node == parent.right_child # node is right_child of its parent
-                    node = parent
+                if node == _parent._right_child # node is _right_child of its _parent
+                    node = _parent
                     left_rotate!(tree, node)
                 end
-                # node is left_child of its parent
-                node.parent.color = false
-                node.parent.parent.color = true
-                right_rotate!(tree, node.parent.parent)
+                # node is _left_child of its _parent
+                node._parent._color = false
+                node._parent._parent._color = true
+                right_rotate!(tree, node._parent._parent)
             end
-        else # parent is the right_child of grand_parent
-            uncle = grand_parent.left_child
+        else # _parent is the _right_child of grand_parent
+            uncle = grand_parent._left_child
 
-            if uncle.color # uncle is red in color
-                grand_parent.color = true
-                parent.color = false
-                uncle.color = false
+            if uncle._color # uncle is red in color
+                grand_parent._color = true
+                _parent._color = false
+                uncle._color = false
                 node = grand_parent
             else  # uncle is black in color
-                if node == parent.left_child # node is leftChild of its parent
-                    node = parent
+                if node == _parent._left_child # node is leftChild of its _parent
+                    node = _parent
                     right_rotate!(tree, node)
                 end
-                # node is right_child of its parent
-                node.parent.color = false
-                node.parent.parent.color = true
-                left_rotate!(tree, node.parent.parent)
+                # node is _right_child of its _parent
+                node._parent._color = false
+                node._parent._parent._color = true
+                left_rotate!(tree, node._parent._parent)
             end
         end
     end
-    return tree.root.color = false
+    return tree.root._color = false
 end
 
 """
@@ -205,13 +219,13 @@ function Base.insert!(tree::Tree, d, check_key = true)
 
     # insert, if not present in the tree
     node = TreeNode(d)
-    node.left_child = node.right_child = tree.nil
+    node._left_child = node._right_child = tree.nil
 
     insert_node!(tree, node)
 
-    if node.parent === nothing
-        node.color = false
-    elseif node.parent.parent === nothing
+    if node._parent === nothing
+        node._color = false
+    elseif node._parent._parent === nothing
 
     else
         fix_insert!(tree, node)
@@ -235,62 +249,62 @@ end
 This method is called when a black node is deleted because it violates the black depth property of the Tree.
 """
 function delete_fix(tree::Tree, node::Union{TreeNode,Nothing})
-    while node != tree.root && !node.color
-        if node == node.parent.left_child
-            sibling = node.parent.right_child
-            if sibling.color
-                sibling.color = false
-                node.parent.color = true
-                left_rotate!(tree, node.parent)
-                sibling = node.parent.right_child
+    while node != tree.root && !node._color
+        if node == node._parent._left_child
+            sibling = node._parent._right_child
+            if sibling._color
+                sibling._color = false
+                node._parent._color = true
+                left_rotate!(tree, node._parent)
+                sibling = node._parent._right_child
             end
 
-            if !sibling.right_child.color && !sibling.left_child.color
-                sibling.color = true
-                node = node.parent
+            if !sibling._right_child._color && !sibling._left_child._color
+                sibling._color = true
+                node = node._parent
             else
-                if !sibling.right_child.color
-                    sibling.left_child.color = false
-                    sibling.color = true
+                if !sibling._right_child._color
+                    sibling._left_child._color = false
+                    sibling._color = true
                     right_rotate!(tree, sibling)
-                    sibling = node.parent.right_child
+                    sibling = node._parent._right_child
                 end
 
-                sibling.color = node.parent.color
-                node.parent.color = false
-                sibling.right_child.color = false
-                left_rotate!(tree, node.parent)
+                sibling._color = node._parent._color
+                node._parent._color = false
+                sibling._right_child._color = false
+                left_rotate!(tree, node._parent)
                 node = tree.root
             end
         else
-            sibling = node.parent.left_child
-            if sibling.color
-                sibling.color = false
-                node.parent.color = true
-                right_rotate!(tree, node.parent)
-                sibling = node.parent.left_child
+            sibling = node._parent._left_child
+            if sibling._color
+                sibling._color = false
+                node._parent._color = true
+                right_rotate!(tree, node._parent)
+                sibling = node._parent._left_child
             end
 
-            if !sibling.right_child.color && !sibling.left_child.color
-                sibling.color = true
-                node = node.parent
+            if !sibling._right_child._color && !sibling._left_child._color
+                sibling._color = true
+                node = node._parent
             else
-                if !sibling.left_child.color
-                    sibling.right_child.color = false
-                    sibling.color = true
+                if !sibling._left_child._color
+                    sibling._right_child._color = false
+                    sibling._color = true
                     left_rotate!(tree, sibling)
-                    sibling = node.parent.left_child
+                    sibling = node._parent._left_child
                 end
 
-                sibling.color = node.parent.color
-                node.parent.color = false
-                sibling.left_child.color = false
-                right_rotate!(tree, node.parent)
+                sibling._color = node._parent._color
+                node._parent._color = false
+                sibling._left_child._color = false
+                right_rotate!(tree, node._parent)
                 node = tree.root
             end
         end
     end
-    node.color = false
+    node._color = false
     return nothing
 end
 
@@ -300,14 +314,14 @@ end
 Replaces `u` by `v` in the `tree` and updates the `tree` accordingly.
 """
 function swap(tree::Tree, u::Union{TreeNode,Nothing}, v::Union{TreeNode,Nothing})
-    if u.parent === nothing
+    if u._parent === nothing
         tree.root = v
-    elseif u == u.parent.left_child
-        u.parent.left_child = v
+    elseif u == u._parent._left_child
+        u._parent._left_child = v
     else
-        u.parent.right_child = v
+        u._parent._right_child = v
     end
-    return v.parent = u.parent
+    return v._parent = u._parent
 end
 
 """
@@ -317,8 +331,8 @@ Returns the TreeNode with minimum value in subtree of `node`.
 """
 function minimum_node(tree::Tree, node::TreeNode = tree.root)
     node === tree.nil && return node
-    while node.left_child !== tree.nil
-        node = node.left_child
+    while node._left_child !== tree.nil
+        node = node._left_child
     end
     return node
 end
@@ -330,8 +344,8 @@ Returns the TreeNode with maximum value in subtree of `node`.
 """
 function maximum_node(tree::Tree, node::TreeNode = tree.root)
     node === tree.nil && return node
-    while node.right_child !== tree.nil
-        node = node.right_child
+    while node._right_child !== tree.nil
+        node = node._right_child
     end
     return node
 end
@@ -341,13 +355,13 @@ function Base.ceil(tree::Tree, d, node=tree.root)
     while true
         if node === tree.nil
             return best_node
-        elseif d == node.data
+        elseif d == node._data
             return node
-        elseif d < node.data
+        elseif d < node._data
             best_node = node
-            node = node.left_child
+            node = node._left_child
         else
-            node = node.right_child
+            node = node._right_child
         end
     end
 end
@@ -357,13 +371,13 @@ function Base.floor(tree::Tree, d, node=tree.root)
     while true
         if node === tree.nil
             return best_node
-        elseif d == node.data
+        elseif d == node._data
             return node
-        elseif d < node.data
-            node = node.left_child
+        elseif d < node._data
+            node = node._left_child
         else
             best_node = node
-            node = node.right_child
+            node = node._right_child
         end
     end
 end
@@ -378,44 +392,44 @@ function Base.delete!(tree::Tree, d)
     node = tree.root
 
     while node !== tree.nil
-        if d == node.data
+        if d == node._data
             z = node
         end
 
-        if d < node.data
-            node = node.left_child
+        if d < node._data
+            node = node._left_child
         else
-            node = node.right_child
+            node = node._right_child
         end
     end
 
     z === tree.nil && return tree
 
     y = z
-    y_original_color = y.color
-    if z.left_child === tree.nil
-        x = z.right_child
-        swap(tree, z, z.right_child)
-    elseif z.right_child === tree.nil
-        x = z.left_child
-        swap(tree, z, z.left_child)
+    y_original_color = y._color
+    if z._left_child === tree.nil
+        x = z._right_child
+        swap(tree, z, z._right_child)
+    elseif z._right_child === tree.nil
+        x = z._left_child
+        swap(tree, z, z._left_child)
     else
-        y = minimum_node(tree, z.right_child)
-        y_original_color = y.color
-        x = y.right_child
+        y = minimum_node(tree, z._right_child)
+        y_original_color = y._color
+        x = y._right_child
 
-        if y.parent == z
-            x.parent = y
+        if y._parent == z
+            x._parent = y
         else
-            swap(tree, y, y.right_child)
-            y.right_child = z.right_child
-            y.right_child.parent = y
+            swap(tree, y, y._right_child)
+            y._right_child = z._right_child
+            y._right_child._parent = y
         end
 
         swap(tree, z, y)
-        y.left_child = z.left_child
-        y.left_child.parent = y
-        y.color = z.color
+        y._left_child = z._left_child
+        y._left_child._parent = y
+        y._color = z._color
     end
 
     !y_original_color && delete_fix(tree, x)
@@ -435,9 +449,9 @@ function Base.getindex(tree::Tree{T}, ind) where {T}
                  throw(ArgumentError("$ind should be in between 1 and $(tree.count)"))
     function traverse_tree_inorder(node::TreeNode)
         if node !== tree.nil
-            left = traverse_tree_inorder(node.left_child)
-            right = traverse_tree_inorder(node.right_child)
-            append!(push!(left, node.data), right)
+            left = traverse_tree_inorder(node._left_child)
+            right = traverse_tree_inorder(node._right_child)
+            append!(push!(left, node._data), right)
         else
             return T[]
         end
@@ -451,16 +465,18 @@ function Base.empty!(tree::Tree)
     tree.count = 0
 end
 
+Base.isempty(tree::Tree) = tree.root === tree.nil
+
 function Base.show(io::IO, m::MIME"text/plain", node::TreeNode, space = 0)
-    if node.data !== nothing
+    if node._data !== nothing
         space = space + 10;
-        show(io, m, node.right_child, space)
+        show(io, m, node._right_child, space)
         println(io)
         for  i = 11:space
             print(io, " ")
         end
-        println(io, "$(node.data) $(node.color ? "R" : "B")")
-        show(io, m, node.left_child, space)
+        println(io, "$(node._data) $(node._color ? "R" : "B")")
+        show(io, m, node._left_child, space)
     end
 end
     

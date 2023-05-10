@@ -31,6 +31,13 @@ function Base.setproperty!(n::TreeNode, v, s::Symbol)
     end
 end
 
+# TODO figure out if == or === is better
+is_left_child(node::TreeNode) =
+    node == node._parent._left_child
+    
+is_right_child(node::TreeNode) =
+    node == node._parent._right_child
+
 mutable struct Tree{T}
     root::TreeNode{T}
     nil::TreeNode{T}
@@ -250,7 +257,7 @@ This method is called when a black node is deleted because it violates the black
 """
 function delete_fix(tree::Tree, node::Union{TreeNode,Nothing})
     while node != tree.root && !node._color
-        if node == node._parent._left_child
+        if is_left_child(node)
             sibling = node._parent._right_child
             if sibling._color
                 sibling._color = false
@@ -439,27 +446,6 @@ end
 
 Base.in(key, tree::Tree) = haskey(tree, key)
 
-"""
-    getindex(tree, ind)
-
-Gets the key present at index `ind` of the tree. Indexing is done in increasing order of key.
-"""
-function Base.getindex(tree::Tree{T}, ind) where {T}
-    @boundscheck (1 <= ind <= tree.count) ||
-                 throw(ArgumentError("$ind should be in between 1 and $(tree.count)"))
-    function traverse_tree_inorder(node::TreeNode)
-        if node !== tree.nil
-            left = traverse_tree_inorder(node._left_child)
-            right = traverse_tree_inorder(node._right_child)
-            append!(push!(left, node._data), right)
-        else
-            return T[]
-        end
-    end
-    arr = traverse_tree_inorder(tree.root)
-    return @inbounds arr[ind]
-end
-
 function Base.empty!(tree::Tree)
     tree.root=tree.nil
     tree.count = 0
@@ -483,4 +469,44 @@ end
 function Base.show(io::IO, m::MIME"text/plain", tree::Tree)
     show(io, m, tree.root)
 end
-       
+
+# Does Not work yet
+function Base.iterate(it::Tree, state = minimum_node(it))
+   
+    if state._right_child !== it.nil
+        next = minimum_node(it, state._right_child)
+    elseif is_left_child(state)
+        next = state._parent
+    else
+        next = state._parent
+        while is_right_child(next)
+            next = next._parent
+        end
+        if next == it.root
+            return state, nothing
+        end
+        next = next._parent
+    end
+    return state, next
+end
+
+"""
+    getindex(tree, ind)
+
+Gets the key present at index `ind` of the tree. Indexing is done in increasing order of key.
+"""
+function Base.getindex(tree::Tree{T}, ind) where {T}
+    @boundscheck (1 <= ind <= tree.count) ||
+                 throw(ArgumentError("$ind should be in between 1 and $(tree.count)"))
+    function traverse_tree_inorder(node::TreeNode)
+        if node !== tree.nil
+            left = traverse_tree_inorder(node._left_child)
+            right = traverse_tree_inorder(node._right_child)
+            append!(push!(left, node._data), right)
+        else
+            return T[]
+        end
+    end
+    arr = traverse_tree_inorder(tree.root)
+    return @inbounds arr[ind]
+end

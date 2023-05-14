@@ -167,3 +167,11 @@ Base.@propagate_inbounds function prev(e::EntityState, i::Int)
         end
     end
 end
+
+# function spread(a::AssetLedger)
+#     asks = a[Ask]
+#     bids = a[Bid]
+    
+#     if !isempty(asks) && !isempty(bids)
+#         return 
+# end

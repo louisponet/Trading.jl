@@ -390,3 +390,10 @@ Base.@propagate_inbounds function Base.pop!(t::TreeComponent, e::AbstractEntity;
 end
 
 Base.@propagate_inbounds Base.pop!(t::TreeComponent) = pop!(t, last_entity(t))
+
+"""
+Returns the [`LinkedList`](@ref) with the maximum value in the [`TreeComponent`](@ref).
+"""
+function Base.maximum(c::TreeComponent)
+    
+end

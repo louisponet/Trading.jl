@@ -1,3 +1,4 @@
+#TODO the nothings here make stuff type unstable
 mutable struct TreeNode{T}
     _color::Bool
     _data::Union{T,Nothing}
@@ -472,19 +473,24 @@ end
 
 # Does Not work yet
 function Base.iterate(it::Tree, state = minimum_node(it))
-   
+    state === nothing && return nothing
     if state._right_child !== it.nil
         next = minimum_node(it, state._right_child)
+    elseif state === it.root
+        # No valid right child and root -> done
+        return state, nothing
     elseif is_left_child(state)
         next = state._parent
     else
         next = state._parent
         while is_right_child(next)
+            if next._parent === it.root
+                return state, nothing
+            end
             next = next._parent
         end
-        if next == it.root
-            return state, nothing
-        end
+        # Here we know that it's a left child and so necessarily has been
+        # done already so we call the parent
         next = next._parent
     end
     return state, next

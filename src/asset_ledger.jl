@@ -168,10 +168,11 @@ Base.@propagate_inbounds function prev(e::EntityState, i::Int)
     end
 end
 
-# function spread(a::AssetLedger)
-#     asks = a[Ask]
-#     bids = a[Bid]
+function spread(a::AssetLedger)
+    asks = a[Ask]
+    bids = a[Bid]
     
-#     if !isempty(asks) && !isempty(bids)
-#         return 
-# end
+    if !isempty(asks) && !isempty(bids)
+        return (ask = minimum(asks).price, bid=maximum(bids).price)
+    end
+end

@@ -86,7 +86,6 @@ end
 end
 
 @testitem "inorder iteration" tags=[:treecomponent] begin
-using Trading
     using Trading.Overseer: TestCompData, test_abstractcomponent_interface
     using Trading: TreeComponent
     c = TreeComponent{TestCompData}()
@@ -101,4 +100,25 @@ using Trading
     for (i, v) in enumerate(c.tree)
         @test sorted_vals[i] == v.ptr[]
     end
+end
+@testitem "maximum/minimum" tags=[:treecomponent] begin
+    using Trading.Overseer: TestCompData, test_abstractcomponent_interface
+    using Trading: TreeComponent
+    c = TreeComponent{TestCompData}()
+    vals = rand(1:100, 1000)
+
+    sorted_vals = TestCompData.(sort(unique(vals)))
+
+    for (i, v) in enumerate(vals)
+        c[Entity(i)] = TestCompData(v)
+    end
+
+    maxid = findmax(vals)[2]
+    minid = findmin(vals)[2]
+    
+    @test Entity(maximum(c)) == Entity(maxid)
+    @test maximum(c).p == sorted_vals[end]
+    
+    @test Entity(minimum(c)) == Entity(minid)
+    @test minimum(c).p == sorted_vals[1]
 end

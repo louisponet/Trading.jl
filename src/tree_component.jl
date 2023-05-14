@@ -1,11 +1,12 @@
 using Overseer: EntityState, AbstractEntity
 using Base: RefArray
 
-mutable struct EntityPtr{RT <: Ref}
+mutable struct EntityPtr{RT <: Ref} <: AbstractEntity
     e::Entity
     ptr::RT
 end
-EntityPtr(e::AbstractEntity, c::AbstractComponent) = EntityPtr(Entity(e), Ref(c, e)) 
+EntityPtr(e::AbstractEntity, c::AbstractComponent) = EntityPtr(Entity(e), Ref(c, e))
+Overseer.Entity(e::EntityPtr) = e.e
 
 Base.:(<)(en1::EntityPtr, en2::EntityPtr) = en1.ptr[] < en2.ptr[]
 Base.:(==)(en1::EntityPtr, en2::EntityPtr) = en1.ptr[] == en2.ptr[]
@@ -392,8 +393,45 @@ end
 Base.@propagate_inbounds Base.pop!(t::TreeComponent) = pop!(t, last_entity(t))
 
 """
-Returns the [`LinkedList`](@ref) with the maximum value in the [`TreeComponent`](@ref).
+Returns the first [`EntityPtr`] in the [`LinkedList`](@ref) with the maximum value in the [`TreeComponent`](@ref).
+See [`maximum_node`](@ref) if the full list is desired.
 """
-function Base.maximum(c::TreeComponent)
-    
+function Base.maximum(c::TreeComponent; init=nothing)
+    if isempty(c)
+        if init === nothing
+            throw(MethodError("reducing over an empty collection is not allowed; consider supllying `init` to the reducer"))
+        else
+            return init
+        end
+    end
+    m = maximum_node(c)
+    return init !== nothing ? max(init, m._data._head._data) : m._data._head._data
 end
+
+"""
+Returns the [`LinkedList`](@ref) of [`EntityPtrs`](@ref EntityPtr) containing the maximum
+value in the [`TreeComponent](@ref).
+"""
+maximum_node(c::TreeComponent) = maximum_node(c.tree)
+    
+"""
+Returns the first [`EntityPtr`] in the [`LinkedList`](@ref) with the minimum value in the [`TreeComponent`](@ref).
+See [`minimum_node`](@ref) if the full list is desired.
+"""
+function Base.minimum(c::TreeComponent; init=nothing)
+    if isempty(c)
+        if init === nothing
+            throw(MethodError("reducing over an empty collection is not allowed; consider supllying `init` to the reducer"))
+        else
+            return init
+        end
+    end
+    m = minimum_node(c)
+    return init !== nothing ? min(init, m._data._head._data) : m._data._head._data
+end
+
+"""
+Returns the [`LinkedList`](@ref) of [`EntityPtrs`](@ref EntityPtr) containing the minimum
+value in the [`TreeComponent](@ref).
+"""
+minimum_node(c::TreeComponent; init=nothing) = minimum_node(c.tree)

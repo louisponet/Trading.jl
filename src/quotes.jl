@@ -54,6 +54,13 @@ function latest_quote(broker::HistoricalBroker, asset)
                        NamedTuple([s => v for (s, v) in zip(colnames(q), values(q))]))
 end
 
+"""
+Returns the latest NBBO quote.
+"""
+function latest_quote(a::AssetLedger)
+    return a.latest_quote
+end
+
 function subscribe_quotes(::AlpacaBroker, asset::Asset, ws::WebSocket)
     return send(ws, JSON3.write(Dict("action" => "subscribe",
                                      "quotes" => [asset.ticker])))

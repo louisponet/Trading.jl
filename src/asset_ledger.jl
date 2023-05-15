@@ -10,7 +10,7 @@ If certain derived [`Indicator`](@ref Indicators) data is requested, it also hol
 mutable struct AssetLedger <: AbstractLedger
     asset::Asset
     l::Ledger
-    latest_quote::Tuple{TimeStamp, Ask, Bid}
+    latest_quote::NamedTuple{(:time, :ask, :bid), Tuple{TimeStamp, Ask, Bid}}
 end
 
 function Base.getproperty(t::AssetLedger, s::Symbol)
@@ -23,7 +23,7 @@ end
 
 function AssetLedger(asset::Asset)
     l = Ledger(Open, High, Low, Close, Volume, TimeStamp, Ask, Bid, Trade)
-    out = AssetLedger(asset, l, (TimeStamp(), Ask(0,0), Bid(0,0)))
+    out = AssetLedger(asset, l, (time=TimeStamp(), ask=Ask(0,0), bid=Bid(0,0)))
     register_strategy!(out, OrderBookMaintainer())
     push!(out, Stage(:main, [OrderBookMaintainer()]))
     return out
@@ -168,11 +168,31 @@ Base.@propagate_inbounds function prev(e::EntityState, i::Int)
     end
 end
 
-function spread(a::AssetLedger)
+"""
+Gives the spread according to the orderbook levels.
+For the spread given the latest NBBO quote use [`spread`](@ref).
+"""
+function book_spread(a::AssetLedger)
     asks = a[Ask]
     bids = a[Bid]
     
     if !isempty(asks) && !isempty(bids)
         return (ask = minimum(asks).price, bid=maximum(bids).price)
     end
+end
+
+"""
+Returns the spread given the latest NBBO Quote.
+To get the full latest quote information use [`latest_quote`](@ref).
+"""
+spread(a::AssetLedger) =
+    ask = a.latest_quote.ask.price - a.latest_quote.bid.price
+
+"""
+Returns the total available quantity of an [`Asset`](@ref) in a given [`Ask`](@ref) or [`Bid`](@ref) price limit level.
+Throws a `BoundsError` if no such limit is available.
+"""
+function limit_quantity(a::AssetLedger, ask::Ask)
+    list = a[Ask][ask]
+    return sum(x->x.quantity, list)
 end

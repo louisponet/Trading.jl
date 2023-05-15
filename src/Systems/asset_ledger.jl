@@ -128,16 +128,3 @@ function clear_till_center!(l, comp::TreeComponent{Ask}, v::Ask)
     end
 end
 
-function limit_quantity(l::LinkedList{Union{Trade, Bid, Ask}})
-    q = 0
-    for node in l
-        q += node.price
-    end
-    return l
-end
-
-
-
-
-
-

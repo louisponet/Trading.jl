@@ -269,6 +269,14 @@ function Base.show(io::IO, l::LinkedList{T}) where {T}
     end
 end
 
+function Base.iterate(l::LinkedList, state=l._head)
+    if state === l._nil
+        return nothing
+    else
+        return state, state._next
+    end
+end
+
 const ComponentRef{T} = RefArray{T, Component{T}, Nothing}
 const PooledComponentRef{T} = RefArray{T, PooledComponent{T}, Nothing}
 

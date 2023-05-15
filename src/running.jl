@@ -80,7 +80,7 @@ function data_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
                 
                 for (ticker, q) in data.quotes
                     l = trader.asset_ledgers[T(ticker)]
-                    l.latest_quote = (TimeStamp(first(q)), q[2], q[3])
+                    l.latest_quote = (time = TimeStamp(first(q)), ask=q[2], bid=q[3])
                     push!(updated_tickers, ticker)
                 end
                 

@@ -52,11 +52,13 @@ function subscribe_bars(dp::HistoricalBroker, asset::Asset, start = nothing,
     return nothing
 end
 
-subscribe_orderbook(::AlpacaBroker, asset::Stock, ws::WebSocket) = nothing
-
-function subscribe_orderbook(::AlpacaBroker, asset::Crypto, ws::WebSocket)
-    return send(ws, JSON3.write(Dict("action" => "subscribe",
-                                     "orderbooks" => [asset.ticker])))
+function subscribe_orderbook(::AlpacaBroker, asset::Asset, ws::WebSocket)
+    if asset.type == AssetType.Stock
+        return
+    else
+        return send(ws, JSON3.write(Dict("action" => "subscribe",
+                                         "orderbooks" => [asset.ticker])))
+    end
 end
 
 subscribe_orderbook(::HistoricalBroker, args...) = nothing
@@ -157,13 +159,13 @@ function register!(b::DataStream, asset)
 end
 
 """
-    data_stream(f::Function, broker)
+    data_stream(f::Function, broker, a)
 
 Open a bar stream, calls function `f` with a [`DataStream`](@ref) object.
 Call [`receive`](@ref) on the [`DataStream`](@ref) to get new bars streamed in,
 and [`register!`](@ref) to register assets for which to receive bar updates for.
 """
-function data_stream(func::Function, broker::AbstractBroker, ::Type{T}) where {T<:Asset}
+function data_stream(func::Function, broker::AbstractBroker, T::AssetType.T) 
     HTTP.open(data_stream_url(broker, T)) do ws
         if !authenticate_data(broker, ws)
             error("couldn't authenticate")
@@ -180,7 +182,7 @@ function data_stream(func::Function, broker::AbstractBroker, ::Type{T}) where {T
     end
 end
 
-function data_stream(func::Function, broker::HistoricalBroker, ::Type{<:Asset})
+function data_stream(func::Function, broker::HistoricalBroker, ::AssetType.T)
     try
         return func(DataStream(broker, nothing))
     catch e

@@ -44,14 +44,15 @@ function start(trader::Trader{<:HistoricalBroker})
     return trader
 end
 
-function data_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
+function data_task(trader, T::AssetType.T; interval=Minute(1), kwargs...)
+    afunc = asset_func(T)
     data_stream(trader.broker, T) do stream
         for (asset, q) in trader.asset_ledgers
             if occursin("_", asset.ticker)
                 continue
             end
             
-            if asset isa T
+            if asset.type == T
                 register!(stream, asset)
             end
             
@@ -66,7 +67,7 @@ function data_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
                 for (ticker, tbar) in data.bars
                     time, bar = tbar
                     
-                    new_bar!(trader.asset_ledgers[T(ticker)],
+                    new_bar!(trader.asset_ledgers[afunc(ticker)],
                              TimeStamp(time),
                              Open(bar[1]),
                              High(bar[2]),
@@ -79,28 +80,28 @@ function data_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
                 end
                 
                 for (ticker, q) in data.quotes
-                    l = trader.asset_ledgers[T(ticker)]
+                    l = trader.asset_ledgers[afunc(ticker)]
                     l.latest_quote = (time = TimeStamp(first(q)), ask=q[2], bid=q[3])
                     push!(updated_tickers, ticker)
                 end
                 
                 for (ticker, q) in data.trades
-                    Entity(trader.asset_ledgers[T(ticker)],  TimeStamp(first(q)), last(q))
+                    Entity(trader.asset_ledgers[afunc(ticker)],  TimeStamp(first(q)), last(q))
                     push!(updated_tickers, ticker)
                 end
                 
                 for (ticker, a) in data.asks
-                    Entity(trader.asset_ledgers[T(ticker)],  TimeStamp(first(a)), last(a))
+                    Entity(trader.asset_ledgers[afunc(ticker)],  TimeStamp(first(a)), last(a))
                     push!(updated_tickers, ticker)
                 end
                 for (ticker, b) in data.bids
-                    Entity(trader.asset_ledgers[T(ticker)],  TimeStamp(first(b)), last(b))
+                    Entity(trader.asset_ledgers[afunc(ticker)],  TimeStamp(first(b)), last(b))
                     push!(updated_tickers, ticker)
                 end
 
                 @sync for ticker in updated_tickers
                     Threads.@spawn begin
-                        Overseer.update(trader.asset_ledgers[T(ticker)])
+                        Overseer.update(trader.asset_ledgers[afunc(ticker)])
                     end
                 end
                 notify(trader.new_data_event)
@@ -109,6 +110,7 @@ function data_task(trader, ::Type{T}; interval=Minute(1), kwargs...) where {T}
                 if !(e isa InvalidStateException) && !(e isa EOFError) &&
                    !(e isa InterruptException) && !(e == HTTP.WebSockets.WebSocketError(HTTP.WebSockets.CloseFrameBody(1006, "WebSocket connection is closed")))
                     showerror(stdout, e, catch_backtrace())
+                    return
                 else
                     @info "Issue with $T data stream"
                     return
@@ -130,7 +132,7 @@ It opens a [`DataStream`](@ref) for each [`Asset`](@ref) Class, and registers th
             bars will be interpolated between the last and new bar so the time interval between adjacent bars is always `interval`.
 """
 function start_data(trader::Trader; interval = Minute(1), kwargs...)
-    for T in unique(map(x->typeof(x.asset), values(trader.asset_ledgers)))
+    for T in unique(map(x->x.asset.type, values(trader.asset_ledgers)))
         if !haskey(trader.data_tasks, T) || istaskdone(trader.data_tasks[T])
             trader.data_tasks[T] = Threads.@spawn @stoppable trader.stop_data data_task(trader, T; interval=interval, kwargs...)
         end
@@ -143,6 +145,7 @@ end
 Starts the `trader.main_task`. This periodically executes the core systems of the [`Trader`](@ref), with at least `sleep_time` between executions.
 """
 function start_main(trader::Trader; sleep_time = 1, kwargs...)
+    data_started=false
     return trader.main_task = Threads.@spawn @stoppable trader.stop_main begin
         while !trader.stop_main
             curt = time()
@@ -151,7 +154,8 @@ function start_main(trader::Trader; sleep_time = 1, kwargs...)
                 start_trading(trader; kwargs...)
             end
 
-            start_data(trader; kwargs...)
+            !data_started && start_data(trader; kwargs...)
+            data_started=true
             
             try
                 update(trader)

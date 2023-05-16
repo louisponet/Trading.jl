@@ -146,14 +146,34 @@ function header(b::AlpacaBroker)
     return ["APCA-API-KEY-ID" => b.key_id, "APCA-API-SECRET-KEY" => b.secret_key]
 end
 
-data_stream_url(::AlpacaBroker, ::Type{Stock})    = URI("wss://stream.data.alpaca.markets/v2/iex")
-data_stream_url(::AlpacaBroker, ::Type{Crypto})   = URI("wss://stream.data.alpaca.markets/v1beta3/crypto/us")
+function data_stream_url(::AlpacaBroker, a::AssetType.T)
+    if a == AssetType.Stock
+        return URI("wss://stream.data.alpaca.markets/v2/iex")
+    elseif a == AssetType.Crypto
+        return URI("wss://stream.data.alpaca.markets/v1beta3/crypto/us")
+    elseif a == AssetType.Unknown
+        throw(ArgumentError("asset has unknown type"))
+    else
+        throw(MethodError(data_stream_url, a))
+    end
+end
+        
 trading_stream_url(::AlpacaBroker)         = URI("wss://paper-api.alpaca.markets/stream")
 trading_url(::AlpacaBroker)                = URI("https://paper-api.alpaca.markets")
 order_url(b::AlpacaBroker)                 = URI(trading_url(b); path = "/v2/orders")
 data_url(::AlpacaBroker)                   = URI("https://data.alpaca.markets")
-quote_url(b::AlpacaBroker, asset::Stock) = URI(data_url(b); path = "/v2/stocks/$(asset.ticker)/quotes/latest")
-quote_url(b::AlpacaBroker, asset::Crypto) = URI(data_url(b); path = "/v1beta3/crypto/us/latest/quotes", query = Dict("symbols"=>asset.ticker))
+
+function quote_url(b::AlpacaBroker, a::Asset)
+    if a.type == AssetType.Stock
+        return URI(data_url(b); path = "/v2/stocks/$(a.ticker)/quotes/latest")
+    elseif a.type == AssetType.Crypto
+        return URI(data_url(b); path = "/v1beta3/crypto/us/latest/quotes", query = Dict("symbols"=>a.ticker))
+    elseif a.type == AssetType.Unknown
+        throw(ArgumentError("asset has unknown type"))
+    else
+        throw(MethodError(quote_url, a.type))
+    end
+end
 
 function Base.string(::AlpacaBroker, timeframe::Period)
     if timeframe isa Minute
@@ -188,9 +208,6 @@ bar_fields(::AlpacaBroker) = (:t, :o, :h, :l, :c, :v, :n, :vw)
 quote_fields(::AlpacaBroker) = (:t, :ap, :as, :bp, :bs)
 trade_fields(::AlpacaBroker) = (:t, :i, :p, :s)
 
-asset_uri_path(::AlpacaBroker, s::Stock,  section::AbstractString) = "/v2/stocks/$(s.ticker)/$section"
-asset_uri_path(::AlpacaBroker, s::Crypto, section::AbstractString) = "/v1beta3/crypto/us/$section"
-
 function query(broker::AlpacaBroker, start::DateTime, stop::Union{DateTime,Nothing} = nothing, args...; limit = 1000, kwargs...)
     q = Dict{String,Any}("start" => string(broker, start))
     if stop !== nothing
@@ -203,33 +220,44 @@ function query(broker::AlpacaBroker, start::DateTime, stop::Union{DateTime,Nothi
     return q
 end
 
-HTTP.URI(broker::AlpacaBroker, s::Stock, args...; section::AbstractString, kwargs...) =
-    URI(data_url(broker); path = asset_uri_path(broker, s, section),
-                         query = query(broker, args...; kwargs...))
-
-function HTTP.URI(broker::AlpacaBroker, s::Crypto, args...; section::AbstractString, kwargs...)
-    q = query(broker, args...; kwargs...)
-    q["symbols"] = s.ticker
-    return URI(data_url(broker); path = asset_uri_path(broker, s, section),
-                         query = q)
+function HTTP.URI(broker::AlpacaBroker, a::Asset, args...; section::AbstractString, kwargs...)
+    if a.type == AssetType.Stock
+        return URI(data_url(broker); path = "/v2/stocks/$(a.ticker)/$section",
+                             query = query(broker, args...; kwargs...))
+    elseif a.type == AssetType.Crypto
+        q = query(broker, args...; kwargs...)
+        q["symbols"] = a.ticker
+        return URI(data_url(broker); path = "/v1beta3/crypto/us/$section",
+                             query = q)
+    elseif a.type == AssetType.Unknown
+        throw(ArgumentError("asset has unknown type"))
+    else
+        throw(MethodError(HTTP.URI, a.type))
+    end
 end
-
 
 function mock_bar(b::AlpacaBroker, asset, vals)
     return merge((T = "b", S = asset),
                  NamedTuple(map(x -> x[1] => x[2], zip(bar_fields(b), vals))))
 end
 
-data(broker::AlpacaBroker, asset::Stock, t, section_symbol)  = t[section_symbol]
-data(broker::AlpacaBroker, asset::Crypto, t, section_symbol) = t[section_symbol][asset.ticker]
 
-function data_query(broker::AlpacaBroker, asset::Asset, start::DateTime, stop::Union{DateTime, Nothing} = nothing, args...; section::AbstractString, kwargs...)
+function data_query(broker::AlpacaBroker, a::Asset, start::DateTime, stop::Union{DateTime, Nothing} = nothing, args...; section::AbstractString, kwargs...)
 
     out = Dict()
     timestamps = TimeDate[]
 
-    uri = URI(broker, asset, start, stop; section, kwargs...)
+    uri = URI(broker, a, start, stop; section, kwargs...)
     section_symbol = Symbol(section)
+    
+    function data(t)
+        if a.type == AssetType.Stock
+            t[section_symbol]
+        elseif a.type == AssetType.Crypto
+            t[section_symbol][a.ticker]
+        end
+    end
+        
     while true
 
         #TODO requests are throttling more than they should
@@ -255,7 +283,7 @@ function data_query(broker::AlpacaBroker, asset::Asset, start::DateTime, stop::U
                 end
             end
 
-            dat = data(broker, asset, t, section_symbol) 
+            dat = data(t) 
             n_dat = length(dat)
             dat_keys = data_fields(broker, section_symbol)
             t_dat = Dict([k => Vector{Float64}(undef, n_dat) for k in dat_keys])
@@ -280,13 +308,13 @@ function data_query(broker::AlpacaBroker, asset::Asset, start::DateTime, stop::U
             append!(timestamps, t_timestamps)
 
             if haskey(t, :next_page_token) && t[:next_page_token] !== nothing
-                uri  = URI(broker, asset, start, stop; section, page_token = t[:next_page_token], kwargs...)
+                uri  = URI(broker, a, start, stop; section, page_token = t[:next_page_token], kwargs...)
             else
                 break
             end
         else
             @warn """
-            Something went wrong querying $section data for asset $(asset.ticker)
+            Something went wrong querying $section data for asset $(a.ticker)
             leading to status: $(resp.status)
             """
             break

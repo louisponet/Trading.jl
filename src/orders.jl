@@ -7,8 +7,7 @@ function failed_order(broker, order, exc)
 end
 
 # I don't understand why but fractional stuff is just not allowed... 
-sanitize_quantity(::AlpacaBroker, ::Crypto, quantity) = round(quantity)
-sanitize_quantity(::AlpacaBroker, ::Stock, quantity)  = round(quantity)
+sanitize_quantity(::AlpacaBroker, ::Asset, quantity) = round(quantity)
 
 """
     submit_order(broker, order::Union{Purchase,Sale})
@@ -38,7 +37,9 @@ function submit_order(broker::AlpacaBroker, order)
                     order.quantity = parse(Float64, m.captures[1])
                     return submit_order(broker, order)
                 end
-                
+            elseif msg[:message] == "qty must be integer"
+                order.quantity = sanitize_quantity(broker, order.quantity)
+                return submit_order(broker, order)
             end
 
             return failed_order(broker, order, e)
@@ -111,7 +112,7 @@ function parse_order(b::AbstractBroker, resp::HTTP.Response)
 end
 
 function parse_order(::AlpacaBroker, parse_body::JSON3.Object)
-    return Order(UnknownAsset(parse_body[:symbol]),
+    return Order(Asset(AssetType.Unknown, parse_body[:symbol]),
                  parse_body[:side],
                  UUID(parse_body[:id]),
                  UUID(parse_body[:client_order_id]),
@@ -152,6 +153,14 @@ end
 delete_all_orders!(b::AbstractBroker) = HTTP.delete(order_url(b), header(b))
 delete_all_orders!(::HistoricalBroker) = nothing
 delete_all_orders!(t::Trader) = delete_all_orders!(t.broker)
+
+ispending(b::AlpacaBroker, o::Order) =
+    o.status ∈ ("new", "accepted", "held", "partially_filled")
+ispending(b::HistoricalBroker, o::Order) =
+    false
+ispending(b::MockBroker, o::Order) =
+    false
+ispending(t::Trader, o::Order) = ispending(t.broker, o)
 
 """
 Interface to support executing trades and retrieving account updates. Opened with [`trading_stream`](@ref)

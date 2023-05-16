@@ -74,15 +74,17 @@ end
 module Portfolio
     using ..Trading: Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType,
                      TimeInForce,
-                     current_position, current_cash, current_purchasepower
+                     current_position, current_cash, current_purchasepower,
+                     pending_orders
     export Purchase, Sale, Position, PortfolioSnapshot, Filled, OrderType, TimeInForce,
-           current_position, current_cash, current_purchasepower
+           current_position, current_cash, current_purchasepower, pending_orders
 end
 
 module Strategies
-using ..Trading: Strategy, new_entities, reset!, current_price, prev
-export Strategy, new_entities, reset!, current_price, prev
-export Strategy, new_entities, reset!, current_price, prev
+using ..Trading: Strategy, new_entities, reset!, current_price, prev, spread,
+                 latest_quote, limit_quantity, Ask, Bid, Trade
+export Strategy, new_entities, reset!, current_price, prev, spread, latest_quote,
+       limit_quantity, Ask, Bid, Trade
 end
 
 module Time

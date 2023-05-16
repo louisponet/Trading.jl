@@ -68,6 +68,7 @@ function register_strategy!(tl::AssetLedger, strategy::S) where {S<:System}
     for c in Overseer.requested_components(strategy)
         ensure_component!(tl, c)
     end
+    
     Overseer.prepare(tl)
     ensure_systems!(tl)
 end
@@ -77,7 +78,17 @@ function register_strategy!(tl::AssetLedger, strategy::S) where {S<:Stage}
         register_strategy!(tl, s)
     end
 end
-register_strategy!(tl::AssetLedger, strategy::Strategy) = register_strategy!(tl, strategy.stage)
+function register_strategy!(tl::AssetLedger, strategy::Strategy)
+    register_strategy!(tl, strategy.stage)
+    for c in strategy.settings
+        comp_T = typeof(c)
+        if !haskey(components(tl), comp_T)
+            Entity(tl, c)
+        else
+            tl[comp_T][1] = c
+        end
+    end
+end
 
 function reset!(tl::AssetLedger, strat::S) where {S}
     

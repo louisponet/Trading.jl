@@ -269,14 +269,6 @@ function Base.show(io::IO, l::LinkedList{T}) where {T}
     end
 end
 
-function Base.iterate(l::LinkedList, state=l._head)
-    if state === l._nil
-        return nothing
-    else
-        return state, state._next
-    end
-end
-
 const ComponentRef{T} = RefArray{T, Component{T}, Nothing}
 const PooledComponentRef{T} = RefArray{T, PooledComponent{T}, Nothing}
 
@@ -390,6 +382,8 @@ Base.@propagate_inbounds function Base.pop!(t::TreeComponent, e::AbstractEntity;
     
     if list_len == 1
         delete!(t.tree, list)
+        @info "Deleting list"
+        @assert search_node(t.tree, list) === nothing "List still in tree"
     end
     
     pop!(t.c, e)

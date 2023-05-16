@@ -37,7 +37,7 @@ mutable struct Trader{B<:AbstractBroker} <: AbstractLedger
     l              :: Ledger
     broker         :: B
     asset_ledgers  :: Dict{Asset, AssetLedger}
-    data_tasks     :: Dict{DataType, Task} # One data task per Asset Class
+    data_tasks     :: Dict{AssetType.T, Task} # One data task per Asset Class
     trading_task   :: Union{Task,Nothing}
     main_task      :: Union{Task,Nothing}
     stop_main      :: Bool
@@ -91,7 +91,7 @@ function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[
         end
         
         if length(strat.assets) > 1
-            combined = typeof(strat.assets[1])(join(strat.assets, "_"))
+            combined = Asset(strat.assets[1].type, join(strat.assets, "_"))
             tl = get!(asset_ledgers, combined, AssetLedger(combined))
             register_strategy!(tl, strat)
         end
@@ -102,7 +102,7 @@ function Trader(broker::AbstractBroker; strategies::Vector{Strategy} = Strategy[
     end
     Entity(l, Clock(start, Minute(0)))
 
-    trader = Trader(l, broker, asset_ledgers, Dict{DataType, Task}(), nothing, nothing, false, false,
+    trader = Trader(l, broker, asset_ledgers, Dict{AssetType.T, Task}(), nothing, nothing, false, false,
                     false, false, Base.Event())
 
     fill_account!(trader)
@@ -476,4 +476,29 @@ function maximum_drawdown(t::Trader)
     end
     return curdrawdown
 end
+
+"""
+Returns a `(purchases, sales)` tuple with pending orders for a given asset.
+"""
+function pending_orders(t::Trader, a::Asset)
+    out_purchases = EntityState{Tuple{Component{Purchase}}}[]
+    orders = t[Order]
+    for e in @entities_in(t, Purchase && !Filled)
+        if e.asset == a
+            if e ∉ orders || ispending(t, orders[e])
+                push!(out_purchases, e)
+            end
+        end
+    end
     
+    out_sales = EntityState{Tuple{Component{Sale}}}[]
+    for e in @entities_in(t, Sale && !Filled)
+        if e.asset == a
+            if e ∉ orders || ispending(t, orders[e])
+                push!(out_sales, e)
+            end
+        end
+    end
+
+    return (purchases=out_purchases, sales=out_sales)
+end

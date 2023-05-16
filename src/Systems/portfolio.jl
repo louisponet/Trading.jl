@@ -21,7 +21,7 @@ function Overseer.update(::Purchaser, l::AbstractLedger)
             cur_price = current_price(l, e.asset)
             cur_price == nothing && continue
         elseif e.type == OrderType.Limit
-            cur_price = e.limit_price
+            cur_price = e.price
         end
 
         if e.quantity === Inf

@@ -147,6 +147,7 @@ associated with each of the `assets` that the strategy should be applied on.
     stage::Stage
     only_day::Bool = false
     assets::Vector{Asset} = Asset[]
+    settings::Vector = []
 end
 
 Strategy(name::Symbol, steps; kwargs...) = Strategy(; stage = Stage(name, steps), kwargs...)

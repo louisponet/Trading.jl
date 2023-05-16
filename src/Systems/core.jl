@@ -24,12 +24,13 @@ function Overseer.update(::StrategyRunner, t::Trader)
     inday = in_day(current_time(t))
 
     for e in t[Strategy]
+        
         if e.only_day && !inday
             continue
         end
+        
         if !isempty(e.assets)
-            combined = typeof(e.assets[1])(join(e.assets, "_"))
-
+            combined = Asset(e.assets[1].type, join(e.assets, "_"))
             update(e.stage, t, [map(asset -> t[asset], e.assets); t[combined]])
         else
             update(e.stage, t, e.assets)

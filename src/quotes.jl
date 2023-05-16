@@ -31,7 +31,7 @@ function parse_quote(b::AlpacaBroker, q)
 end
 
 function latest_quote(b::AlpacaBroker, asset::Asset)
-    if asset isa UnknownAsset
+    if asset.type == AssetType.Unknown
         return nothing
     end
     resp = HTTP.get(quote_url(b, asset), header(b))

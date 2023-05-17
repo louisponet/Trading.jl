@@ -45,7 +45,6 @@ function start(trader::Trader{<:HistoricalBroker})
 end
 
 function data_task(trader, T::AssetType.T; interval=Minute(1), kwargs...)
-    afunc = asset_func(T)
     data_stream(trader.broker, T) do stream
         for (asset, q) in trader.asset_ledgers
             if occursin("_", asset.ticker)
@@ -67,7 +66,7 @@ function data_task(trader, T::AssetType.T; interval=Minute(1), kwargs...)
                 for (ticker, tbar) in data.bars
                     time, bar = tbar
                     
-                    new_bar!(trader.asset_ledgers[afunc(ticker)],
+                    new_bar!(trader.asset_ledgers[Asset(T, ticker)],
                              TimeStamp(time),
                              Open(bar[1]),
                              High(bar[2]),
@@ -80,28 +79,28 @@ function data_task(trader, T::AssetType.T; interval=Minute(1), kwargs...)
                 end
                 
                 for (ticker, q) in data.quotes
-                    l = trader.asset_ledgers[afunc(ticker)]
+                    l = trader.asset_ledgers[Asset(T, ticker)]
                     l.latest_quote = (time = TimeStamp(first(q)), ask=q[2], bid=q[3])
                     push!(updated_tickers, ticker)
                 end
                 
                 for (ticker, q) in data.trades
-                    Entity(trader.asset_ledgers[afunc(ticker)],  TimeStamp(first(q)), last(q))
+                    Entity(trader.asset_ledgers[Asset(T, ticker)],  TimeStamp(first(q)), last(q))
                     push!(updated_tickers, ticker)
                 end
                 
                 for (ticker, a) in data.asks
-                    Entity(trader.asset_ledgers[afunc(ticker)],  TimeStamp(first(a)), last(a))
+                    Entity(trader.asset_ledgers[Asset(T, ticker)],  TimeStamp(first(a)), last(a))
                     push!(updated_tickers, ticker)
                 end
                 for (ticker, b) in data.bids
-                    Entity(trader.asset_ledgers[afunc(ticker)],  TimeStamp(first(b)), last(b))
+                    Entity(trader.asset_ledgers[Asset(T, ticker)],  TimeStamp(first(b)), last(b))
                     push!(updated_tickers, ticker)
                 end
 
                 @sync for ticker in updated_tickers
                     Threads.@spawn begin
-                        Overseer.update(trader.asset_ledgers[afunc(ticker)])
+                        Overseer.update(trader.asset_ledgers[Asset(T, ticker)])
                     end
                 end
                 notify(trader.new_data_event)

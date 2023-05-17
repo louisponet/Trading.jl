@@ -7,7 +7,7 @@ function failed_order(broker, order, exc)
 end
 
 # I don't understand why but fractional stuff is just not allowed... 
-sanitize_quantity(::AlpacaBroker, ::Asset, quantity) = round(quantity)
+sanitize_quantity(::AlpacaBroker, ::Asset, quantity) = round(quantity, RoundDown)
 
 """
     submit_order(broker, order::Union{Purchase,Sale})

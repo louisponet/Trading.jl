@@ -384,7 +384,7 @@ See [`maximum_node`](@ref) if the full list is desired.
 function Base.maximum(c::TreeComponent; init=nothing)
     if isempty(c)
         if init === nothing
-            throw(MethodError("reducing over an empty collection is not allowed; consider supllying `init` to the reducer"))
+            throw(MethodError(maximum, "reducing over an empty collection is not allowed; consider supllying `init` to the reducer"))
         else
             return init
         end

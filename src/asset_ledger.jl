@@ -80,14 +80,6 @@ function register_strategy!(tl::AssetLedger, strategy::S) where {S<:Stage}
 end
 function register_strategy!(tl::AssetLedger, strategy::Strategy)
     register_strategy!(tl, strategy.stage)
-    for c in strategy.settings
-        comp_T = typeof(c)
-        if !haskey(components(tl), comp_T)
-            Entity(tl, c)
-        else
-            tl[comp_T][1] = c
-        end
-    end
 end
 
 function reset!(tl::AssetLedger, strat::S) where {S}

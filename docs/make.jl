@@ -92,11 +92,13 @@ makedocs(; modules = [Trading],
                                    "Portfolio"  => "portfolio.md",
                                    "Time" => "time.md",
                                    "Asset Ledgers" => "asset_ledgers.md",
+                                   "Orderbook" => "orderbook.md",
                                    "Indicators" => "indicators.md"],
                   "Strategies" => ["strategies.md",
                                    "idea_generation.md",
                                    "Slow Fast" => "strategies/slow_fast.md",
-                                   "Cointegration" => "strategies/cointegration.md"],
+                                   "Cointegration" => "strategies/cointegration.md",
+                                   "Orderbook Imbalance" => "strategies/orderbook_imbalance.md"],
                   "Developers"=> ["developers.md"]])
 
 # Deploy docs to gh-pages branch

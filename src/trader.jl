@@ -141,7 +141,7 @@ function Base.show(io::IO, ::MIME"text/plain", trader::Trader)
     for (i, p) in enumerate(trader[Position])
         positions[i, 1] = p.asset
         positions[i, 2] = p.quantity
-        positions[i, 3] = current_price(trader.broker, p.asset) * p.quantity
+        positions[i, 3] = p.asset.type == AssetType.Unknown ? 0 : current_price(trader.broker, p.asset) * p.quantity
     end
 
     println(io, "Trader\n")

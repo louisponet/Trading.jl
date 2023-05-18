@@ -111,7 +111,7 @@ function Overseer.update(::Filler, l::AbstractLedger)
             cash.cash -= e.filled_avg_price * quantity_filled
             cash.cash -= e.fee
 
-            id = findfirst(x -> x.asset == asset, l[Position])
+            id = findfirst(x -> x.asset.ticker == asset.ticker, l[Position])
 
             if id === nothing
                 Entity(l, Position(asset, quantity_filled))

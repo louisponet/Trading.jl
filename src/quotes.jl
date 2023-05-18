@@ -12,7 +12,7 @@ broker = AlpacaBroker(<key_id>, <secret_key>)
 quotes(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:31:00"))
 ```
 """
-quotes(b::AbstractBroker) = broker(b).cache.quotes_data
+quotes(b::AbstractBroker) = broker(b).cache.quote_data
 function quotes(broker::AbstractBroker, asset, args...; kwargs...)
     return retrieve_data(broker, quotes(broker), asset, args...; section = "quotes",
                          kwargs...)

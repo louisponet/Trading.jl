@@ -77,7 +77,6 @@ function data_task(trader, T::AssetType.T; interval=Minute(1), kwargs...)
                              
                     push!(updated_tickers, ticker)
                 end
-                
                 for (ticker, q) in data.quotes
                     l = trader.asset_ledgers[Asset(T, ticker)]
                     l.latest_quote = (time = TimeStamp(first(q)), ask=q[2], bid=q[3])
@@ -97,7 +96,6 @@ function data_task(trader, T::AssetType.T; interval=Minute(1), kwargs...)
                     Entity(trader.asset_ledgers[Asset(T, ticker)],  TimeStamp(first(b)), last(b))
                     push!(updated_tickers, ticker)
                 end
-
                 @sync for ticker in updated_tickers
                     Threads.@spawn begin
                         Overseer.update(trader.asset_ledgers[Asset(T, ticker)])
@@ -196,7 +194,6 @@ function start_trading(trader::Trader)
                 if received === nothing
                     continue
                 end
-
                 uid = received.id
 
                 tries = 0

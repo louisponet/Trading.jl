@@ -38,7 +38,7 @@ function submit_order(broker::AlpacaBroker, order)
                     return submit_order(broker, order)
                 end
             elseif msg[:message] == "qty must be integer"
-                order.quantity = sanitize_quantity(broker, order.quantity)
+                order.quantity = sanitize_quantity(broker, order.asset, order.quantity)
                 return submit_order(broker, order)
             end
 
@@ -162,48 +162,38 @@ ispending(b::MockBroker, o::Order) =
     false
 ispending(t::Trader, o::Order) = ispending(t.broker, o)
 
-"""
-Interface to support executing trades and retrieving account updates. Opened with [`trading_stream`](@ref)
-"""
-Base.@kwdef struct TradingStream{B<:AbstractBroker}
-    broker::B
-    ws::Union{Nothing,WebSocket} = nothing
-end
-
-TradingStream(b::AbstractBroker; kwargs...) = TradingStream(; broker = b, kwargs...)
-
-HTTP.receive(trading_link::TradingStream) = receive_trades(trading_link.broker, trading_link.ws)
-WebSockets.isclosed(trading_link::TradingStream) = trading_link.ws === nothing || trading_link.ws.readclosed || trading_link.ws.writeclosed
-WebSockets.isclosed(trading_link::TradingStream{<:HistoricalBroker}) = false
-
-"""
-    trading_stream(f::Function, broker::AbstractBroker)
-
-Creates an [`TradingStream`](@ref) to stream order data.
-Uses the same semantics as a standard `HTTP.WebSocket`.
-
-# Example
-```julia
-broker = AlpacaBroker(<key_id>, <secret_key>)
-
-trading_stream(broker) do stream
-    order = receive(stream)
-end
-```
-"""
-function trading_stream(f::Function, broker::AbstractBroker)
-    HTTP.open(trading_stream_url(broker)) do ws
-        authenticate_trading(broker, ws)
-        @info "Authenticated trading"
-        try
-            f(TradingStream(broker, ws))
-        catch e
-            showerror(stdout, e, catch_backtrace())
-            if !(e isa InterruptException)
-                rethrow()
-            end
-        end
+function subscribe_orderbook(::AlpacaBroker, asset::Asset, ws::WebSocket)
+    if asset.type == AssetType.Stock
+        return
+    else
+        return send(ws, JSON3.write(Dict("action" => "subscribe",
+                                         "orderbooks" => [asset.ticker])))
     end
 end
 
-trading_stream(f::Function, broker::HistoricalBroker) = f(TradingStream(broker, nothing))
+subscribe_orderbook(::HistoricalBroker, args...) = nothing
+
+function orderbook(::AlpacaBroker, msg)
+    bids = Tuple{String, Tuple{DateTime, Bid}}[]
+    asks = Tuple{String, Tuple{DateTime, Ask}}[]
+    for m in msg
+        
+        m[:T] != "o" && continue
+        
+        asset = m[:S]
+        time = parse_time(m[:t])
+        
+        for bid in m[:b]
+            bid[:s] == 0 && continue
+            push!(bids, (asset, (time, Bid(bid[:p], bid[:s]))))
+        end
+        
+        for ask in m[:a]
+            ask[:s] == 0 && continue
+            push!(asks, (asset, (time, Ask(ask[:p], ask[:s]))))
+        end
+    end
+
+    return (bids = bids, asks=asks)
+end
+

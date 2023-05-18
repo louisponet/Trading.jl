@@ -7,6 +7,8 @@ mutable struct EntityPtr{RT <: Ref} <: AbstractEntity
 end
 EntityPtr(e::AbstractEntity, c::AbstractComponent) = EntityPtr(Entity(e), Ref(c, e))
 Overseer.Entity(e::EntityPtr) = e.e
+Base.eltype(::Type{EntityPtr{RT}}) where {RT} = RT.parameters[1]
+Base.eltype(::T) where {T<:EntityPtr} = eltype(T)
 
 Base.:(<)(en1::EntityPtr, en2::EntityPtr) = en1.ptr[] < en2.ptr[]
 Base.:(==)(en1::EntityPtr, en2::EntityPtr) = en1.ptr[] == en2.ptr[]
@@ -27,7 +29,7 @@ function Base.getproperty(e::EntityPtr, s::Symbol)
 end
 
 function Base.show(io::IO, m::MIME"text/plain", e::EntityPtr)
-    print(io, "EntityPtr(")
+    print(io, "EntityPtr{$(eltype(e))}(")
     show(io, m, e.e)
     print(io, ", ")  
     show(io, m, e.ptr[])
@@ -35,7 +37,7 @@ function Base.show(io::IO, m::MIME"text/plain", e::EntityPtr)
 end
 
 function Base.show(io::IO, e::EntityPtr)
-    show(io,  e.e)
+    print(io,  "EntityPtr{$(eltype(e))}($(e.e.id))")
 end
     
 mutable struct ListNode{T}
@@ -59,7 +61,7 @@ mutable struct ListNode{T}
     end
 end
 function Base.show(io::IO, node::ListNode)
-    if isdefined(node, :data)
+    if isdefined(node, :_data)
         print(io, "ListNode(", node._data, ")")
     end
 end
@@ -237,36 +239,17 @@ Base.:(<)(l1, l2::LinkedList) = l1 < l2._head
 Base.:(==)(l1, l2::LinkedList) = l1 == l2._head
 
 function Base.show(io::IO, m::MIME"text/plain", l::LinkedList{T}) where {T}
+    summary(io, l)
+    println(io)
+    println(io, "length: $(length(l))")
     if !isempty(l)
-        node = l._head
-        while true
-            show(io, m, node)
-            if node !== l._tail
-                print(io, " -> ")
-            else
-                break
-            end
-            node = node._next
-        end
-    else
-        println(io, "$(length(l))")
+        println(io, "head: $(l._head)")
+        println(io, "tail: $(l._tail)")
     end
 end
+
 function Base.show(io::IO, l::LinkedList{T}) where {T}
-    if !isempty(l)
-        node = l._head
-        while true
-            show(io, node)
-            if node !== l._tail
-                print(io, " -> ")
-            else
-                break
-            end
-            node = node._next
-        end
-    else
-        println(io, "$(length(l))")
-    end
+    println(io, "LinkedList(length: $(length(l)))")
 end
 
 const ComponentRef{T} = RefArray{T, Component{T}, Nothing}
@@ -366,24 +349,24 @@ function _tree_component(typedef, mod)
     end
 end
 
-Base.@propagate_inbounds function Base.pop!(t::TreeComponent, e::AbstractEntity;
+function Base.pop!(t::TreeComponent, e::AbstractEntity;
                                             v = t.c[e],
                                             list = search_node(t.tree, v)._data,
                                             list_len = length(list))
+    
+    if list_len == 1
+        delete!(t.tree, list)
+    end
     
     # We need to set the ref of the current last entity to point to the position of the
     # one we're removing becuase that's how pop works
     if length(t.c) > 1
         curlast = last_entity(t.c)
-        last_list = search_node(t.tree, t[curlast])._data
-        entitynode = last_list[curlast]
-        entitynode.ptr = Ref(t.c, e)
-    end
-    
-    if list_len == 1
-        delete!(t.tree, list)
-        @info "Deleting list"
-        @assert search_node(t.tree, list) === nothing "List still in tree"
+        if Entity(curlast) != Entity(e)
+            last_list = search_node(t.tree, t[curlast])._data
+            entitynode = last_list[curlast]
+            entitynode.ptr = Ref(t.c, e)
+        end
     end
     
     pop!(t.c, e)

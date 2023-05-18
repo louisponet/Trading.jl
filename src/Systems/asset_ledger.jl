@@ -7,35 +7,21 @@ function Overseer.update(s::OrderBookMaintainer, l::AssetLedger)
     asks = l[Ask]
     trades = l[Trade]
     seen = l[Seen{OrderBookMaintainer}]
+
+    # First we handle clearing to center from last quote
+    q = latest_quote(l)
+    clear_to_center!(l, asks, Ask(q.ask.price-0.001, 0.0))
+    clear_to_center!(l, bids, Bid(q.bid.price+0.001, 0.0))
+    
     for i in length(seen)+1:length(trades)
         e = entity(trades, i)
 
-
         min_ask = minimum(asks).price
         max_bid =  maximum(bids).price
-        @info "min_ask = $min_ask, max_bid = $max_bid"
         
         if e.side == Side.Buy
-            if e.price < min_ask 
-                if e.price > max_bid
-                    @info "Buy price: $(e.price) in center"
-                else
-                    @error "Buy price: $(e.price) somehow in the bids range..."
-                end
-            else
-                @info "Buy price: $(e.price) in asks range and should lead to some clearing"
-            end
             process_trades!(l, asks, Ask(e.price, e.quantity))
         elseif e.side == Side.Sell
-            if e.price > max_bid
-                if e.price < min_ask
-                    @info "Sell price: $(e.price) in center"
-                else
-                    @error "Sell price: $(e.price) somehow in the asks range..."
-                end
-            else
-                @info "Sell price: $(e.price) in bid range and should lead to some clearing"
-            end
             process_trades!(l, bids, Bid(e.price, e.quantity))
         else
             process_trades!(l, asks, Ask(e.price, e.quantity))
@@ -51,7 +37,7 @@ end
 function process_trades!(l, comp, v)
     limit = comp[v]
     
-    limit === nothing && return clear_till_center!(l, comp, v)
+    limit === nothing && return clear_to_center!(l, comp, v)
 
     q = v.quantity
     n = length(limit)
@@ -59,7 +45,6 @@ function process_trades!(l, comp, v)
     node = limit._head
     
     while n > 0 && q > 0
-        @info "trade $(v) connected with $(node.e)"
         if node.quantity <= q
             q -= node.quantity
             pop!(comp, node.e, v = node.ptr[], list = limit, list_len = n)
@@ -74,12 +59,12 @@ function process_trades!(l, comp, v)
     end
     
     if q > 0
-        clear_till_center!(l, comp, v)
+        clear_to_center!(l, comp, v)
     end
         
 end
 
-function clear_till_center!(l, comp::TreeComponent{Bid}, v::Bid)
+function clear_to_center!(l, comp::TreeComponent{Bid}, v::Bid)
     limit = ceil(comp, v)
     while limit !== nothing
         tv = limit.ptr[]
@@ -87,7 +72,6 @@ function clear_till_center!(l, comp::TreeComponent{Bid}, v::Bid)
         
         node = limit._head
         while true
-            @info "removed $(node.e) with price $(node.price) while clearing Bid till center on trade price $(v.price)"
             pop!(comp, node.e, list = limit, list_len = n, v=tv)
             delete!(l, node.e)
             
@@ -103,7 +87,7 @@ function clear_till_center!(l, comp::TreeComponent{Bid}, v::Bid)
     end
 end
 
-function clear_till_center!(l, comp::TreeComponent{Ask}, v::Ask)
+function clear_to_center!(l, comp::TreeComponent{Ask}, v::Ask)
     limit = floor(comp, v)
     
     while limit !== nothing
@@ -112,8 +96,7 @@ function clear_till_center!(l, comp::TreeComponent{Ask}, v::Ask)
         
         node = limit._head
         while true
-            @info "removed $(node.e) with price $(node.price) while clearing Ask till center on trade price $(v.price)"
-            pop!(comp, node.e, list = limit, list_len = n, v=tv)
+            pop!(comp, node.e; list = limit, list_len = n, v=tv)
             delete!(l, node.e)
             
             n -= 1

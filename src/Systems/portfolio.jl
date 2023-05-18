@@ -98,7 +98,7 @@ function Overseer.update(::Filler, l::AbstractLedger)
     cash = singleton(l, Cash)
 
     for e in @entities_in(l, Order && !Filled)
-        if e.status == "filled"
+        if e.filled_qty != 0
             l[e] = Filled(e.filled_avg_price, e.filled_qty)
             asset = e.asset
 

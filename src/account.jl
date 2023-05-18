@@ -43,9 +43,28 @@ function account_details(b::AlpacaBroker)
     end
 
     pos_parse = JSON3.read(resp.body)
-    positions = map(position -> (position[:asset_class] == "us_equity" ? Stock(string(position[:symbol])) : Crypto(string(position[:symbol])),
-                                 parse(Float64, position[:qty])),
-                    pos_parse)
+    positions = map(pos_parse) do position
+        qty = parse(Float64, position[:qty])
+        if position[:asset_class] == "us_equity"
+            return Stock(string(position[:symbol])), qty
+        else
+            # This here is done because alpaca reports positions in crypto
+            # without / but everywhere else it uses / i.e. it will report
+            # ETHUSD instead of ETH/USD so we try to convert it
+            t = string(position[:symbol])
+
+            if '/' ∉ t
+                mid = div(length(t), 2)
+                ticker = t[1:mid] * '/' * t[mid+1:end]
+                @warn """Crypto tickers are misreported by Alpaca.
+                Autoconverted $t to $ticker...
+                """
+            else
+                ticker = t
+            end
+            return Crypto(ticker), qty
+        end
+    end
     return (; cash, positions)
 end
 

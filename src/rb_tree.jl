@@ -471,21 +471,20 @@ function Base.show(io::IO, m::MIME"text/plain", tree::Tree)
     show(io, m, tree.root)
 end
 
-# Does Not work yet
 function Base.iterate(it::Tree, state = minimum_node(it))
     state === nothing && return nothing
     if state._right_child !== it.nil
         next = minimum_node(it, state._right_child)
     elseif state === it.root
         # No valid right child and root -> done
-        return state, nothing
+        return state._data, nothing
     elseif is_left_child(state)
         next = state._parent
     else
         next = state._parent
         while is_right_child(next)
             if next._parent === it.root
-                return state, nothing
+                return state._data, nothing
             end
             next = next._parent
         end
@@ -493,7 +492,7 @@ function Base.iterate(it::Tree, state = minimum_node(it))
         # done already so we call the parent
         next = next._parent
     end
-    return state, next
+    return state._data, next
 end
 
 """
@@ -503,16 +502,11 @@ Gets the key present at index `ind` of the tree. Indexing is done in increasing 
 """
 function Base.getindex(tree::Tree{T}, ind) where {T}
     @boundscheck (1 <= ind <= tree.count) ||
-                 throw(ArgumentError("$ind should be in between 1 and $(tree.count)"))
-    function traverse_tree_inorder(node::TreeNode)
-        if node !== tree.nil
-            left = traverse_tree_inorder(node._left_child)
-            right = traverse_tree_inorder(node._right_child)
-            append!(push!(left, node._data), right)
-        else
-            return T[]
+                 throw(BoundsError(tree, ind))
+    for (i, v) in enumerate(tree)
+        if i == ind
+            return v
         end
     end
-    arr = traverse_tree_inorder(tree.root)
-    return @inbounds arr[ind]
+    throw(ErrorException("This should never happen..."))
 end

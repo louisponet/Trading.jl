@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>OrderBook Imbalance · Trading.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://louisponet.github.io/Trading.jl/stable/strategies/orderbook_imbalance/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Trading.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../installation/">Getting Started</a></li><li><span class="tocitem">Topics</span><ul><li><a class="tocitem" href="../../trader/">Trader</a></li><li><a class="tocitem" href="../../brokers/">Brokers</a></li><li><a class="tocitem" href="../../portfolio/">Portfolio</a></li><li><a class="tocitem" href="../../time/">Time</a></li><li><a class="tocitem" href="../../asset_ledgers/">Asset Ledgers</a></li><li><a class="tocitem" href="../../orderbook/">OrderBook</a></li><li><a class="tocitem" href="../../indicators/">Indicators</a></li></ul></li><li><span class="tocitem">Strategies</span><ul><li><a class="tocitem" href="../">Tutorial</a></li><li><a class="tocitem" href="../../idea_generation/">Idea Generation</a></li><li><a class="tocitem" href="../slow_fast/">Slow Fast</a></li><li><a class="tocitem" href="../cointegration/">Cointegration</a></li><li class="is-active"><a class="tocitem" href>OrderBook Imbalance</a><ul class="internal"><li><a class="tocitem" href="#Strategy"><span>Strategy</span></a></li><li><a class="tocitem" href="#Possible-Improvements"><span>Possible Improvements</span></a></li></ul></li></ul></li><li><span class="tocitem">Developers</span><ul><li><a class="tocitem" href="../../developers/">Developers</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Strategies</a></li><li class="is-active"><a href>OrderBook Imbalance</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>OrderBook Imbalance</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/louisponet/Trading.jl/blob/master/docs/src/strategies/orderbook_imbalance.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="OrderBook-Imbalance"><a class="docs-heading-anchor" href="#OrderBook-Imbalance">OrderBook Imbalance</a><a id="OrderBook-Imbalance-1"></a><a class="docs-heading-anchor-permalink" href="#OrderBook-Imbalance" title="Permalink"></a></h1><p>This strategy revolves around the idea that if there is a lot more pressure (i.e. quantity to be traded) of limits on either end of the <a href="../../orderbook/#OrderBook">OrderBook</a>, the price will most likely move in the opposite direction.</p><h2 id="Strategy"><a class="docs-heading-anchor" href="#Strategy">Strategy</a><a id="Strategy-1"></a><a class="docs-heading-anchor-permalink" href="#Strategy" title="Permalink"></a></h2><p>As usual we import start by defining a <code>System</code> that represents the core of our strategy.</p><pre><code class="language-julia hljs">using Trading
+using Trading.Portfolio
+using Trading.Strategies
+
+struct OrderImbalance &lt;: System
+    trigger_min_size::Float64
+    trigger_imbalance_ratio::Float64
+end</code></pre><p><code>trigger_min_size</code> defines how large the largest limit quantity has to be, e.g. <code>5.0</code> would mean that the largest of the highest bid or lowest ask levels needs to at least have a quantity to be traded of <code>5.0</code>. <code>trigger_imbalance_ratio</code> defines the imbalance between the best bid and ask quantities.</p><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p>In general one should be careful in associating too much &quot;data&quot; with a <code>System</code> since it violates to some degree the ECS paradigm. <code>settings</code> type data <em>may</em> be considered an exemption</p></div></div><pre><code class="language-julia hljs">function Overseer.update(o::OrderImbalance, t::Trader, asset_ledgers)
+    l = asset_ledgers[1]
+    asset = l.asset
+    s = spread(l)
+    if s == 0
+        # No quotes received yet
+        return
+    end
+
+    q = latest_quote(l)
+
+    # If a limit level exists with the best ask or bid we take
+    # the total quantities from those, otherwise we simply take the
+    # quantities in the latest quote
+    ask_level = l[Ask][q.ask]
+    if ask_level !== nothing
+        ask_size = sum(x-&gt;x.quantity, ask_level)
+        ask_price = ask_level.price
+    else
+        ask_size = q.ask.quantity
+        ask_price = q.ask.price
+    end
+
+    bid_level = l[Bid][q.bid]
+    if bid_level !== nothing
+        bid_size = sum(x-&gt;x.quantity, bid_level)
+        bid_price = bid_level.price
+    else
+        bid_size = q.bid.quantity
+        bid_price = q.bid.price
+    end
+
+
+    smaller = min(ask_size, bid_size)
+    larger  = max(ask_size, bid_size)
+
+    ratio = smaller / larger
+
+    if larger &gt; o.trigger_min_size &amp;&amp; ratio &lt; o.trigger_imbalance_ratio
+        orders = pending_orders(t, asset)
+        if !isempty(orders.purchases) || !isempty(orders.sales)
+            return
+        end
+        if bid_size &gt; ask_size
+            @info &quot;Making purchase of $(ask_size) @ $(ask_price)&quot;
+            Entity(t, Purchase(asset,
+                               ask_size,
+                               OrderType.Limit,
+                               TimeInForce.IOC,
+                               ask_price,
+                               0.0))
+        else
+            @info &quot;Making sale of $(bid_size) @ $(bid_price)&quot;
+            Entity(t, Sale(asset,
+                           bid_size,
+                           OrderType.Limit,
+                           TimeInForce.IOC,
+                           bid_price,
+                           0.0))
+        end
+    end
+end</code></pre><h2 id="Possible-Improvements"><a class="docs-heading-anchor" href="#Possible-Improvements">Possible Improvements</a><a id="Possible-Improvements-1"></a><a class="docs-heading-anchor-permalink" href="#Possible-Improvements" title="Permalink"></a></h2><p>This strategy by itself is very unsuccessful and thus shouldn&#39;t be used in isolation. The clearest improvement lies in determining a valid exit strategy, which it lacks completely. Secondly, instead of using only the first level of price information, considering the further levels in the <a href="../../orderbook/#OrderBook">OrderBook</a> could prove useful (see <a href="../../orderbook/#Base.ceil-Tuple{Trading.TreeComponent, Any}"><code>ceil</code></a> and <a href="../../orderbook/#Base.floor-Tuple{Trading.TreeComponent, Any}"><code>floor</code></a>).</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../cointegration/">« Cointegration</a><a class="docs-footer-nextpage" href="../../developers/">Developers »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Friday 19 May 2023 09:46">Friday 19 May 2023</span>. Using Julia version 1.9.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

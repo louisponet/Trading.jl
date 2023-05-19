@@ -150,3 +150,37 @@ associated with each of the `assets` that the strategy should be applied on.
 end
 
 Strategy(name::Symbol, steps; kwargs...) = Strategy(; stage = Stage(name, steps), kwargs...)
+
+"""
+Enum representing the Side of a transaction.
+"""
+@enumx Side Buy Sell
+
+"""
+Represents an executed trade with a `price`, `quantity` and `side`.
+"""
+@tree_component struct Trade
+    price::Float64
+    quantity::Float64
+    side::Side.T
+end
+
+"""
+Represents an ask order with a `price` and `quantity`.
+"""
+@tree_component struct Ask
+    price::Float64
+    quantity::Float64
+end
+
+"""
+Represents a bid order with a `price` and `quantity`.
+"""
+@tree_component struct Bid
+    price::Float64
+    quantity::Float64
+end
+
+Base.:(<)(t1::T, t2::T) where {T<:Union{Trade,Ask,Bid}} = t1.price < t2.price
+Base.:(==)(t1::T, t2::T) where {T<:Union{Trade,Ask,Bid}} = t1.price == t2.price
+

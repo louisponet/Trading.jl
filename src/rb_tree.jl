@@ -495,6 +495,36 @@ function Base.iterate(it::Tree, state = minimum_node(it))
     return state._data, next
 end
 
+struct ReverseTreeIterator
+    tree::Tree
+end
+
+function Base.iterate(it::ReverseTreeIterator, state = maximum_node(it.tree))
+    state === nothing && return nothing
+    if state._left_child !== it.tree.nil
+        next = maximum_node(it.tree, state._left_child)
+    elseif state === it.tree.root
+        # No valid right child and root -> done
+        return state._data, nothing
+    elseif is_right_child(state)
+        next = state._parent
+    else
+        next = state._parent
+        while is_left_child(next)
+            if next._parent === it.tree.root
+                return state._data, nothing
+            end
+            next = next._parent
+        end
+        # Here we know that it's a left child and so necessarily has been
+        # done already so we call the parent
+        next = next._parent
+    end
+    return state._data, next
+end
+
+Base.reverse(tree::Tree) = ReverseTreeIterator(tree)
+
 """
     getindex(tree, ind)
 

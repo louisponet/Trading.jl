@@ -49,11 +49,6 @@ function Base.string(t::TimeInForce.T)
 end
 
 """
-Enum representing the Side of a transaction.
-"""
-@enumx Side Buy Sell
-
-"""
     Purchase(asset, quantity;
              type          = OrderType.Market,
              time_in_force = TimeInForce.GTC,
@@ -197,23 +192,4 @@ value(p::PortfolioSnapshot) = p.value
 TimeSeries.colnames(::Type{PortfolioSnapshot}) = ["PortfolioSnapshot_value"]
 
 @assign PortfolioSnapshot with Is{Indicator}
-
-@tree_component struct Trade
-    price::Float64
-    quantity::Float64
-    side::Side.T
-end
-
-@tree_component struct Ask
-    price::Float64
-    quantity::Float64
-end
-
-@tree_component struct Bid
-    price::Float64
-    quantity::Float64
-end
-
-Base.:(<)(t1::T, t2::T) where {T<:Union{Trade,Ask,Bid}} = t1.price < t2.price
-Base.:(==)(t1::T, t2::T) where {T<:Union{Trade,Ask,Bid}} = t1.price == t2.price
 

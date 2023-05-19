@@ -1,6 +1,10 @@
 using Overseer: EntityState, AbstractEntity
 using Base: RefArray
 
+"""
+Holds the direct reference of an `Entity` into an array of associated data (usually in an
+`AbstractComponent`).
+"""
 mutable struct EntityPtr{RT <: Ref} <: AbstractEntity
     e::Entity
     ptr::RT
@@ -97,6 +101,10 @@ Base.:(==)(l1, l2::ListNode) = l1 == l2._data
 Base.:(<)(l1::ListNode, l2) = l1._data < l2
 Base.:(==)(l1::ListNode, l2) = l1._data == l2
 
+"""
+A classic linked list implementation, mostly used to represent value levels in a
+[`TreeComponent`](@ref)
+"""
 mutable struct LinkedList{T}
     _head::ListNode{T}
     _tail::ListNode{T}
@@ -277,7 +285,6 @@ function Base.empty!(t::TreeComponent)
     empty!(t.c)
     return t
 end
-
     
 function Base.setindex!(t::TreeComponent{T}, v::T, e::Overseer.AbstractEntity) where {T}
     if e in t
@@ -322,6 +329,10 @@ function Base.getindex(t::TreeComponent{T}, v::T) where {T}
     return nothing
 end
 
+"""
+Returns the first level (i.e. a [`LinkedList`](@ref) with [`EntityPtr`](@ref)) with a higher
+value than `v`.
+"""
 function Base.ceil(t::TreeComponent, v)
     node = ceil(t.tree, v)
     
@@ -330,6 +341,10 @@ function Base.ceil(t::TreeComponent, v)
     return node._data
 end
 
+"""
+Returns the first level (i.e. a [`LinkedList`](@ref) with [`EntityPtr`](@ref)) with a lower
+value than `v`.
+"""
 function Base.floor(t::TreeComponent, v)
     node = floor(t.tree, v)
 
@@ -420,3 +435,16 @@ Returns the [`LinkedList`](@ref) of [`EntityPtrs`](@ref EntityPtr) containing th
 value in the [`TreeComponent](@ref).
 """
 minimum_node(c::TreeComponent; init=nothing) = minimum_node(c.tree)
+
+struct LevelIterator{T}
+    it::T
+end
+
+Base.iterate(it::LevelIterator, args...) = iterate(it.it, args...)
+
+"""
+    levels(c; rev=false)
+
+Iterate through the levels (each a [`LinkedList`](@ref) of [`EntityPtrs`](@ref EntityPtr)) of the [`TreeComponent`](@ref) `c`, either inorder if `rev == false` or in reverse order if `rev == true`. 
+"""
+levels(c::TreeComponent; rev=false) = rev ? LevelIterator(reverse(c.tree)) : LevelIterator(c.tree) 

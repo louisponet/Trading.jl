@@ -101,6 +101,24 @@ end
         @test sorted_vals[i] == v.ptr[]
     end
 end
+
+@testitem "reverse order iteration" tags=[:treecomponent] begin
+    using Trading.Overseer: TestCompData, test_abstractcomponent_interface
+    using Trading: TreeComponent
+    c = TreeComponent{TestCompData}()
+    vals = rand(1:100, 1000)
+
+    sorted_vals = TestCompData.(sort(unique(vals), rev=true))
+
+    for (i, v) in enumerate(vals)
+        c[Entity(i)] = TestCompData(v)
+    end
+
+    for (i, v) in enumerate(reverse(c.tree))
+        @test sorted_vals[i] == v.ptr[]
+    end
+end
+
 @testitem "maximum/minimum" tags=[:treecomponent] begin
     using Trading.Overseer: TestCompData, test_abstractcomponent_interface
     using Trading: TreeComponent

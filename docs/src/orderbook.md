@@ -6,7 +6,7 @@ An [OrderBook](@ref) is a representation of the currently known [`Ask`](@ref) an
 
 In `Trading.jl` they are implemented in the [`AssetLedger`](@ref) as 2 [`TreeComponents`](@ref TreeComponent). These are standard `Components` that are also internally backed by a `Red-Black Tree` (facilitating easy _search_ type operations, see [`ceil`](@ref Base.ceil(::TreeComponent, ::Any)), [`floor`](@ref Base.floor(::TreeComponent, ::Any)), [`maximum`](@ref Base.maximum(::TreeComponent)) and [`minimum`](@ref Base.minimum(::TreeComponent))) of `LinkedLists` of individual [`Asks`](@ref Ask) and [`Bids`](@ref Bid).
 
-By default, when starting a [`Trader`](@ref) it will listen to updates on new [`Bids`](@ref Bid) [`Asks`](@ref Ask), [`Trades`](@ref) and [`latest_quote`](@ref) updates.
+By default, when starting a [`Trader`](@ref) it will listen to updates on new [`Bids`](@ref Bid) [`Asks`](@ref Ask), [`Trades`](@ref Trade) and [`latest_quote`](@ref) updates.
 The latter signifies the `L1` [OrderBook](@ref) updates. The former 3 are stored in a manner that facilitates `L3` [OrderBook](@ref) interactions (each ask/bid is stored individually in the linked lists). `sum(x -> x.quantity, limit)` can be used to extract `L2` type market data from the [OrderBook](@ref).
 
 ## Behavior
@@ -30,10 +30,11 @@ Bid
 Trade
 latest_quote
 TreeComponent
+@tree_component
 Base.ceil(::TreeComponent, ::Any)
 Base.floor(::TreeComponent, ::Any)
-Base.maximum(::TreeComponent, ::Any)
-Base.minimum(::TreeComponent, ::Any)
+Base.maximum(::TreeComponent)
+Base.minimum(::TreeComponent)
 minimum_node
 maximum_node
 levels

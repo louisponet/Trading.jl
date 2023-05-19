@@ -352,6 +352,15 @@ function Base.floor(t::TreeComponent, v)
     
     return node._data
 end
+
+"""
+Defines that a struct should be used with a [`TreeComponent`](@ref).
+```julia
+@tree_component struct Example
+    d
+end
+```
+"""
 macro tree_component(typedef)
     return esc(Trading._tree_component(typedef, __module__))
 end

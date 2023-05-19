@@ -158,10 +158,10 @@ function data_stream_url(::AlpacaBroker, a::AssetType.T)
     end
 end
         
-trading_stream_url(::AlpacaBroker)         = URI("wss://paper-api.alpaca.markets/stream")
-trading_url(::AlpacaBroker)                = URI("https://paper-api.alpaca.markets")
-order_url(b::AlpacaBroker)                 = URI(trading_url(b); path = "/v2/orders")
-data_url(::AlpacaBroker)                   = URI("https://data.alpaca.markets")
+trading_stream_url(::AlpacaBroker) = URI("wss://paper-api.alpaca.markets/stream")
+trading_url(::AlpacaBroker)        = URI("https://paper-api.alpaca.markets")
+order_url(b::AlpacaBroker, p...)   = URI(trading_url(b); path = joinpath("/v2/orders", p...))
+data_url(::AlpacaBroker)           = URI("https://data.alpaca.markets")
 
 function quote_url(b::AlpacaBroker, a::Asset)
     if a.type == AssetType.Stock

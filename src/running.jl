@@ -208,14 +208,13 @@ function start_trading(trader::Trader)
                 if id === nothing
                     Entity(trader, received)
                 else
-                    received.asset = order_comp[id].asset
                     order_comp[id] = received
                 end
                 
             catch e
                 if !(e isa InvalidStateException) && !(e isa EOFError) &&
                    !(e isa InterruptException)
-                    # showerror(stdout, e, catch_backtrace())
+                    showerror(stdout, e, catch_backtrace())
                 else
                     break
                 end

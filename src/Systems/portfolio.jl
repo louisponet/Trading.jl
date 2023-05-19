@@ -96,8 +96,13 @@ function Overseer.update(::Filler, l::AbstractLedger)
     end
 
     cash = singleton(l, Cash)
-
+    orders = l[Order]
     for e in @entities_in(l, Order && !Filled)
+        if e.status == "new" && current_time(l) - e.updated_at > Minute(1)
+            o = order(l, e.id)
+            orders[e] = o
+        end
+            
         if e.filled_qty != 0
             l[e] = Filled(e.filled_avg_price, e.filled_qty)
             asset = e.asset

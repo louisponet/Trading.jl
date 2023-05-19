@@ -112,7 +112,14 @@ function parse_order(b::AbstractBroker, resp::HTTP.Response)
 end
 
 function parse_order(::AlpacaBroker, parse_body::JSON3.Object)
-    return Order(Asset(AssetType.Unknown, parse_body[:symbol]),
+    if parse_body[:asset_class] == "crypto"
+        asset_T = AssetType.Crypto
+    elseif parse_body[:asset_class] == "us_equity"
+        asset_T = AssetType.Stock
+    else
+        asset_T = AssetType.Unknown
+    end
+    return Order(Asset(asset_T, parse_body[:symbol]),
                  parse_body[:side],
                  UUID(parse_body[:id]),
                  UUID(parse_body[:client_order_id]),
@@ -137,6 +144,20 @@ function parse_order(::AlpacaBroker, parse_body::JSON3.Object)
                  parse(Float64, parse_body[:qty]),
                  0.0)
 end
+
+function order(broker::AlpacaBroker, id::UUID)
+    resp = HTTP.get(order_url(broker, string(id)), header(broker))
+    return parse_order(broker, JSON3.read(resp.body))
+end
+
+order(trader::Trader, args...) = order(trader.broker, args...)
+
+function orders(broker::AlpacaBroker; kwargs...)
+    resp = HTTP.get(URI(order_url(broker), query=Dict(kwargs)), header(broker))
+    @show String(resp.body)
+    return map(x->parse_order(broker, x), JSON3.read(resp.body))
+end
+orders(trader::Trader, args...) = orders(trader.broker, args...)
 
 function receive_trades(b::AlpacaBroker, ws)
     msg = JSON3.read(receive(ws))

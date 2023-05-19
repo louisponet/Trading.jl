@@ -1,5 +1,7 @@
 # OrderBook Imbalance
-
+```@meta
+CurrentModule = Trading
+```
 This strategy revolves around the idea that if there is a lot more pressure (i.e. quantity to be traded) of limits on either end of the [OrderBook](@ref), the price will most likely move in the opposite direction.
 
 ## Strategy

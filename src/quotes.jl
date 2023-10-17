@@ -9,7 +9,7 @@ documentation for further reference.
 ```julia
 broker = AlpacaBroker(<key_id>, <secret_key>)
 
-quotes(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:31:00"))
+quotes(broker, Stock("AAPL"), DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:31:00"))
 ```
 """
 quotes(b::AbstractBroker) = broker(b).cache.quote_data

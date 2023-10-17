@@ -9,7 +9,7 @@ documentation for further reference.
 ```julia
 broker = AlpacaBroker(<key_id>, <secret_key>)
 
-bars(broker, "AAPL",
+bars(broker, Stock("AAPL"),
      DateTime("2022-01-01T00:00:00"),
      DateTime("2023-01-01T00:00:00"),
      timeframe = Minute(1))

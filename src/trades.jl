@@ -9,7 +9,7 @@ documentation for further reference.
 ```julia
 broker = AlpacaBroker(<key_id>, <secret_key>)
 
-trades(broker, "AAPL", DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:31:00"))
+trades(broker, Stock("AAPL"), DateTime("2022-01-01T14:30:00"), DateTime("2022-01-01T14:31:00"))
 ```
 """
 trades(b::AbstractBroker) = broker(b).cache.trade_data
